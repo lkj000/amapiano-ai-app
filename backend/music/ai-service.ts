@@ -49,7 +49,7 @@ export class AIService {
   constructor() {
     this.config = {
       provider: 'openai',
-      model: 'gpt-4-turbo',
+      model: 'gpt-5',
       maxTokens: 4096,
       temperature: 0.7,
       culturalWeight: 0.8
@@ -79,7 +79,7 @@ export class AIService {
   
     try {
       const completion = await this.openai.chat.completions.create({
-        model: "gpt-4-turbo",
+        model: this.config.model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
