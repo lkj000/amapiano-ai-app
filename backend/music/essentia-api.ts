@@ -230,13 +230,10 @@ export const predictWithModel = api<TensorFlowPredictionRequest, TensorFlowPredi
       const featureVector = tensorflowManager.extractFeatures(features, req.modelName);
       const prediction = await tensorflowManager.predict(req.modelName, featureVector);
 
-      const metadata: ModelMetadata = {
+      const metadata = {
         name: req.modelName,
         accuracy: 0.85,
-        version: '1.0',
-        description: `TensorFlow model for ${req.modelName}`,
-        inputShape: [128],
-        outputShape: [7]
+        version: '1.0'
       };
 
       const processingTime = Date.now() - startTime;
@@ -276,8 +273,10 @@ export const initializeStreamingAnalysis = api<StreamingAnalysisInitRequest, Str
       log.info("Initializing streaming analysis session", { sessionId });
 
       const defaultConfig: StreamingConfig = {
-        sampleRate: 44100,
         bufferSize: 4096,
+        hopSize: 1024,
+        sampleRate: 44100,
+        channels: 2,
         analysisInterval: 100
       };
 

@@ -11,13 +11,9 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X, Pause, Volume2, ExternalLink, Clock, Zap, Star, TrendingUp, Award, Brain, Gauge, Target, Mic, Circle, Disc, MapPin } from 'lucide-react';
+import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X, Pause, Volume2, ExternalLink, Clock, Zap, Star, TrendingUp, Award, Brain, Gauge, Target, Mic, Circle } from 'lucide-react';
 import backend from '~backend/client';
 import type { AnalyzeAudioRequest } from '~backend/music/analyze';
-import { useEssentiaAnalysis } from '../hooks/useEssentiaAnalysis';
-import KwaitoAnalysis from '../components/essentia/KwaitoAnalysis';
-import RegionalAnalysis from '../components/essentia/RegionalAnalysis';
-import TensorFlowPredictions from '../components/essentia/TensorFlowPredictions';
 
 export default function AnalyzePage() {
   const { toast } = useToast();
@@ -29,8 +25,6 @@ export default function AnalyzePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'analyze' | 'amapianorize' | 'batch'>('analyze');
   const [playingAudio, setPlayingAudio] = useState<{ type: 'stem' | 'track' | 'popular'; id: string; audio: HTMLAudioElement } | null>(null);
-  
-  const { kwaitoFeatures, regionalData, subGenreData, analyzeAll, isAnalyzing } = useEssentiaAnalysis();
 
   // Microphone recording state
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -1236,71 +1230,6 @@ export default function AnalyzePage() {
                       </div>
                     </CardContent>
                   </Card>
-
-                  {/* Advanced Essentia Analysis */}
-                  {enhancedProcessing && analyzeAudioMutation.data && (
-                    <Card className="bg-white/5 border-white/10">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="text-white flex items-center">
-                              <Brain className="h-5 w-5 mr-2 text-purple-400" />
-                              Advanced Essentia Analysis
-                            </CardTitle>
-                            <CardDescription className="text-white/70">
-                              Kwaito influence, regional classification, and ML predictions
-                            </CardDescription>
-                          </div>
-                          <Button
-                            onClick={() => analyzeAll(sourceUrl)}
-                            disabled={isAnalyzing}
-                            className="bg-purple-500 hover:bg-purple-600"
-                          >
-                            {isAnalyzing ? (
-                              <>
-                                <Clock className="h-4 w-4 mr-2 animate-spin" />
-                                Analyzing...
-                              </>
-                            ) : (
-                              <>
-                                <Zap className="h-4 w-4 mr-2" />
-                                Run Advanced Analysis
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        {kwaitoFeatures && (
-                          <KwaitoAnalysis kwaitoFeatures={kwaitoFeatures} />
-                        )}
-                        
-                        {regionalData && subGenreData && (
-                          <RegionalAnalysis regional={regionalData} subGenre={subGenreData} />
-                        )}
-                        
-                        <TensorFlowPredictions audioUrl={sourceUrl} />
-
-                        {!kwaitoFeatures && !regionalData && (
-                          <Card className="bg-blue-400/10 border-blue-400/20">
-                            <CardContent className="p-4">
-                              <div className="flex items-center space-x-2">
-                                <Brain className="h-5 w-5 text-blue-400" />
-                                <div className="text-blue-400 font-medium">Advanced Analysis Available</div>
-                              </div>
-                              <p className="text-white/80 text-sm mt-2">
-                                Click "Run Advanced Analysis" to access:
-                                <br />• Kwaito influence detection (historical genre analysis)
-                                <br />• Regional classification (9 South African provinces)
-                                <br />• Sub-genre classification (7 amapiano styles)
-                                <br />• TensorFlow ML predictions (4 pre-trained models)
-                              </p>
-                            </CardContent>
-                          </Card>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )}
                 </div>
               )}
             </CardContent>
