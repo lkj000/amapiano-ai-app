@@ -1,20 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { 
-  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Copy, Scissors, Layers, Headphones, Sliders, Zap, Download, Upload, Loader2, X
+  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '~backend/client';
 import type { DawProjectData, DawTrack } from '~backend/music/types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
+import OpenProjectModal from '../components/daw/OpenProjectModal';
+import ProjectSettingsModal from '../components/daw/ProjectSettingsModal';
+import MixerPanel from '../components/daw/MixerPanel';
+import PianoRollPanel from '../components/daw/PianoRollPanel';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -97,58 +101,60 @@ export default function DawPage() {
   const [isLooping, setIsLooping] = useState(false);
   const timelineContainerRef = useRef<HTMLDivElement>(null);
 
+  // Modals state
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isOpenProjectOpen, setIsOpenProjectOpen] = useState(false);
+
   // Project State
+  const [currentProjectId, setCurrentProjectId] = useState<number | undefined>();
   const [projectName, setProjectName] = useState("Untitled Project");
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
 
-  // Step 1: Fetch the list of projects
+  // Step 1: Fetch list
   const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
     queryKey: ['dawProjectsList'],
     queryFn: () => backend.music.listProjects(),
   });
 
-  // Step 2: If no projects exist, create a default one
+  // Step 2: Create default if needed
   const createDefaultProjectMutation = useMutation({
     mutationFn: () => backend.music.saveProject({
       name: "My First Amapiano Project",
       projectData: defaultProjectData,
     }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['dawProjectsList'] });
+      setCurrentProjectId(data.projectId);
       toast.info("Creating your first project...");
     },
   });
 
-  // Step 3: Decide whether to create a project
-  const shouldCreateProject = projectsList && projectsList.projects.length === 0;
-
-  // Step 4: Trigger creation
+  // Step 3: Set current project ID
   useEffect(() => {
-    if (shouldCreateProject && !createDefaultProjectMutation.isPending) {
+    if (projectsList && projectsList.projects.length > 0 && !currentProjectId) {
+      setCurrentProjectId(projectsList.projects[0].id);
+    } else if (projectsList && projectsList.projects.length === 0 && !createDefaultProjectMutation.isPending) {
       createDefaultProjectMutation.mutate();
     }
-  }, [shouldCreateProject, createDefaultProjectMutation]);
+  }, [projectsList, currentProjectId, createDefaultProjectMutation]);
 
-  // Step 5: Get project ID to load
-  const projectIdToLoad = projectsList?.projects[0]?.id;
-
-  // Step 6: Fetch the project
+  // Step 4: Load the current project
   const { data: loadedProject, isLoading: isLoadingProject, isError: isProjectError, error: projectError } = useQuery({
-    queryKey: ['dawProject', projectIdToLoad],
-    queryFn: () => backend.music.loadProject({ projectId: projectIdToLoad! }),
-    enabled: !!projectIdToLoad,
+    queryKey: ['dawProject', currentProjectId],
+    queryFn: () => backend.music.loadProject({ projectId: currentProjectId! }),
+    enabled: !!currentProjectId,
   });
 
-  // Step 7: Sync state once project is loaded
+  // Step 5: Sync state
   useEffect(() => {
     if (loadedProject) {
       setProjectName(loadedProject.name);
       setProjectData(loadedProject.projectData);
-      if (loadedProject.projectData.tracks.length > 0) {
+      if (!selectedTrackId && loadedProject.projectData.tracks.length > 0) {
         setSelectedTrackId(loadedProject.projectData.tracks[0].id);
       }
     }
-  }, [loadedProject]);
+  }, [loadedProject, selectedTrackId]);
 
   // Playback simulation effect
   useEffect(() => {
@@ -202,14 +208,14 @@ export default function DawPage() {
   });
 
   const handleSave = () => {
-    if (!projectData || !loadedProject) {
+    if (!projectData || !currentProjectId) {
       toast.error("No project data to save.");
       return;
     }
     saveMutation.mutate({
       name: projectName,
       projectData: projectData,
-      projectId: loadedProject.id,
+      projectId: currentProjectId,
     });
   };
 
@@ -326,15 +332,34 @@ export default function DawPage() {
   };
 
   const handleExport = () => {
-    toast.info("Exporting Project", {
-      description: "In a real application, this would export the project to an audio file (e.g., WAV, MP3)."
-    });
+    if (!projectData) {
+      toast.error("No project data to export.");
+      return;
+    }
+    const dataStr = JSON.stringify({ name: projectName, ...projectData }, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = `${projectName.replace(/\s/g, '_')}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+
+    toast.success("Project data exported as JSON.");
   };
 
   const handleUploadAudio = () => {
     toast.info("Upload Audio", {
       description: "This would open a file dialog to import an audio file into a new track."
     });
+  };
+
+  const handleUpdateProjectSettings = (updatedData: Partial<DawProjectData>) => {
+    if (projectData) {
+      setProjectData({ ...projectData, ...updatedData });
+      toast.info("Project settings updated. Don't forget to save!");
+    }
   };
 
   const instruments = [
@@ -417,6 +442,7 @@ export default function DawPage() {
   }
 
   const totalDuration = (32 * 4 / projectData.bpm) * 60;
+  const selectedTrack = projectData.tracks.find(t => t.id === selectedTrackId) || null;
 
   return (
     <div className="min-h-screen bg-background text-white">
@@ -436,7 +462,7 @@ export default function DawPage() {
               <Badge variant="outline">Professional DAW</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => toast.info("Open Project clicked.")}>
+              <Button variant="outline" size="sm" onClick={() => setIsOpenProjectOpen(true)}>
                 <FolderOpen className="w-4 h-4 mr-2" />
                 Open
               </Button>
@@ -457,7 +483,7 @@ export default function DawPage() {
                 <Piano className="w-4 h-4 mr-2" />
                 Piano Roll
               </Button>
-              <Button variant="outline" size="sm" onClick={() => toast.info("Settings clicked.")}>
+              <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
                 <Settings className="w-4 h-4" />
               </Button>
             </div>
@@ -697,6 +723,12 @@ export default function DawPage() {
             </div>
           </div>
         </div>
+
+        {/* Modals and Panels */}
+        <OpenProjectModal isOpen={isOpenProjectOpen} onClose={() => setIsOpenProjectOpen(false)} onLoadProject={setCurrentProjectId} />
+        {projectData && <ProjectSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} projectData={projectData} onSave={handleUpdateProjectSettings} />}
+        {showMixer && projectData && <MixerPanel tracks={projectData.tracks} masterVolume={projectData.masterVolume} onClose={() => setShowMixer(false)} onTrackVolumeChange={(trackId, volume) => updateMixer(trackId, { volume })} onMasterVolumeChange={(volume) => setProjectData({ ...projectData, masterVolume: volume })} />}
+        {showPianoRoll && <PianoRollPanel selectedTrack={selectedTrack} onClose={() => setShowPianoRoll(false)} />}
       </div>
     </div>
   );
