@@ -1,6 +1,8 @@
 import { secret } from "encore.dev/config";
 import { APIError } from "encore.dev/api";
 import log from "encore.dev/log";
+import { OpenAI } from "openai";
+import type { MidiNote } from "./types";
 
 // AI Service Configuration
 const openAIKey = secret("OpenAIKey");
@@ -42,17 +44,70 @@ export class AIService {
   private config: AIGenerationConfig;
   private culturalValidator: CulturalValidator;
   private audioProcessor: AudioProcessor;
+  private openai: OpenAI;
 
   constructor() {
     this.config = {
       provider: 'openai',
-      model: 'gpt-4-audio',
+      model: 'gpt-4-turbo',
       maxTokens: 4096,
       temperature: 0.7,
       culturalWeight: 0.8
     };
     this.culturalValidator = new CulturalValidator();
     this.audioProcessor = new AudioProcessor();
+    this.openai = new OpenAI({ apiKey: openAIKey() });
+  }
+
+  async generateMidiPattern(prompt: string): Promise<{ notes: MidiNote[], duration: number }> {
+    const systemPrompt = `
+      You are an expert Amapiano music producer. Your task is to generate a musical pattern in JSON format based on a user's prompt.
+      The JSON response should be an object with two keys: "duration" (number, in beats, typically 4 or 8) and "notes" (an array of note objects).
+      Each note object in the "notes" array must have the following keys:
+      - "pitch": MIDI note number (integer from 0-127). For drums, use General MIDI mapping (e.g., 36 for kick, 38 for snare). For log drums, use low pitches like 36-48.
+      - "velocity": How hard the note is played (integer from 0-127).
+      - "startTime": When the note starts, in beats, from the beginning of the clip (float).
+      - "duration": How long the note lasts, in beats (float).
+      
+      Analyze the user's prompt for instrument type (e.g., "log drum", "piano chords", "sax melody"), key, and style.
+      - For "log drum", create a rhythmic bass pattern.
+      - For "piano chords", create a chord progression with multiple notes playing simultaneously.
+      - For "sax melody", create a monophonic sequence of notes.
+      
+      Respond ONLY with the JSON object. Do not include any other text, explanations, or markdown formatting.
+    `;
+  
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4-turbo",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+        response_format: { type: "json_object" },
+      });
+  
+      const content = completion.choices[0].message.content;
+      if (!content) {
+        throw new Error("AI returned empty content.");
+      }
+
+      const result = JSON.parse(content);
+      
+      // Basic validation
+      if (!result.notes || !Array.isArray(result.notes) || typeof result.duration !== 'number') {
+        throw new Error("Invalid JSON format from AI");
+      }
+  
+      return {
+        notes: result.notes as MidiNote[],
+        duration: result.duration as number,
+      };
+  
+    } catch (error) {
+      log.error("Error generating MIDI pattern with OpenAI", { error });
+      throw APIError.internal("Failed to generate musical pattern with AI.");
+    }
   }
 
   async generateMusic(request: MusicGenerationRequest): Promise<{
@@ -108,7 +163,7 @@ export class AIService {
       };
 
     } catch (error) {
-      log.error("AI music generation failed", { error: error.message, request });
+      log.error("AI music generation failed", { error: (error as Error).message, request });
       throw APIError.internal("Failed to generate music with AI");
     }
   }
@@ -154,7 +209,7 @@ export class AIService {
       return results;
 
     } catch (error) {
-      log.error("AI audio analysis failed", { error: error.message });
+      log.error("AI audio analysis failed", { error: (error as Error).message });
       throw APIError.internal("Failed to analyze audio with AI");
     }
   }
@@ -282,7 +337,7 @@ export class CulturalValidator {
       };
 
     } catch (error) {
-      log.error("Cultural validation failed", { error: error.message });
+      log.error("Cultural validation failed", { error: (error as Error).message });
       throw APIError.internal("Cultural validation failed");
     }
   }
@@ -451,7 +506,7 @@ export class AudioProcessor {
       return stems;
 
     } catch (error) {
-      log.error("Stem separation failed", { error: error.message });
+      log.error("Stem separation failed", { error: (error as Error).message });
       throw APIError.internal("Stem separation failed");
     }
   }
@@ -488,7 +543,7 @@ export class AudioProcessor {
       return patterns;
 
     } catch (error) {
-      log.error("Pattern detection failed", { error: error.message });
+      log.error("Pattern detection failed", { error: (error as Error).message });
       throw APIError.internal("Pattern detection failed");
     }
   }
@@ -514,7 +569,7 @@ export class AudioProcessor {
       return metrics;
 
     } catch (error) {
-      log.error("Quality assessment failed", { error: error.message });
+      log.error("Quality assessment failed", { error: (error as Error).message });
       throw APIError.internal("Quality assessment failed");
     }
   }

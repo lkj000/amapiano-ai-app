@@ -4,6 +4,9 @@ import type { DawProject, DawProjectData, DawTrack, MidiNote } from "./types";
 import { dawCache, generateDawProjectCacheKey } from "./cache";
 import { errorHandler } from "./error-handler";
 import log from "encore.dev/log";
+import { AIService } from "./ai-service";
+
+const aiService = new AIService();
 
 export interface ListProjectsResponse {
   projects: {
@@ -179,55 +182,30 @@ export const generateDawElement = api<GenerateDawElementRequest, GenerateDawElem
         throw APIError.invalidArgument("A prompt is required to generate a DAW element.");
       }
 
+      const { notes, duration } = await aiService.generateMidiPattern(req.prompt);
+
       const lowerPrompt = req.prompt.toLowerCase();
       let name = "AI Generated Track";
       let instrument = "Amapiano Piano";
       let color = "bg-purple-500";
-      let type: 'midi' | 'audio' = req.trackType;
-      let notes: MidiNote[] = [];
-      let duration = 8; // default duration in beats
-
-      if (lowerPrompt.includes("4 bar")) duration = 4;
-      if (lowerPrompt.includes("8 bar")) duration = 8;
-      if (lowerPrompt.includes("16 bar")) duration = 16;
+      let type: 'midi' | 'audio' = 'midi';
 
       if (lowerPrompt.includes("log drum")) {
         name = "AI Log Drum";
         instrument = "Signature Log Drum";
         color = "bg-red-500";
-        type = 'midi';
-        // Generate a simple log drum pattern
-        for (let i = 0; i < duration; i += 2) {
-          notes.push({ pitch: 36, velocity: 100, startTime: i, duration: 0.5 });
-          if (i + 1.5 < duration) {
-            notes.push({ pitch: 36, velocity: 80, startTime: i + 1.5, duration: 0.25 });
-          }
-        }
       } else if (lowerPrompt.includes("piano") || lowerPrompt.includes("chords")) {
         name = "AI Piano Chords";
         instrument = "Amapiano Piano";
         color = "bg-blue-500";
-        type = 'midi';
-        // Generate a simple Cmaj7 arpeggio
-        const chord = [60, 64, 67, 71]; // C E G B
-        for (let i = 0; i < duration; i++) {
-          notes.push({ pitch: chord[i % 4], velocity: 90, startTime: i, duration: 0.8 });
-        }
       } else if (lowerPrompt.includes("percussion") || lowerPrompt.includes("shaker")) {
         name = "AI Percussion";
         instrument = "Shaker Groove Engine";
         color = "bg-green-500";
-        type = 'audio'; // Percussion is often audio samples
       } else if (lowerPrompt.includes("sax")) {
         name = "AI Saxophone";
         instrument = "Saxophone VST";
         color = "bg-yellow-500";
-        type = 'midi';
-        // Generate a simple melodic phrase
-        const melody = [69, 71, 72, 71, 69, 67, 65, 67]; // A B C B A G F G
-        for (let i = 0; i < duration; i++) {
-          notes.push({ pitch: melody[i % 8], velocity: 100, startTime: i, duration: 0.4 });
-        }
       }
 
       const newTrack: DawTrack = {
@@ -240,8 +218,8 @@ export const generateDawElement = api<GenerateDawElementRequest, GenerateDawElem
           name: "Generated Clip",
           startTime: 0,
           duration: duration,
-          notes: type === 'midi' ? notes : undefined,
-          audioUrl: type === 'audio' ? 'samples/ai_generated_loop.wav' : undefined,
+          notes: notes,
+          audioUrl: undefined,
         }],
         mixer: {
           volume: 0.8,
