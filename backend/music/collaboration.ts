@@ -132,7 +132,18 @@ interface CollaborationSessionHandshake {
 // Real-time collaboration session for a DAW project.
 export const collaborationSession = api.streamInOut<CollaborationSessionHandshake, DawChange, DawChange>(
   { expose: true, path: "/daw/projects/:projectId/session" },
-  async ({ projectId }, stream) => {
+  async (handshake, stream) => {
+    log.info("Collaboration session handshake received", { handshake });
+
+    const projectId = handshake.projectId;
+    if (typeof projectId !== 'number' || !Number.isFinite(projectId)) {
+      log.error("Collaboration session started with an invalid or missing projectId.", { handshake });
+      // We can't throw an APIError here as the HTTP response is already sent.
+      // Closing the stream is the best way to signal an error.
+      await stream.close();
+      return;
+    }
+
     // Get or create the session for this project
     if (!activeSessions.has(projectId)) {
       activeSessions.set(projectId, new Set());
@@ -144,6 +155,7 @@ export const collaborationSession = api.streamInOut<CollaborationSessionHandshak
     try {
       // Listen for incoming changes from this client
       for await (const change of stream) {
+        log.debug("Received DAW change from client", { projectId, changeType: change.action.type });
         // Broadcast the change to all other clients in the same session
         for (const client of session) {
           if (client !== stream) { // Don't send back to the originator

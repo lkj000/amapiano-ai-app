@@ -40,7 +40,10 @@ export const useCollaboration = (
       })();
     } catch (err) {
       console.error("Failed to connect to collaboration session:", err);
-      toast.error("Failed to start collaboration session.");
+      const errorMessage = (err instanceof Error && err.message) 
+        ? `Failed to start collaboration: ${err.message}`
+        : "Failed to start collaboration session.";
+      toast.error(errorMessage);
     }
   }, [projectId, onReceiveChange]);
 
