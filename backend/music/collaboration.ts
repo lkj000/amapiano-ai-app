@@ -1,6 +1,5 @@
 import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
-import { generatedTracks } from "./storage";
 import { errorHandler } from "./error-handler";
 import { collaborationCache, generateCollaborationFeedCacheKey } from "./cache";
 import log from "encore.dev/log";
@@ -16,7 +15,7 @@ export interface CreateCollaborationRequest {
 
 export interface CreateCollaborationResponse {
   id: number;
-  name: string;
+  name:string;
   inviteCode: string;
   createdAt: Date;
 }

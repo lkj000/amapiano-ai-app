@@ -15,8 +15,8 @@ interface MixerPanelProps {
   onMasterVolumeChange: (volume: number) => void;
 }
 
-const VolumeMeter = ({ level }: { level: number }) => {
-  const height = Math.min(100, Math.max(0, level * 100));
+const VolumeMeter = React.memo(({ level }: { level: number }) => {
+  const height = Math.min(100, Math.max(0, level * 200)); // Amplify for better visibility
   const color = height > 95 ? 'bg-red-500' : height > 80 ? 'bg-yellow-500' : 'bg-green-500';
   return (
     <div className="w-full h-full bg-muted rounded-full overflow-hidden relative">
@@ -26,7 +26,7 @@ const VolumeMeter = ({ level }: { level: number }) => {
       ></div>
     </div>
   );
-};
+});
 
 export default function MixerPanel({ 
   tracks, 

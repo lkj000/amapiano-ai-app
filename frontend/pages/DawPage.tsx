@@ -7,8 +7,9 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { 
-  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Grid, List, Scissors, Repeat
+  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Grid, List, Scissors, Repeat, Copy, Users
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '~backend/client';
@@ -95,6 +96,41 @@ const defaultProjectData: DawProjectData = {
   masterVolume: 0.8,
 };
 
+const TrackLane = React.memo(({ track, projectData, zoom, handleClipMouseDown, handleDropOnTrack, handleToggleAutomation, handleUpdateAutomation, timelineContainerRef }: any) => (
+  <div key={track.id} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDropOnTrack(e, track.id)}>
+    <div className="h-24 border-b border-border/30 relative flex items-center">
+      {track.clips.map((clip: DawClip) => (
+        <ContextMenu key={clip.id}>
+          <ContextMenuTrigger>
+            <div 
+              className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center cursor-grab active:cursor-grabbing group`} 
+              style={{ left: `${(clip.startTime / 32) * 100}%`, width: `${(clip.duration / 32) * 100}%` }} 
+              onMouseDown={(e) => handleClipMouseDown(e, clip, track)}
+            >
+              <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize" />
+              <div className="w-full h-full overflow-hidden">
+                {clip.waveform && <Waveform data={clip.waveform} width={200} height={80} color="rgba(255,255,255,0.5)" />}
+              </div>
+              <span className="absolute text-xs text-white font-medium truncate px-2">{clip.name}</span>
+              <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize" />
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem>Duplicate Clip</ContextMenuItem>
+            <ContextMenuItem>Split Clip</ContextMenuItem>
+            <ContextMenuItem>Reverse Clip</ContextMenuItem>
+            <ContextMenuItem className="text-red-500">Delete Clip</ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      ))}
+      {Array.from({ length: 32 * 4 }, (_, i) => (<div key={i} className={`absolute top-0 bottom-0 border-r ${i % 4 === 0 ? 'border-border/30' : 'border-border/10'}`} style={{ left: `${(i / (32 * 4)) * 100}%` }} />))}
+    </div>
+    {track.automation.map((auto: AutomationData) => (
+      <AutomationLane key={auto.id} automation={auto} onUpdatePoints={(points) => handleUpdateAutomation(track.id, auto.id, points)} width={timelineContainerRef.current?.clientWidth ? timelineContainerRef.current.clientWidth * (zoom[0]/100) : 1000} height={64} />
+    ))}
+  </div>
+));
+
 export default function DawPage() {
   const queryClient = useQueryClient();
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
@@ -159,6 +195,7 @@ export default function DawPage() {
     queryKey: ['dawProject', activeProjectId],
     queryFn: () => backend.music.loadProject({ projectId: activeProjectId! }),
     enabled: !!activeProjectId,
+    refetchInterval: 5000, // Poll for real-time collaboration
   });
 
   useEffect(() => {
@@ -531,6 +568,7 @@ export default function DawPage() {
             <Badge variant="outline">Professional DAW</Badge>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => toast.info("Collaboration features coming soon!")}><Users className="w-4 h-4 mr-2" />Collaborate</Button>
             <Button variant="outline" size="sm" onClick={() => setViewMode(viewMode === 'timeline' ? 'session' : 'timeline')}>
               {viewMode === 'timeline' ? <Grid className="w-4 h-4 mr-2" /> : <List className="w-4 h-4 mr-2" />}
               {viewMode === 'timeline' ? 'Session View' : 'Timeline View'}
@@ -725,28 +763,17 @@ export default function DawPage() {
                     </div>
                     <div className="space-y-1">
                       {projectData.tracks.map((track) => (
-                        <div key={track.id} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDropOnTrack(e, track.id)}>
-                          <div className="h-24 border-b border-border/30 relative flex items-center">
-                            {track.clips.map(clip => (
-                              <div key={clip.id} className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center cursor-grab active:cursor-grabbing group`} style={{ left: `${(clip.startTime / 32) * 100}%`, width: `${(clip.duration / 32) * 100}%` }} onMouseDown={(e) => handleClipMouseDown(e, clip, track)}>
-                                <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize" />
-                                <div className="w-full h-full overflow-hidden">
-                                  {clip.waveform && <Waveform data={clip.waveform} width={200} height={80} color="rgba(255,255,255,0.5)" />}
-                                </div>
-                                <span className="absolute text-xs text-white font-medium truncate px-2">{clip.name}</span>
-                                <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize" />
-                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                  <Button size="icon" variant="ghost" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); handleUpdateClip(track.id, clip.id, { isReversed: !clip.isReversed }); }}><Repeat className="h-3 w-3" /></Button>
-                                  <Button size="icon" variant="ghost" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); toast.info("Slice clip coming soon!"); }}><Scissors className="h-3 w-3" /></Button>
-                                </div>
-                              </div>
-                            ))}
-                            {Array.from({ length: 32 * 4 }, (_, i) => (<div key={i} className={`absolute top-0 bottom-0 border-r ${i % 4 === 0 ? 'border-border/30' : 'border-border/10'}`} style={{ left: `${(i / (32 * 4)) * 100}%` }} />))}
-                          </div>
-                          {track.automation.map(auto => (
-                            <AutomationLane key={auto.id} automation={auto} onUpdatePoints={(points) => handleUpdateAutomation(track.id, auto.id, points)} width={timelineContainerRef.current?.clientWidth ? timelineContainerRef.current.clientWidth * (zoom[0]/100) : 1000} height={64} />
-                          ))}
-                        </div>
+                        <TrackLane 
+                          key={track.id}
+                          track={track}
+                          projectData={projectData}
+                          zoom={zoom}
+                          handleClipMouseDown={handleClipMouseDown}
+                          handleDropOnTrack={handleDropOnTrack}
+                          handleToggleAutomation={handleToggleAutomation}
+                          handleUpdateAutomation={handleUpdateAutomation}
+                          timelineContainerRef={timelineContainerRef}
+                        />
                       ))}
                     </div>
                     <div className="absolute top-0 bottom-0 w-0.5 bg-primary z-20" style={{ left: `${(currentTime / totalDuration) * 100}%` }} />
