@@ -27,7 +27,16 @@ export default function ResearchDashboardPage() {
 
   const { data: dashboard, isLoading: dashboardLoading, error: dashboardError } = useQuery({
     queryKey: ['researchDashboard'],
-    queryFn: () => backend.music.getResearchDashboard()
+    queryFn: async () => {
+      try {
+        const result = await backend.music.getResearchDashboard();
+        console.log('Dashboard data:', result);
+        return result;
+      } catch (err) {
+        console.error('Dashboard error:', err);
+        throw err;
+      }
+    }
   });
 
   const { data: timeSeries, isLoading: timeSeriesLoading } = useQuery({
@@ -54,8 +63,20 @@ export default function ResearchDashboardPage() {
   }
 
   if (dashboardError) {
-    return <ErrorMessage error={dashboardError} />;
+    console.error('Dashboard error details:', dashboardError);
+    return <ErrorMessage error={dashboardError as Error} />;
   }
+
+  if (!dashboard) {
+    console.warn('Dashboard data is undefined');
+    return (
+      <div className="flex items-center justify-center h-[80vh]">
+        <div className="text-white">Loading dashboard data...</div>
+      </div>
+    );
+  }
+
+  console.log('Rendering dashboard with data:', dashboard);
 
   return (
     <div className="space-y-6">
