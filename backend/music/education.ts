@@ -4,6 +4,8 @@ import { generateText, generateObject } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { secret } from "encore.dev/config";
 import { z } from "zod";
+import { auraXCore } from "./encore.service";
+import type { AuraXContext } from "./aura-x/types";
 import log from "encore.dev/log";
 
 const openAIKey = secret("OpenAIKey");
@@ -124,11 +126,54 @@ export class EducationService {
     try {
       log.info("Generating educational content", { topic, difficulty, category });
 
+      // AURA-X: Use Educational Framework for adaptive content generation
+      let auraXContent = null;
+      try {
+        log.info("Using AURA-X Educational Framework for adaptive content");
+        const auraXContext: AuraXContext = {
+          culture: {
+            region: 'south_africa',
+            musicGenre: 'amapiano',
+            authenticity: 'traditional',
+            language: 'english'
+          },
+          user: {
+            id: 'learner_' + Date.now(),
+            role: 'student',
+            skillLevel: difficulty === 'expert' ? 'expert' : difficulty,
+            preferences: {}
+          },
+          session: {
+            sessionId: `education_${Date.now()}`,
+            educationalPath: topic,
+            currentContext: 'education'
+          }
+        };
+
+        auraXCore.updateContext(auraXContext);
+
+        auraXContent = await auraXCore.executeModuleOperation(
+          'educational_framework',
+          'recommend_content',
+          { context: auraXContext }
+        );
+        
+        log.info("AURA-X educational recommendations received", {
+          recommendationsCount: auraXContent?.recommendations?.length || 0
+        });
+      } catch (error) {
+        log.warn("AURA-X educational framework unavailable, using standard generation", { 
+          error: (error as Error).message 
+        });
+      }
+
       const prompt = `
         Create comprehensive educational content about ${topic} in the context of Amapiano music production.
         
         Target difficulty: ${difficulty}
         Category: ${category}
+        
+        ${auraXContent?.culturalContext ? `Cultural Context from AURA-X: ${auraXContent.culturalContext}` : ''}
         
         Focus on:
         - Cultural authenticity and respect for South African musical traditions

@@ -2,6 +2,8 @@ import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
 import { errorHandler } from "./error-handler";
 import { collaborationCache, generateCollaborationFeedCacheKey } from "./cache";
+import { auraXCore } from "./encore.service";
+import type { AuraXContext } from "./aura-x/types";
 import log from "encore.dev/log";
 import { StreamInOut, Query } from "encore.dev/api";
 import type { DawChange } from "./types";
@@ -233,6 +235,21 @@ export const createCollaboration = api<CreateCollaborationRequest, CreateCollabo
 
       if (!result) {
         throw APIError.internal("Failed to create collaboration");
+      }
+
+      // AURA-X: Track collaboration context for cultural safety monitoring
+      try {
+        const auraXContext: Partial<AuraXContext> = {
+          session: {
+            sessionId: `collab_${result.id}`,
+            collaborationId: result.id.toString(),
+            currentContext: 'collaboration'
+          }
+        };
+        auraXCore.updateContext(auraXContext);
+        log.info("AURA-X collaboration context established for cultural safety monitoring");
+      } catch (error) {
+        log.warn("AURA-X context tracking unavailable", { error: (error as Error).message });
       }
 
       log.info("Collaboration created", {

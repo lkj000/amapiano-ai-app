@@ -5,6 +5,8 @@ import { AIService } from "./ai-service";
 import { errorHandler } from "./error-handler";
 import { analysisCache, generateAnalysisCacheKey } from "./cache";
 import type { StemSeparation, DetectedPattern } from "./types";
+import { auraXCore } from "./encore.service";
+import type { AuraXContext } from "./aura-x/types";
 import log from "encore.dev/log";
 
 const aiService = new AIService();
@@ -130,6 +132,46 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
 
       const aiResult = await aiService.analyzeAudio(aiAnalysisRequest);
 
+      // AURA-X: Build cultural context for enhanced analysis
+      const auraXContext: AuraXContext = {
+        culture: {
+          region: 'south_africa',
+          musicGenre: 'amapiano',
+          authenticity: 'modern',
+          language: 'english'
+        },
+        user: {
+          id: 'user_' + Date.now(),
+          role: 'producer',
+          skillLevel: req.enhancedProcessing ? 'advanced' : 'intermediate',
+          preferences: {}
+        },
+        session: {
+          sessionId: `analysis_${analysisId}`,
+          currentContext: 'analysis'
+        }
+      };
+
+      // AURA-X: Perform cultural validation on analyzed audio
+      let culturalValidationResult = null;
+      if (req.culturalAnalysis) {
+        try {
+          log.info("Running AURA-X cultural analysis");
+          culturalValidationResult = await auraXCore.executeModuleOperation(
+            'cultural_validator',
+            'validate_authenticity',
+            { audioData: audioBuffer, genre: 'amapiano' }
+          );
+          log.info("AURA-X cultural analysis complete", {
+            authenticityScore: culturalValidationResult.authenticityScore,
+            culturalElements: culturalValidationResult.culturalElements?.length || 0,
+            preservationValue: culturalValidationResult.preservationValue
+          });
+        } catch (error) {
+          log.warn("AURA-X cultural analysis unavailable", { error: (error as Error).message });
+        }
+      }
+
       // Enhanced stem separation with professional-grade quality
       const stemFiles = {
         drums: `analysis_${analysisId}_drums_professional.wav`,
@@ -155,7 +197,7 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
       const genreAnalysis = await analyzeGenre(audioBuffer, aiResult);
       const isPrivateSchool = genreAnalysis.subGenre === 'jazz_influenced';
 
-      // Enhanced metadata with AI analysis
+      // Enhanced metadata with AI analysis and AURA-X cultural validation
       const metadata = {
         bpm: aiResult.qualityMetrics?.detectedBpm || (isPrivateSchool ? 112 : 118),
         keySignature: aiResult.qualityMetrics?.detectedKey || (isPrivateSchool ? "Dm" : "F#m"),
@@ -168,24 +210,26 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
         quality: getQualityAssessment(req.sourceType, req.fileName, req.enhancedProcessing),
         sampleRate: req.enhancedProcessing ? 96000 : 44100,
         bitDepth: req.enhancedProcessing ? 32 : 24,
-        culturalAuthenticity: aiResult.culturalAnalysis?.authenticityScore,
+        culturalAuthenticity: culturalValidationResult?.authenticityScore || aiResult.culturalAnalysis?.authenticityScore,
         musicalComplexity: assessMusicalComplexity(detectedPatterns, genreAnalysis),
         energyLevel: aiResult.qualityMetrics?.energyLevel || (Math.random() * 0.4 + 0.6),
         danceability: aiResult.qualityMetrics?.danceability || (Math.random() * 0.3 + 0.7)
       };
 
-      // Enhanced quality metrics from AI
+      // Enhanced quality metrics from AI with AURA-X validation
       const qualityMetrics = {
         stemSeparationAccuracy: aiResult.qualityMetrics?.stemSeparationAccuracy || 0.95,
         patternRecognitionConfidence: aiResult.qualityMetrics?.patternRecognitionConfidence || 0.92,
         audioQualityScore: aiResult.qualityMetrics?.audioQualityScore || 0.88,
-        culturalAccuracyScore: aiResult.culturalAnalysis?.authenticityScore
+        culturalAccuracyScore: culturalValidationResult?.authenticityScore || aiResult.culturalAnalysis?.authenticityScore
       };
 
-      // Educational insights from AI and cultural analysis
+      // Educational insights from AI and AURA-X cultural analysis
       const educationalInsights = req.culturalAnalysis ? {
         musicalTheory: generateMusicalTheoryInsights(metadata, detectedPatterns),
-        culturalContext: generateCulturalContextInsights(genreAnalysis, aiResult.culturalAnalysis),
+        culturalContext: culturalValidationResult?.educationalContext ? 
+          [culturalValidationResult.educationalContext, ...generateCulturalContextInsights(genreAnalysis, aiResult.culturalAnalysis)] :
+          generateCulturalContextInsights(genreAnalysis, aiResult.culturalAnalysis),
         productionTechniques: generateProductionTechniques(detectedPatterns, genreAnalysis),
         historicalSignificance: generateHistoricalSignificance(genreAnalysis)
       } : undefined;

@@ -6,6 +6,8 @@ import { audioProcessor } from "./audio-processor";
 import { errorHandler } from "./error-handler";
 import { generationCache, generateGenerationCacheKey } from "./cache";
 import type { Genre, Mood } from "./types";
+import { auraXCore } from "./encore.service";
+import type { AuraXContext } from "./aura-x/types";
 import log from "encore.dev/log";
 
 const aiService = new AIService();
@@ -279,6 +281,28 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
         }
       }
 
+      const trackId = Math.floor(Math.random() * 1000000);
+
+      // AURA-X: Build cultural context for AI orchestration
+      const auraXContext: AuraXContext = {
+        culture: {
+          region: 'south_africa',
+          musicGenre: req.genre,
+          authenticity: (req.advancedOptions?.culturalAuthenticity || 'modern') as any,
+          language: 'english'
+        },
+        user: {
+          id: 'user_' + Date.now(),
+          role: 'producer',
+          skillLevel: req.advancedOptions?.qualityTier === 'studio' ? 'expert' : 'intermediate',
+          preferences: {}
+        },
+        session: {
+          sessionId: `gen_${trackId}`,
+          currentContext: 'generation'
+        }
+      };
+
       // Generate music using AI service
       const aiRequest = {
         prompt: req.prompt,
@@ -291,8 +315,24 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
         qualityTier: req.advancedOptions?.qualityTier
       };
 
-      const aiResult = await aiService.generateMusic(aiRequest);
-      const trackId = Math.floor(Math.random() * 1000000);
+      // AURA-X: Use AI Orchestrator for enhanced generation with quality gating
+      let aiResult;
+      if (req.enhancedGeneration || req.culturalValidation) {
+        try {
+          log.info("Using AURA-X AI Orchestrator for enhanced generation");
+          const orchestratedResult = await auraXCore.executeModuleOperation(
+            'ai_orchestrator',
+            'coordinate_generation',
+            { prompt: req.prompt, context: auraXContext }
+          );
+          aiResult = orchestratedResult;
+        } catch (error) {
+          log.warn("AURA-X orchestration unavailable, falling back to standard AI", { error: (error as Error).message });
+          aiResult = await aiService.generateMusic(aiRequest);
+        }
+      } else {
+        aiResult = await aiService.generateMusic(aiRequest);
+      }
       
       // Enhanced file naming and organization
       const qualityTier = req.advancedOptions?.qualityTier || "standard";
@@ -307,6 +347,25 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
           `stems/${trackId}_vocals_${qualityTier}.wav` : undefined,
         other: `stems/${trackId}_other_${qualityTier}.wav`
       };
+
+      // AURA-X: Validate cultural authenticity if requested
+      let culturalValidationResult = null;
+      if (req.culturalValidation && aiResult.audioBuffer) {
+        try {
+          log.info("Running AURA-X cultural validation");
+          culturalValidationResult = await auraXCore.executeModuleOperation(
+            'cultural_validator',
+            'validate_authenticity',
+            { audioData: aiResult.audioBuffer, genre: req.genre }
+          );
+          log.info("Cultural validation complete", { 
+            authenticityScore: culturalValidationResult.authenticityScore,
+            culturalElements: culturalValidationResult.culturalElements?.length || 0
+          });
+        } catch (error) {
+          log.warn("Cultural validation unavailable", { error: (error as Error).message });
+        }
+      }
 
       // Upload generated audio and stems
       await generatedTracks.upload(audioFileName, aiResult.audioBuffer);
@@ -328,16 +387,16 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
           ? ["piano", "log_drum", "bass", "saxophone"] 
           : ["piano", "log_drum", "bass", "vocals"]);
 
-      // Enhanced quality scoring
+      // Enhanced quality scoring with AURA-X validation results
       const qualityScore = calculateQualityScore(req, sourceData, qualityTier, aiResult);
-      const culturalAuthenticity = aiResult.culturalValidation?.authenticityScore;
+      const culturalAuthenticity = culturalValidationResult?.authenticityScore || aiResult.culturalValidation?.authenticityScore;
       const musicalComplexity = assessMusicalComplexity(req, arrangement, instrumentation);
 
-      // Enhanced generation details
+      // Enhanced generation details with AURA-X cultural insights
       const generationDetails = {
         promptAnalysis: analyzePrompt(req.prompt, req.genre),
         styleCharacteristics: generateStyleCharacteristics(req.genre, req.mood, req.advancedOptions?.culturalAuthenticity),
-        culturalElements: aiResult.culturalValidation?.culturalElements,
+        culturalElements: culturalValidationResult?.culturalElements || aiResult.culturalValidation?.culturalElements,
         technicalSpecs: {
           sampleRate: req.enhancedGeneration ? 96000 : 44100,
           bitDepth: req.enhancedGeneration ? 32 : 24,

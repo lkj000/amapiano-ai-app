@@ -3,6 +3,8 @@ import { musicDB } from "./db";
 import type { DawProject, DawProjectData, DawTrack, MidiNote } from "./types";
 import { dawCache, generateDawProjectCacheKey } from "./cache";
 import { errorHandler } from "./error-handler";
+import { auraXCore } from "./encore.service";
+import type { AuraXContext } from "./aura-x/types";
 import log from "encore.dev/log";
 import { AIService } from "./ai-service";
 
@@ -113,6 +115,20 @@ export const loadProject = api<LoadProjectRequest, DawProject>(
         createdAt: result.created_at,
         updatedAt: result.updated_at,
       };
+
+      // AURA-X: Track DAW context for cultural awareness
+      try {
+        const auraXContext: Partial<AuraXContext> = {
+          session: {
+            sessionId: `daw_${projectId}`,
+            projectId: projectId,
+            currentContext: 'daw'
+          }
+        };
+        auraXCore.updateContext(auraXContext);
+      } catch (error) {
+        log.warn("AURA-X context update unavailable", { error: (error as Error).message });
+      }
 
       await dawCache.set(cacheKey, project);
       log.info("DAW project loaded and cached", { projectId, cacheKey });
