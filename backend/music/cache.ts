@@ -168,9 +168,15 @@ export const generationCache = new AdvancedCache<any>({
   compressionEnabled: false
 });
 
-export const collaborationCache = new AdvancedCache<any>({
+export const dawCache = new AdvancedCache<any>({
   defaultTTL: 600000, // 10 minutes
   maxSize: 1000,
+  compressionEnabled: false
+});
+
+export const collaborationCache = new AdvancedCache<any>({
+  defaultTTL: 60000, // 1 minute
+  maxSize: 500,
   compressionEnabled: false
 });
 
@@ -196,6 +202,14 @@ export function generateGenerationCacheKey(prompt: string, options: any = {}): s
   return generateCacheKey('generation', { prompt, ...options });
 }
 
+export function generateDawProjectCacheKey(projectId: number): string {
+  return `daw-project:${projectId}`;
+}
+
+export function generateCollaborationFeedCacheKey(collaborationId: number): string {
+  return `collaboration-feed:${collaborationId}`;
+}
+
 // Cache warming utilities
 export async function warmCache(): Promise<void> {
   log.info("Starting cache warming");
@@ -217,6 +231,7 @@ export function getCacheMetrics(): any {
     audio: audioCache.getStats(),
     analysis: analysisCache.getStats(),
     generation: generationCache.getStats(),
+    daw: dawCache.getStats(),
     collaboration: collaborationCache.getStats()
   };
 }

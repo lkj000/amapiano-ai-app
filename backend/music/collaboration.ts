@@ -1,6 +1,8 @@
 import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
 import { generatedTracks } from "./storage";
+import { errorHandler } from "./error-handler";
+import { collaborationCache, generateCollaborationFeedCacheKey } from "./cache";
 import log from "encore.dev/log";
 
 export interface CreateCollaborationRequest {
@@ -50,6 +52,7 @@ export interface GetCollaborationFeedRequest {
   collaborationId: number;
   limit?: number;
   offset?: number;
+  userName?: string; // To check for likes
 }
 
 export interface GetCollaborationFeedResponse {
@@ -74,6 +77,7 @@ export interface CollaborationFeedItem {
 
 export interface AddCommentRequest {
   feedItemId: number;
+  userName: string;
   comment: string;
   timestamp?: number; // For audio comments
 }
@@ -104,6 +108,7 @@ export interface CreateRemixChallengeResponse {
 export interface SubmitRemixRequest {
   challengeId: number;
   trackId: number;
+  userName: string;
   title: string;
   description?: string;
 }
@@ -182,11 +187,11 @@ export const createCollaboration = api<CreateCollaborationRequest, CreateCollabo
       };
 
     } catch (error) {
-      log.error("Failed to create collaboration", { error: error.message, request: req });
-      if (error instanceof APIError) {
-        throw error;
-      }
-      throw APIError.internal("Failed to create collaboration");
+      const apiError = errorHandler.handleError(error, {
+        operation: 'createCollaboration',
+        metadata: { name: req.name }
+      });
+      throw apiError;
     }
   }
 );
@@ -281,11 +286,11 @@ export const joinCollaboration = api<JoinCollaborationRequest, JoinCollaboration
       };
 
     } catch (error) {
-      log.error("Failed to join collaboration", { error: error.message, request: req });
-      if (error instanceof APIError) {
-        throw error;
-      }
-      throw APIError.internal("Failed to join collaboration");
+      const apiError = errorHandler.handleError(error, {
+        operation: 'joinCollaboration',
+        metadata: { inviteCode: req.inviteCode }
+      });
+      throw apiError;
     }
   }
 );
@@ -379,6 +384,9 @@ export const shareContent = api<ShareContentRequest, ShareContentResponse>(
         )
       `;
 
+      // Invalidate cache
+      await collaborationCache.delete(generateCollaborationFeedCacheKey(req.collaborationId));
+
       log.info("Content shared in collaboration", {
         collaborationId: req.collaborationId,
         contentType: req.contentType,
@@ -392,11 +400,11 @@ export const shareContent = api<ShareContentRequest, ShareContentResponse>(
       };
 
     } catch (error) {
-      log.error("Failed to share content", { error: error.message, request: req });
-      if (error instanceof APIError) {
-        throw error;
-      }
-      throw APIError.internal("Failed to share content");
+      const apiError = errorHandler.handleError(error, {
+        operation: 'shareContent',
+        metadata: { collaborationId: req.collaborationId }
+      });
+      throw apiError;
     }
   }
 );
@@ -409,6 +417,13 @@ export const getCollaborationFeed = api<GetCollaborationFeedRequest, GetCollabor
     const offset = req.offset || 0;
 
     try {
+      const cacheKey = generateCollaborationFeedCacheKey(req.collaborationId);
+      const cachedFeed = await collaborationCache.get(cacheKey);
+      if (cachedFeed) {
+        log.info("Returning cached collaboration feed", { collaborationId: req.collaborationId, cacheKey });
+        return cachedFeed;
+      }
+
       // Verify collaboration exists
       const collaboration = await musicDB.queryRow<{ id: number }>`
         SELECT id FROM collaborations WHERE id = ${req.collaborationId}
@@ -430,6 +445,7 @@ export const getCollaborationFeed = api<GetCollaborationFeedRequest, GetCollabor
         created_at: Date;
         likes_count: number;
         comments_count: number;
+        is_liked: boolean;
       }>`
         SELECT 
           cf.id,
@@ -441,7 +457,8 @@ export const getCollaborationFeed = api<GetCollaborationFeedRequest, GetCollabor
           cf.metadata,
           cf.created_at,
           COALESCE(l.likes_count, 0) as likes_count,
-          COALESCE(c.comments_count, 0) as comments_count
+          COALESCE(c.comments_count, 0) as comments_count,
+          CASE WHEN ul.id IS NOT NULL THEN TRUE ELSE FALSE END as is_liked
         FROM collaboration_feed cf
         LEFT JOIN (
           SELECT feed_item_id, COUNT(*) as likes_count 
@@ -453,6 +470,7 @@ export const getCollaborationFeed = api<GetCollaborationFeedRequest, GetCollabor
           FROM collaboration_comments 
           GROUP BY feed_item_id
         ) c ON cf.id = c.feed_item_id
+        LEFT JOIN collaboration_likes ul ON cf.id = ul.feed_item_id AND ul.user_name = ${req.userName || null}
         WHERE cf.collaboration_id = ${req.collaborationId}
         ORDER BY cf.created_at DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -479,8 +497,16 @@ export const getCollaborationFeed = api<GetCollaborationFeedRequest, GetCollabor
         createdAt: item.created_at,
         likes: item.likes_count,
         comments: item.comments_count,
-        isLiked: false // TODO: Check if current user liked
+        isLiked: item.is_liked
       }));
+
+      const response = {
+        items: feedItems,
+        totalCount,
+        hasMore
+      };
+
+      await collaborationCache.set(cacheKey, response);
 
       log.info("Retrieved collaboration feed", {
         collaborationId: req.collaborationId,
@@ -489,18 +515,14 @@ export const getCollaborationFeed = api<GetCollaborationFeedRequest, GetCollabor
         hasMore
       });
 
-      return {
-        items: feedItems,
-        totalCount,
-        hasMore
-      };
+      return response;
 
     } catch (error) {
-      log.error("Failed to get collaboration feed", { error: error.message, request: req });
-      if (error instanceof APIError) {
-        throw error;
-      }
-      throw APIError.internal("Failed to get collaboration feed");
+      const apiError = errorHandler.handleError(error, {
+        operation: 'getCollaborationFeed',
+        metadata: { collaborationId: req.collaborationId }
+      });
+      throw apiError;
     }
   }
 );
@@ -545,7 +567,7 @@ export const addComment = api<AddCommentRequest, AddCommentResponse>(
         )
         VALUES (
           ${req.feedItemId},
-          ${'Anonymous'}, -- TODO: Get from auth
+          ${req.userName},
           ${req.comment},
           ${req.timestamp || null},
           NOW()
@@ -556,6 +578,9 @@ export const addComment = api<AddCommentRequest, AddCommentResponse>(
       if (!result) {
         throw APIError.internal("Failed to add comment");
       }
+
+      // Invalidate cache
+      await collaborationCache.delete(generateCollaborationFeedCacheKey(feedItem.collaboration_id));
 
       log.info("Comment added", {
         feedItemId: req.feedItemId,
@@ -571,11 +596,11 @@ export const addComment = api<AddCommentRequest, AddCommentResponse>(
       };
 
     } catch (error) {
-      log.error("Failed to add comment", { error: error.message, request: req });
-      if (error instanceof APIError) {
-        throw error;
-      }
-      throw APIError.internal("Failed to add comment");
+      const apiError = errorHandler.handleError(error, {
+        operation: 'addComment',
+        metadata: { feedItemId: req.feedItemId }
+      });
+      throw apiError;
     }
   }
 );
@@ -654,11 +679,11 @@ export const createRemixChallenge = api<CreateRemixChallengeRequest, CreateRemix
       };
 
     } catch (error) {
-      log.error("Failed to create remix challenge", { error: error.message, request: req });
-      if (error instanceof APIError) {
-        throw error;
-      }
-      throw APIError.internal("Failed to create remix challenge");
+      const apiError = errorHandler.handleError(error, {
+        operation: 'createRemixChallenge',
+        metadata: { name: req.name }
+      });
+      throw apiError;
     }
   }
 );
@@ -737,7 +762,7 @@ export const submitRemix = api<SubmitRemixRequest, SubmitRemixResponse>(
           ${req.trackId},
           ${req.title},
           ${req.description || null},
-          ${'Anonymous'}, -- TODO: Get from auth
+          ${req.userName},
           ${position},
           NOW()
         )
@@ -763,11 +788,11 @@ export const submitRemix = api<SubmitRemixRequest, SubmitRemixResponse>(
       };
 
     } catch (error) {
-      log.error("Failed to submit remix", { error: error.message, request: req });
-      if (error instanceof APIError) {
-        throw error;
-      }
-      throw APIError.internal("Failed to submit remix");
+      const apiError = errorHandler.handleError(error, {
+        operation: 'submitRemix',
+        metadata: { challengeId: req.challengeId }
+      });
+      throw apiError;
     }
   }
 );

@@ -30,6 +30,16 @@ export class EnhancedErrorHandler {
   }
 
   private analyzeError(error: any, context: ErrorContext): ErrorDetails {
+    if (error instanceof APIError) {
+      return {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        retryable: ['unavailable', 'resource_exhausted', 'deadline_exceeded'].includes(error.code),
+        severity: ['internal', 'unavailable', 'data_loss'].includes(error.code) ? 'high' : 'medium'
+      };
+    }
+
     // Database errors
     if (this.isDatabaseError(error)) {
       return this.handleDatabaseError(error, context);
@@ -323,7 +333,7 @@ export class EnhancedErrorHandler {
       'internal_error': APIError.internal
     };
 
-    const createError = apiErrorMap[details.code] || APIError.internal;
+    const createError = apiErrorMap[details.code as keyof typeof apiErrorMap] || APIError.internal;
     const error = createError(details.message);
 
     if (details.details || details.suggestions) {

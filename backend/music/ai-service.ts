@@ -170,13 +170,17 @@ export class AIService {
     `;
 
     // Simulate AI parsing (in real implementation, call OpenAI API)
+    const lowerPrompt = request.prompt.toLowerCase();
+    const bpmMatch = lowerPrompt.match(/(\d+)\s*bpm/);
+    const keyMatch = lowerPrompt.match(/key of ([a-gA-G][#b]?m?)/);
+
     return {
-      bpm: request.bpm || (request.genre === 'private_school_amapiano' ? 112 : 118),
-      keySignature: request.keySignature || 'F#m',
+      bpm: request.bpm || (bpmMatch ? parseInt(bpmMatch[1]) : (request.genre === 'private_school_amapiano' ? 112 : 118)),
+      keySignature: request.keySignature || (keyMatch ? keyMatch[1] : 'F#m'),
       duration: request.duration || 180,
-      mood: request.mood || 'soulful',
-      instruments: this.extractInstruments(request.prompt, request.genre),
-      culturalElements: this.extractCulturalElements(request.prompt, request.genre)
+      mood: request.mood || this.extractMood(lowerPrompt) || 'soulful',
+      instruments: this.extractInstruments(lowerPrompt, request.genre),
+      culturalElements: this.extractCulturalElements(lowerPrompt, request.genre)
     };
   }
 
@@ -210,56 +214,41 @@ export class AIService {
     return audio;
   }
 
-  private extractInstruments(prompt: string, genre: string): string[] {
-    const instruments = [];
-    const lowerPrompt = prompt.toLowerCase();
-    
-    if (lowerPrompt.includes('log drum') || lowerPrompt.includes('bass drum')) {
-      instruments.push('log_drum');
-    }
-    if (lowerPrompt.includes('piano') || lowerPrompt.includes('keys')) {
-      instruments.push('piano');
-    }
-    if (lowerPrompt.includes('saxophone') || lowerPrompt.includes('sax')) {
-      instruments.push('saxophone');
-    }
-    if (lowerPrompt.includes('guitar')) {
-      instruments.push('guitar');
-    }
-    if (lowerPrompt.includes('vocal') || lowerPrompt.includes('voice')) {
-      instruments.push('vocals');
-    }
+  private extractMood(prompt: string): string | undefined {
+    const moods = ['chill', 'energetic', 'soulful', 'groovy', 'mellow', 'uplifting', 'deep', 'jazzy'];
+    return moods.find(mood => prompt.includes(mood));
+  }
 
-    // Add default instruments based on genre
-    if (instruments.length === 0) {
+  private extractInstruments(prompt: string, genre: string): string[] {
+    const instruments = new Set<string>();
+    
+    if (prompt.includes('log drum') || prompt.includes('bass drum')) instruments.add('log_drum');
+    if (prompt.includes('piano') || prompt.includes('keys')) instruments.add('piano');
+    if (prompt.includes('saxophone') || prompt.includes('sax')) instruments.add('saxophone');
+    if (prompt.includes('guitar')) instruments.add('guitar');
+    if (prompt.includes('vocal') || prompt.includes('voice')) instruments.add('vocals');
+
+    // Add default instruments based on genre if none are specified
+    if (instruments.size === 0) {
       if (genre === 'private_school_amapiano') {
-        instruments.push('piano', 'log_drum', 'saxophone');
+        instruments.add('piano').add('log_drum').add('saxophone');
       } else {
-        instruments.push('log_drum', 'piano', 'vocals');
+        instruments.add('log_drum').add('piano').add('vocals');
       }
     }
 
-    return instruments;
+    return Array.from(instruments);
   }
 
   private extractCulturalElements(prompt: string, genre: string): string[] {
-    const elements = [];
-    const lowerPrompt = prompt.toLowerCase();
+    const elements = new Set<string>();
     
-    if (lowerPrompt.includes('traditional') || lowerPrompt.includes('authentic')) {
-      elements.push('traditional_patterns');
-    }
-    if (lowerPrompt.includes('jazz') || lowerPrompt.includes('sophisticated')) {
-      elements.push('jazz_influences');
-    }
-    if (lowerPrompt.includes('gospel') || lowerPrompt.includes('spiritual')) {
-      elements.push('gospel_roots');
-    }
-    if (lowerPrompt.includes('township') || lowerPrompt.includes('south african')) {
-      elements.push('township_heritage');
-    }
+    if (prompt.includes('traditional') || prompt.includes('authentic')) elements.add('traditional_patterns');
+    if (prompt.includes('jazz') || prompt.includes('sophisticated')) elements.add('jazz_influences');
+    if (prompt.includes('gospel') || prompt.includes('spiritual')) elements.add('gospel_roots');
+    if (prompt.includes('township') || prompt.includes('south african')) elements.add('township_heritage');
 
-    return elements;
+    return Array.from(elements);
   }
 }
 
