@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { DawProjectData, DawTrack, DawClip, MidiNote } from '~backend/music/types';
+import type { DawProjectData, DawTrack, DawClip, MidiNote, Effect } from '~backend/music/types';
 
 // A simple scheduler that uses requestAnimationFrame
 const useScheduler = (callback: () => void, isRunning: boolean) => {
@@ -30,7 +30,7 @@ const useScheduler = (callback: () => void, isRunning: boolean) => {
 
 export const useAudioEngine = (projectData: DawProjectData | null) => {
   const audioContextRef = useRef<AudioContext | null>(null);
-  const trackNodesRef = useRef<Map<string, { gain: GainNode, analyser: AnalyserNode }>>(new Map());
+  const trackNodesRef = useRef<Map<string, { gain: GainNode, analyser: AnalyserNode, effectsChain: AudioNode[] }>>(new Map());
   const masterGainRef = useRef<GainNode | null>(null);
   const masterAnalyserRef = useRef<AnalyserNode | null>(null);
   
@@ -67,15 +67,52 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     };
   }, []);
 
+  const updateEffectsChain = useCallback((trackId: string, effects: Effect[]) => {
+    if (!audioContextRef.current) return;
+    const trackNode = trackNodesRef.current.get(trackId);
+    if (!trackNode) return;
+
+    // Disconnect old effects chain
+    trackNode.gain.disconnect();
+    let lastNode: AudioNode = trackNode.gain;
+
+    // Create and connect new effects chain
+    const newEffectsChain: AudioNode[] = [];
+    effects.forEach(effect => {
+      if (!effect.enabled) return;
+      let effectNode: AudioNode | null = null;
+      if (effect.name === 'EQ') {
+        const eq = audioContextRef.current!.createBiquadFilter();
+        eq.type = effect.params.type || 'peaking';
+        eq.frequency.setValueAtTime(effect.params.frequency || 800, audioContextRef.current!.currentTime);
+        eq.gain.setValueAtTime(effect.params.gain || 0, audioContextRef.current!.currentTime);
+        eq.Q.setValueAtTime(effect.params.q || 1, audioContextRef.current!.currentTime);
+        effectNode = eq;
+      }
+      // Add other effects here...
+
+      if (effectNode) {
+        lastNode.connect(effectNode);
+        lastNode = effectNode;
+        newEffectsChain.push(effectNode);
+      }
+    });
+
+    // Connect the end of the effects chain to the analyser
+    lastNode.connect(trackNode.analyser);
+    trackNode.effectsChain = newEffectsChain;
+  }, []);
+
   // Update track nodes when project data changes
   useEffect(() => {
     if (!audioContextRef.current || !masterGainRef.current || !projectData) return;
 
-    const newTrackNodes = new Map<string, { gain: GainNode, analyser: AnalyserNode }>();
+    const newTrackNodes = new Map<string, { gain: GainNode, analyser: AnalyserNode, effectsChain: AudioNode[] }>();
     projectData.tracks.forEach(track => {
       const existingNode = trackNodesRef.current.get(track.id);
       if (existingNode) {
         existingNode.gain.gain.setValueAtTime(track.mixer.volume, audioContextRef.current!.currentTime);
+        updateEffectsChain(track.id, track.mixer.effects);
         newTrackNodes.set(track.id, existingNode);
       } else {
         const gainNode = audioContextRef.current!.createGain();
@@ -83,11 +120,14 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
         const analyserNode = audioContextRef.current!.createAnalyser();
         gainNode.connect(analyserNode);
         analyserNode.connect(masterGainRef.current!);
-        newTrackNodes.set(track.id, { gain: gainNode, analyser: analyserNode });
+        const newNode = { gain: gainNode, analyser: analyserNode, effectsChain: [] };
+        trackNodesRef.current.set(track.id, newNode);
+        updateEffectsChain(track.id, track.mixer.effects);
+        newTrackNodes.set(track.id, newNode);
       }
     });
     trackNodesRef.current = newTrackNodes;
-  }, [projectData]);
+  }, [projectData, updateEffectsChain]);
 
   // Update BPM when projectData changes
   useEffect(() => {

@@ -89,12 +89,19 @@ export interface MidiNote {
   duration: number; // in beats or seconds
 }
 
+export interface Effect {
+  id: string;
+  name: 'EQ' | 'Compressor' | 'Reverb' | 'Delay' | 'Limiter' | 'Log Drum Saturator' | 'Shaker Groove Engine' | '3D Imager' | 'Gospel Harmonizer';
+  params: Record<string, any>;
+  enabled: boolean;
+}
+
 export interface DawMixerChannel {
   volume: number; // 0-1
   pan: number; // -1 to 1
   isMuted: boolean;
   isSolo: boolean;
-  effects: string[]; // names of effects
+  effects: Effect[];
 }
 
 export interface DawClip {

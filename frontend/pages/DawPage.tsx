@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '~backend/client';
-import type { DawProjectData, DawTrack, DawClip, MidiNote } from '~backend/music/types';
+import type { DawProjectData, DawTrack, DawClip, MidiNote, Effect } from '~backend/music/types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import OpenProjectModal from '../components/daw/OpenProjectModal';
@@ -70,7 +70,7 @@ const defaultProjectData: DawProjectData = {
       name: 'Log Drums',
       instrument: 'Signature Log Drum',
       clips: [],
-      mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: ['EQ', 'Compressor'] },
+      mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
       isArmed: true,
       color: 'bg-red-500',
     },
@@ -80,7 +80,7 @@ const defaultProjectData: DawProjectData = {
       name: 'Piano Chords',
       instrument: 'Amapiano Piano',
       clips: [],
-      mixer: { volume: 0.7, pan: 0, isMuted: false, isSolo: false, effects: ['Reverb'] },
+      mixer: { volume: 0.7, pan: 0, isMuted: false, isSolo: false, effects: [] },
       isArmed: false,
       color: 'bg-blue-500',
     },
@@ -286,7 +286,7 @@ export default function DawPage() {
     });
   };
 
-  const handleAddEffectToTrack = (effectName: string) => {
+  const handleAddEffectToTrack = (effectName: Effect['name']) => {
     if (!selectedTrackId) {
       toast.error("No track selected", { description: "Please select a track to add an effect." });
       return;
@@ -296,11 +296,17 @@ export default function DawPage() {
       return {
         ...prev,
         tracks: prev.tracks.map(t => {
-          if (t.id === selectedTrackId && !t.mixer.effects.includes(effectName)) {
+          if (t.id === selectedTrackId && !t.mixer.effects.some(e => e.name === effectName)) {
+            const newEffect: Effect = {
+              id: `effect_${Date.now()}`,
+              name: effectName,
+              params: {}, // Add default params here
+              enabled: true,
+            };
             toast.success(`Effect "${effectName}" added to track "${t.name}".`);
-            return { ...t, mixer: { ...t.mixer, effects: [...t.mixer.effects, effectName] } };
+            return { ...t, mixer: { ...t.mixer, effects: [...t.mixer.effects, newEffect] } };
           }
-          if (t.id === selectedTrackId && t.mixer.effects.includes(effectName)) {
+          if (t.id === selectedTrackId) {
             toast.info(`Effect "${effectName}" is already on this track.`);
           }
           return t;
@@ -309,15 +315,18 @@ export default function DawPage() {
     });
   };
 
-  const handleRemoveEffectFromTrack = (trackId: string, effectName: string) => {
+  const handleRemoveEffectFromTrack = (trackId: string, effectId: string) => {
     setProjectData(prev => {
       if (!prev) return null;
       return {
         ...prev,
         tracks: prev.tracks.map(t => {
           if (t.id === trackId) {
-            toast.info(`Effect "${effectName}" removed from track "${t.name}".`);
-            return { ...t, mixer: { ...t.mixer, effects: t.mixer.effects.filter(e => e !== effectName) } };
+            const effectToRemove = t.mixer.effects.find(e => e.id === effectId);
+            if (effectToRemove) {
+              toast.info(`Effect "${effectToRemove.name}" removed from track "${t.name}".`);
+            }
+            return { ...t, mixer: { ...t.mixer, effects: t.mixer.effects.filter(e => e.id !== effectId) } };
           }
           return t;
         })
@@ -397,7 +406,7 @@ export default function DawPage() {
 
   const handleClipMouseDown = (e: React.MouseEvent, clip: DawClip, track: DawTrack) => {
     e.stopPropagation();
-    const target = e.target as HTMLElement;
+    const target = e.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
     const edgeThreshold = 8; // pixels
 
@@ -488,7 +497,7 @@ export default function DawPage() {
     { name: "Saxophone VST", type: "lead", icon: Music, description: "Realistic saxophone for Private School style", color: "bg-yellow-500" }
   ];
 
-  const effects = [
+  const effects: { name: Effect['name'], category: string, description: string }[] = [
     { name: "EQ", category: "Core", description: "Professional 8-band parametric EQ" },
     { name: "Compressor", category: "Core", description: "Vintage-style compressor with amapiano preset" },
     { name: "Reverb", category: "Core", description: "Spatial reverb with hall and room settings" },
@@ -781,9 +790,9 @@ export default function DawPage() {
                       {track.mixer.effects.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {track.mixer.effects.map((effect) => (
-                            <Badge key={effect} variant="outline" className="text-xs px-1 py-0 relative group">
-                              {effect}
-                              <button onClick={() => handleRemoveEffectFromTrack(track.id, effect)} className="absolute -top-1 -right-1 bg-red-500 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Badge key={effect.id} variant="outline" className="text-xs px-1 py-0 relative group">
+                              {effect.name}
+                              <button onClick={() => handleRemoveEffectFromTrack(track.id, effect.id)} className="absolute -top-1 -right-1 bg-red-500 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <X className="w-2 h-2 text-white" />
                               </button>
                             </Badge>
