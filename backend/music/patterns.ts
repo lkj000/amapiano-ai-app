@@ -381,7 +381,7 @@ export const listPatterns = api<ListPatternsRequest, ListPatternsResponse>(
 
       if (req.bpm !== undefined) {
         query += ` AND bpm BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-        params.push(req.bpm - 10, req.bpm + 10);
+        params.push(req.bpm - 5, req.bpm + 5);
         paramIndex += 2;
       }
 
@@ -418,7 +418,24 @@ export const listPatterns = api<ListPatternsRequest, ListPatternsResponse>(
         params.push(req.offset);
       }
 
-      const patterns = await musicDB.rawQueryAll<Pattern>(query, ...params);
+      const rawPatterns = await musicDB.rawQueryAll<any>(query, ...params);
+
+      // Map database snake_case to TypeScript camelCase
+      const patterns: Pattern[] = rawPatterns.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        genre: p.genre,
+        patternData: p.pattern_data,
+        bpm: p.bpm,
+        keySignature: p.key_signature,
+        bars: p.bars,
+        complexity: p.complexity,
+        culturalSignificance: p.cultural_significance,
+        description: p.description,
+        usageCount: p.usage_count,
+        createdAt: p.created_at
+      }));
 
       // Get category distribution
       const categoryCounts = await musicDB.queryAll<{ category: PatternCategory; count: number }>`
@@ -510,13 +527,30 @@ export const getPattern = api(
   { expose: true, method: "GET", path: "/patterns/:id" },
   async ({ id }: { id: number }): Promise<Pattern> => {
     try {
-      const pattern = await musicDB.queryRow<Pattern>`
+      const rawPattern = await musicDB.queryRow<any>`
         SELECT * FROM patterns WHERE id = ${id}
       `;
 
-      if (!pattern) {
+      if (!rawPattern) {
         throw APIError.notFound("Pattern not found");
       }
+
+      // Map database snake_case to TypeScript camelCase
+      const pattern: Pattern = {
+        id: rawPattern.id,
+        name: rawPattern.name,
+        category: rawPattern.category,
+        genre: rawPattern.genre,
+        patternData: rawPattern.pattern_data,
+        bpm: rawPattern.bpm,
+        keySignature: rawPattern.key_signature,
+        bars: rawPattern.bars,
+        complexity: rawPattern.complexity,
+        culturalSignificance: rawPattern.cultural_significance,
+        description: rawPattern.description,
+        usageCount: rawPattern.usage_count,
+        createdAt: rawPattern.created_at
+      };
 
       return pattern;
 
@@ -547,7 +581,24 @@ export const searchPatternsByCulture = api(
 
       sqlQuery += ` ORDER BY created_at DESC LIMIT 20`;
 
-      const patterns = await musicDB.rawQueryAll<Pattern>(sqlQuery, ...params);
+      const rawPatterns = await musicDB.rawQueryAll<any>(sqlQuery, ...params);
+
+      // Map database snake_case to TypeScript camelCase
+      const patterns: Pattern[] = rawPatterns.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        genre: p.genre,
+        patternData: p.pattern_data,
+        bpm: p.bpm,
+        keySignature: p.key_signature,
+        bars: p.bars,
+        complexity: p.complexity,
+        culturalSignificance: p.cultural_significance,
+        description: p.description,
+        usageCount: p.usage_count,
+        createdAt: p.created_at
+      }));
 
       log.info("Cultural pattern search", { query, resultsCount: patterns.length });
 
@@ -587,7 +638,24 @@ export const getPatternsByComplexity = api(
 
       query += ` ORDER BY created_at DESC LIMIT 30`;
 
-      const patterns = await musicDB.rawQueryAll<Pattern>(query, ...params);
+      const rawPatterns = await musicDB.rawQueryAll<any>(query, ...params);
+
+      // Map database snake_case to TypeScript camelCase
+      const patterns: Pattern[] = rawPatterns.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        genre: p.genre,
+        patternData: p.pattern_data,
+        bpm: p.bpm,
+        keySignature: p.key_signature,
+        bars: p.bars,
+        complexity: p.complexity,
+        culturalSignificance: p.cultural_significance,
+        description: p.description,
+        usageCount: p.usage_count,
+        createdAt: p.created_at
+      }));
 
       log.info("Patterns by complexity", { level, count: patterns.length });
 
@@ -643,7 +711,7 @@ export const getRecommendedPatterns = api(
       // Match BPM if provided
       if (bpm) {
         query += ` AND (bpm IS NULL OR bpm BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
-        params.push(bpm - 10, bpm + 10);
+        params.push(bpm - 5, bpm + 5);
         paramIndex += 2;
       }
 
@@ -654,9 +722,26 @@ export const getRecommendedPatterns = api(
         paramIndex++;
       }
 
-      query += ` ORDER BY RANDOM() LIMIT 10`;
+      query += ` ORDER BY RANDOM() LIMIT 5`;
 
-      const patterns = await musicDB.rawQueryAll<Pattern>(query, ...params);
+      const rawPatterns = await musicDB.rawQueryAll<any>(query, ...params);
+
+      // Map database snake_case to TypeScript camelCase
+      const patterns: Pattern[] = rawPatterns.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        genre: p.genre,
+        patternData: p.pattern_data,
+        bpm: p.bpm,
+        keySignature: p.key_signature,
+        bars: p.bars,
+        complexity: p.complexity,
+        culturalSignificance: p.cultural_significance,
+        description: p.description,
+        usageCount: p.usage_count,
+        createdAt: p.created_at
+      }));
 
       log.info("Pattern recommendations", { genre, count: patterns.length });
 

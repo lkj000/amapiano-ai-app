@@ -327,25 +327,44 @@ export const listSamples = api<ListSamplesRequest, ListSamplesResponse>(
 
       const rawSamples = await musicDB.rawQueryAll<any>(query, ...params);
 
-      log.info("Samples listed", { 
-        count: rawSamples.length, 
-        total,
-        filters: { genre: req.genre, category: req.category }
-      });
-
-      const samples = rawSamples.map((s: any) => ({
+      // Map database snake_case to TypeScript camelCase
+      const samples: Sample[] = rawSamples.map((s: any) => ({
         id: s.id,
         name: s.name,
         category: s.category,
         genre: s.genre,
         fileUrl: s.file_url,
+        bpm: s.bpm,
+        keySignature: s.key_signature,
+        durationSeconds: s.duration_seconds,
+        tags: s.tags,
+        description: s.description,
+        culturalSignificance: s.cultural_significance,
         createdAt: s.created_at
       }));
+
+      // Get category distribution
+      const categoryCounts = await musicDB.queryAll<{ category: SampleCategory; count: number }>`
+        SELECT category, COUNT(*) as count
+        FROM samples
+        GROUP BY category
+      `;
+
+      const categories = categoryCounts.reduce((acc, row) => {
+        acc[row.category] = row.count;
+        return acc;
+      }, {} as Record<string, number>);
+
+      log.info("Samples listed", { 
+        count: samples.length, 
+        total,
+        filters: { genre: req.genre, category: req.category }
+      });
 
       return {
         samples,
         total,
-        categories: {}
+        categories
       };
 
     } catch (error) {
@@ -449,18 +468,31 @@ export const getSample = api(
   { expose: true, method: "GET", path: "/samples/:id" },
   async ({ id }: { id: number }): Promise<Sample> => {
     try {
-      const sample = await musicDB.queryRow<Sample>`
+      const rawSample = await musicDB.queryRow<any>`
         SELECT * FROM samples WHERE id = ${id}
       `;
 
-      if (!sample) {
+      if (!rawSample) {
         throw APIError.notFound("Sample not found");
       }
 
-      return {
-        ...sample,
-        fileUrl: sample.fileUrl ? sampleLibrary.publicUrl(sample.fileUrl) : undefined
+      // Map database snake_case to TypeScript camelCase
+      const sample: Sample = {
+        id: rawSample.id,
+        name: rawSample.name,
+        category: rawSample.category,
+        genre: rawSample.genre,
+        fileUrl: rawSample.file_url ? sampleLibrary.publicUrl(rawSample.file_url) : undefined,
+        bpm: rawSample.bpm,
+        keySignature: rawSample.key_signature,
+        durationSeconds: rawSample.duration_seconds,
+        tags: rawSample.tags,
+        description: rawSample.description,
+        culturalSignificance: rawSample.cultural_significance,
+        createdAt: rawSample.created_at
       };
+
+      return sample;
 
     } catch (error) {
       log.error("Failed to get sample", { error: (error as Error).message, id });
@@ -584,9 +616,7 @@ export const searchSamplesByCulture = api(
     try {
       let sqlQuery = `
         SELECT * FROM samples 
-        WHERE cultural_significance ILIKE $1
-          OR description ILIKE $1
-          OR name ILIKE $1
+        WHERE name ILIKE $1
       `;
       const params: any[] = [`%${query}%`];
 
@@ -597,14 +627,25 @@ export const searchSamplesByCulture = api(
 
       sqlQuery += ` ORDER BY created_at DESC LIMIT 20`;
 
-      const samples = await musicDB.rawQueryAll<Sample>(sqlQuery, ...params);
+      const rawSamples = await musicDB.rawQueryAll<any>(sqlQuery, ...params);
 
-      return {
-        samples: samples.map(s => ({
-          ...s,
-          fileUrl: s.fileUrl ? sampleLibrary.publicUrl(s.fileUrl) : undefined
-        }))
-      };
+      // Map database snake_case to TypeScript camelCase
+      const samples: Sample[] = rawSamples.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        category: s.category,
+        genre: s.genre,
+        fileUrl: s.file_url ? sampleLibrary.publicUrl(s.file_url) : undefined,
+        bpm: s.bpm,
+        keySignature: s.key_signature,
+        durationSeconds: s.duration_seconds,
+        tags: s.tags,
+        description: s.description,
+        culturalSignificance: s.cultural_significance,
+        createdAt: s.created_at
+      }));
+
+      return { samples };
 
     } catch (error) {
       log.error("Cultural search failed", { error: (error as Error).message, query });
@@ -612,3 +653,6 @@ export const searchSamplesByCulture = api(
     }
   }
 );
+
+// Alias for backwards compatibility
+export const searchSamplesByCulturalContext = searchSamplesByCulture;
