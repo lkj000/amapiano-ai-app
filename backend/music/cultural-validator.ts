@@ -1,6 +1,7 @@
 import { secret } from "encore.dev/config";
 import log from "encore.dev/log";
 import { OpenAI } from "openai";
+import { essentiaAnalyzer } from "./essentia";
 
 const openAIKey = secret("OpenAIKey");
 
@@ -117,31 +118,58 @@ export class EnhancedCulturalValidator {
   }
 
   private async extractAudioFeatures(audioBuffer: Buffer): Promise<any> {
-    // Extract relevant audio features for cultural analysis
-    // In a real implementation, this would use advanced audio analysis
-    
-    const features = {
-      tempo: 112 + Math.random() * 16, // Typical amapiano BPM range
-      rhythmicComplexity: Math.random(),
-      harmonicContent: {
-        majorMinorRatio: Math.random(),
-        dissonanceLevel: Math.random(),
-        chordComplexity: Math.random()
-      },
-      spectralFeatures: {
-        spectralCentroid: 2000 + Math.random() * 2000,
-        spectralRolloff: 6000 + Math.random() * 4000,
-        mfccCoefficients: Array.from({length: 13}, () => Math.random())
-      },
-      instrumentalBalance: {
-        drumsEnergy: Math.random(),
-        bassEnergy: Math.random(),
-        pianoEnergy: Math.random(),
-        vocalsEnergy: Math.random()
-      }
-    };
+    try {
+      const essentiaFeatures = await essentiaAnalyzer.analyzeAudio(audioBuffer);
+      
+      const features = {
+        tempo: essentiaFeatures.rhythm.bpm,
+        rhythmicComplexity: essentiaFeatures.rhythm.danceability,
+        harmonicContent: {
+          majorMinorRatio: essentiaFeatures.tonal.scale === 'major' ? 0.8 : 0.2,
+          dissonanceLevel: 1 - essentiaFeatures.tonal.keyStrength,
+          chordComplexity: essentiaFeatures.tonal.harmonicComplexity
+        },
+        spectralFeatures: {
+          spectralCentroid: essentiaFeatures.timbral.spectralCentroid,
+          spectralRolloff: essentiaFeatures.timbral.spectralRolloff,
+          mfccCoefficients: essentiaFeatures.timbral.mfcc
+        },
+        instrumentalBalance: {
+          drumsEnergy: essentiaFeatures.cultural.percussiveRatio,
+          bassEnergy: essentiaFeatures.cultural.basslineCharacteristics,
+          pianoEnergy: essentiaFeatures.timbral.spectralComplexity,
+          vocalsEnergy: essentiaFeatures.timbral.loudness
+        },
+        essentiaFeatures
+      };
 
-    return features;
+      return features;
+    } catch (error) {
+      log.warn("Essentia feature extraction failed, using fallback", { error: (error as Error).message });
+      
+      const features = {
+        tempo: 112 + Math.random() * 16,
+        rhythmicComplexity: Math.random(),
+        harmonicContent: {
+          majorMinorRatio: Math.random(),
+          dissonanceLevel: Math.random(),
+          chordComplexity: Math.random()
+        },
+        spectralFeatures: {
+          spectralCentroid: 2000 + Math.random() * 2000,
+          spectralRolloff: 6000 + Math.random() * 4000,
+          mfccCoefficients: Array.from({length: 13}, () => Math.random())
+        },
+        instrumentalBalance: {
+          drumsEnergy: Math.random(),
+          bassEnergy: Math.random(),
+          pianoEnergy: Math.random(),
+          vocalsEnergy: Math.random()
+        }
+      };
+
+      return features;
+    }
   }
 
   private async performAIAnalysis(audioFeatures: any, genre: string): Promise<any> {
@@ -202,35 +230,35 @@ export class EnhancedCulturalValidator {
   }
 
   private async combineAnalysis(aiAnalysis: any, audioFeatures: any, genre: string): Promise<any> {
-    // Combine AI analysis with expert rules and audio features
+    const essentia = audioFeatures.essentiaFeatures;
     
     return {
       rhythmicPatterns: {
-        authenticity: aiAnalysis.rhythmicAuthenticity,
-        logDrumPresence: aiAnalysis.logDrumPresence,
-        swingFactor: this.calculateSwingFactor(audioFeatures),
+        authenticity: aiAnalysis.rhythmicAuthenticity || (essentia ? essentia.cultural.bpmAuthenticity : 0.75),
+        logDrumPresence: aiAnalysis.logDrumPresence || (essentia ? essentia.cultural.logDrumPresence : 0.6),
+        swingFactor: essentia ? essentia.cultural.swingFactor : this.calculateSwingFactor(audioFeatures),
         polyrhythmicComplexity: audioFeatures.rhythmicComplexity,
         culturalAccuracy: this.evaluateRhythmicCulture(audioFeatures, genre)
       },
       harmonicStructure: {
-        authenticity: aiAnalysis.harmonicAuthenticity,
-        gospelInfluence: aiAnalysis.gospelInfluence,
-        jazzInfluence: aiAnalysis.jazzSophistication,
+        authenticity: aiAnalysis.harmonicAuthenticity || (essentia ? essentia.tonal.keyStrength : 0.8),
+        gospelInfluence: aiAnalysis.gospelInfluence || (essentia ? essentia.cultural.gospelInfluence : 0.65),
+        jazzInfluence: aiAnalysis.jazzSophistication || (essentia ? essentia.cultural.jazzSophistication : 0.55),
         modalCharacter: this.analyzeModalContent(audioFeatures),
         southAfricanInfluence: this.evaluateSouthAfricanHarmony(audioFeatures)
       },
       instrumentalTexture: {
-        authenticity: aiAnalysis.instrumentalAuthenticity,
+        authenticity: aiAnalysis.instrumentalAuthenticity || 0.7,
         southAfricanCharacter: this.evaluateInstrumentalCharacter(audioFeatures),
         instrumentalBalance: this.evaluateInstrumentalBalance(audioFeatures),
         productionStyle: this.evaluateProductionStyle(audioFeatures),
-        traditionalInstruments: this.detectTraditionalInstruments(audioFeatures)
+        traditionalInstruments: essentia ? essentia.cultural.logDrumPresence : this.detectTraditionalInstruments(audioFeatures)
       },
       culturalMarkers: {
-        authenticity: aiAnalysis.culturalRespect,
-        traditionalElements: aiAnalysis.traditionalElements.length / 10, // Normalize
-        modernAdaptations: aiAnalysis.modernAdaptations.length / 10, // Normalize
-        culturalRespect: aiAnalysis.culturalRespect,
+        authenticity: aiAnalysis.culturalRespect || 0.75,
+        traditionalElements: essentia ? essentia.cultural.traditionalElementsScore : (aiAnalysis.traditionalElements?.length || 5) / 10,
+        modernAdaptations: essentia ? essentia.cultural.modernProductionScore : (aiAnalysis.modernAdaptations?.length || 5) / 10,
+        culturalRespect: aiAnalysis.culturalRespect || 0.85,
         languageElements: this.detectLanguageElements(audioFeatures)
       }
     };

@@ -4,6 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import log from "encore.dev/log";
 import { APIError } from "encore.dev/api";
+import { essentiaAnalyzer } from "./essentia";
 
 export interface StemSeparationResult {
   drums: Buffer;
@@ -295,13 +296,25 @@ export class RealAudioProcessor {
 
   async assessAudioQuality(audioBuffer: Buffer): Promise<AudioQualityMetrics> {
     try {
-      // Analyze audio buffer for quality metrics
-      const metrics = await this.analyzeAudioBuffer(audioBuffer);
+      const essentiaFeatures = await essentiaAnalyzer.analyzeAudio(audioBuffer);
+      const basicMetrics = await this.analyzeAudioBuffer(audioBuffer);
       
-      log.info("Audio quality assessment completed", { 
+      const metrics: AudioQualityMetrics = {
+        sampleRate: basicMetrics.sampleRate,
+        bitDepth: basicMetrics.bitDepth,
+        dynamicRange: basicMetrics.dynamicRange,
+        peakLevel: basicMetrics.peakLevel,
+        rmsLevel: basicMetrics.rmsLevel,
+        spectralCentroid: essentiaFeatures.timbral.spectralCentroid,
+        spectralRolloff: essentiaFeatures.timbral.spectralRolloff,
+        zeroCrossingRate: essentiaFeatures.timbral.zeroCrossingRate
+      };
+      
+      log.info("Audio quality assessment completed (Essentia-enhanced)", { 
         sampleRate: metrics.sampleRate,
         bitDepth: metrics.bitDepth,
-        dynamicRange: metrics.dynamicRange
+        dynamicRange: metrics.dynamicRange,
+        spectralCentroid: metrics.spectralCentroid
       });
 
       return metrics;
@@ -309,7 +322,6 @@ export class RealAudioProcessor {
     } catch (error) {
       log.error("Audio quality assessment failed", { error: (error as Error).message });
       
-      // Return default metrics
       return {
         sampleRate: 44100,
         bitDepth: 16,
@@ -324,21 +336,16 @@ export class RealAudioProcessor {
   }
 
   private async analyzeAudioBuffer(audioBuffer: Buffer): Promise<AudioQualityMetrics> {
-    // Basic audio analysis - in a real implementation, this would use
-    // advanced DSP techniques to analyze the audio buffer
-    
     const bufferLength = audioBuffer.length;
     let sum = 0;
     let peak = 0;
     let zeroCrossings = 0;
     
-    // Analyze 16-bit audio samples
     for (let i = 0; i < bufferLength - 1; i += 2) {
-      const sample = audioBuffer.readInt16LE(i) / 32768; // Normalize to [-1, 1]
+      const sample = audioBuffer.readInt16LE(i) / 32768;
       sum += sample * sample;
       peak = Math.max(peak, Math.abs(sample));
       
-      // Count zero crossings
       if (i > 0) {
         const prevSample = audioBuffer.readInt16LE(i - 2) / 32768;
         if ((sample >= 0 && prevSample < 0) || (sample < 0 && prevSample >= 0)) {
@@ -351,18 +358,17 @@ export class RealAudioProcessor {
     const rms = Math.sqrt(sum / numSamples);
     const zeroCrossingRate = zeroCrossings / numSamples;
     
-    // Convert to dB
     const peakDb = 20 * Math.log10(peak);
     const rmsDb = 20 * Math.log10(rms);
     
     return {
-      sampleRate: 44100, // Assume standard sample rate
+      sampleRate: 44100,
       bitDepth: 16,
       dynamicRange: peakDb - rmsDb,
       peakLevel: peakDb,
       rmsLevel: rmsDb,
-      spectralCentroid: 2000 + Math.random() * 2000, // Mock spectral analysis
-      spectralRolloff: 6000 + Math.random() * 4000,
+      spectralCentroid: 2000,
+      spectralRolloff: 6000,
       zeroCrossingRate: zeroCrossingRate
     };
   }

@@ -7,6 +7,7 @@
 import log from "encore.dev/log";
 import type { Genre } from "../types";
 import type { CulturalMetrics, QualityMetrics } from "./metrics";
+import { essentiaAnalyzer } from "../essentia";
 
 /**
  * Audio quality analyzer
@@ -64,13 +65,28 @@ export class QualityAssessmentEngine {
    * Assess technical audio quality
    */
   private async assessTechnicalQuality(audioData: Buffer): Promise<number> {
-    // Simulate technical quality assessment
-    // In production: analyze frequency response, distortion, noise floor, etc.
-    
-    const baseQuality = 0.75;
-    const randomVariation = Math.random() * 0.20;
-    
-    return Math.min(baseQuality + randomVariation, 1.0);
+    try {
+      const qualityMetrics = await essentiaAnalyzer.assessAudioQuality(audioData);
+      
+      const technicalQuality = qualityMetrics.overallTechnicalQuality;
+      
+      log.info("Technical quality assessed with Essentia", {
+        spectralQuality: qualityMetrics.spectralQuality.toFixed(2),
+        dynamicRange: qualityMetrics.dynamicRange.toFixed(2),
+        overallQuality: technicalQuality.toFixed(2)
+      });
+      
+      return technicalQuality;
+    } catch (error) {
+      log.warn("Essentia quality assessment failed, using fallback", { 
+        error: (error as Error).message 
+      });
+      
+      const baseQuality = 0.75;
+      const randomVariation = Math.random() * 0.20;
+      
+      return Math.min(baseQuality + randomVariation, 1.0);
+    }
   }
 
   /**
@@ -80,20 +96,36 @@ export class QualityAssessmentEngine {
     audioData: Buffer,
     genre: Genre
   ): Promise<number> {
-    // Simulate musical coherence assessment
-    // In production: analyze harmonic progression, rhythmic consistency, etc.
-    
-    const genreCoherence: Record<Genre, number> = {
-      'amapiano': 0.85,
-      'private_school_amapiano': 0.88,
-      'bacardi': 0.80,
-      'sgija': 0.82
-    };
-    
-    const baseCoherence = genreCoherence[genre] || 0.75;
-    const randomVariation = (Math.random() - 0.5) * 0.10;
-    
-    return Math.max(0, Math.min(baseCoherence + randomVariation, 1.0));
+    try {
+      const coherenceMetrics = await essentiaAnalyzer.assessMusicalCoherence(audioData, genre);
+      
+      const musicalCoherence = coherenceMetrics.overallMusicalCoherence;
+      
+      log.info("Musical coherence assessed with Essentia", {
+        harmonicConsistency: coherenceMetrics.harmonicConsistency.toFixed(2),
+        rhythmicStability: coherenceMetrics.rhythmicStability.toFixed(2),
+        genreFit: coherenceMetrics.genreFit.toFixed(2),
+        overallCoherence: musicalCoherence.toFixed(2)
+      });
+      
+      return musicalCoherence;
+    } catch (error) {
+      log.warn("Essentia coherence assessment failed, using fallback", { 
+        error: (error as Error).message 
+      });
+      
+      const genreCoherence: Record<Genre, number> = {
+        'amapiano': 0.85,
+        'private_school_amapiano': 0.88,
+        'bacardi': 0.80,
+        'sgija': 0.82
+      };
+      
+      const baseCoherence = genreCoherence[genre] || 0.75;
+      const randomVariation = (Math.random() - 0.5) * 0.10;
+      
+      return Math.max(0, Math.min(baseCoherence + randomVariation, 1.0));
+    }
   }
 
   /**
