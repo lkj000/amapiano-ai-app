@@ -26,6 +26,7 @@ import SampleBrowserPanel from '../components/daw/SampleBrowserPanel';
 import AutomationLane from '../components/daw/AutomationLane';
 import Waveform from '../components/daw/Waveform';
 import PluginPanel from '../components/daw/PluginPanel';
+import TemplatesSuggestions from '../components/plugin/TemplatesSuggestions';
 import { useAudioEngine } from '../hooks/useAudioEngine';
 import { useCollaboration } from '../hooks/useCollaboration';
 
@@ -728,6 +729,7 @@ export default function DawPage() {
                   </div>
                 </Card>
                 <AIPromptParser prompt={aiPrompt} className="mb-4" />
+                <TemplatesSuggestions prompt={aiPrompt} />
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-muted-foreground">Quick Actions</h4>
                   {aiSuggestions.map((suggestion: string, index: number) => (
