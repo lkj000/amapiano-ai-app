@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,13 +12,14 @@ import {
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '~backend/client';
-import type { DawProjectData, DawTrack } from '~backend/music/types';
+import type { DawProjectData, DawTrack, MidiNote } from '~backend/music/types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import OpenProjectModal from '../components/daw/OpenProjectModal';
 import ProjectSettingsModal from '../components/daw/ProjectSettingsModal';
 import MixerPanel from '../components/daw/MixerPanel';
 import PianoRollPanel from '../components/daw/PianoRollPanel';
+import { useAudioEngine } from '../hooks/useAudioEngine';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -89,8 +90,6 @@ const defaultProjectData: DawProjectData = {
 
 export default function DawPage() {
   const queryClient = useQueryClient();
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [showPianoRoll, setShowPianoRoll] = useState(false);
@@ -109,6 +108,9 @@ export default function DawPage() {
   const [activeProjectId, setActiveProjectId] = useState<number | undefined>();
   const [projectName, setProjectName] = useState("Untitled Project");
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
+
+  // Audio Engine
+  const { isPlaying, currentTime, play, pause, stop, setBpm, setTrackVolume, setMasterVolume } = useAudioEngine(projectData);
 
   // Step 1: Fetch project list
   const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
@@ -162,31 +164,6 @@ export default function DawPage() {
       }
     }
   }, [loadedProject]);
-
-  // Playback simulation effect
-  useEffect(() => {
-    if (!projectData || !isPlaying) return;
-
-    let animationFrameId: number;
-    const totalDuration = (32 * 4 / projectData.bpm) * 60;
-
-    const animatePlayhead = () => {
-      setCurrentTime(prevTime => {
-        let newTime = prevTime + 0.016; // ~60fps update
-        if (newTime >= totalDuration) {
-          if (isLooping) return 0;
-          setIsPlaying(false);
-          return totalDuration;
-        }
-        return newTime;
-      });
-      animationFrameId = requestAnimationFrame(animatePlayhead);
-    };
-
-    animationFrameId = requestAnimationFrame(animatePlayhead);
-
-    return () => cancelAnimationFrame(animationFrameId!);
-  }, [isPlaying, isLooping, projectData]);
 
   const saveMutation = useMutation({
     mutationFn: (data: { name: string; projectData: DawProjectData; projectId?: number }) => backend.music.saveProject(data),
@@ -248,20 +225,15 @@ export default function DawPage() {
   const updateMixer = (trackId: string, updates: Partial<DawTrack['mixer']>) => {
     setProjectData(prev => {
       if (!prev) return null;
-      return {
-        ...prev,
-        tracks: prev.tracks.map(t => t.id === trackId ? { ...t, mixer: { ...t.mixer, ...updates } } : t)
-      };
+      const newTracks = prev.tracks.map(t => t.id === trackId ? { ...t, mixer: { ...t.mixer, ...updates } } : t);
+      
+      // Update audio engine volume in real-time
+      if (updates.volume !== undefined) {
+        setTrackVolume(trackId, updates.volume);
+      }
+
+      return { ...prev, tracks: newTracks };
     });
-  };
-
-  const handleStop = () => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-  };
-
-  const handleSkip = (amount: number) => {
-    setCurrentTime(prev => Math.max(0, prev + amount));
   };
 
   const handleAddTrack = (instrument?: { name: string, type: string, color: string }) => {
@@ -365,9 +337,30 @@ export default function DawPage() {
   const handleUpdateProjectSettings = (updatedData: Partial<DawProjectData>) => {
     if (projectData) {
       setProjectData({ ...projectData, ...updatedData });
+      if (updatedData.bpm) {
+        setBpm(updatedData.bpm);
+      }
       toast.info("Project settings updated. Don't forget to save!");
     }
   };
+
+  const handleUpdateNotes = useCallback((trackId: string, clipId: string, newNotes: MidiNote[]) => {
+    setProjectData(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        tracks: prev.tracks.map(t => {
+          if (t.id === trackId) {
+            return {
+              ...t,
+              clips: t.clips.map(c => c.id === clipId ? { ...c, notes: newNotes } : c)
+            };
+          }
+          return t;
+        })
+      };
+    });
+  }, []);
 
   const instruments = [
     { name: "Signature Log Drum", type: "drums", icon: Drum, description: "Authentic amapiano log drum synthesizer", color: "bg-red-500" },
@@ -595,15 +588,15 @@ export default function DawPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setIsPlaying(!isPlaying)} className="border-white/20 text-white hover:bg-white/10">
+                    <Button variant="outline" size="sm" onClick={isPlaying ? pause : play} className="border-white/20 text-white hover:bg-white/10">
                       {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handleStop} className="border-white/20 text-white hover:bg-white/10"><Square className="w-4 h-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={stop} className="border-white/20 text-white hover:bg-white/10"><Square className="w-4 h-4" /></Button>
                     <Button variant="outline" size="sm" className={isRecording ? "bg-red-500 text-white" : "border-white/20 text-white hover:bg-white/10"} onClick={() => setIsRecording(!isRecording)}>
                       <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-red-500"}`} />
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleSkip(-5)} className="border-white/20 text-white hover:bg-white/10"><SkipBack className="w-4 h-4" /></Button>
-                    <Button variant="outline" size="sm" onClick={() => handleSkip(5)} className="border-white/20 text-white hover:bg-white/10"><SkipForward className="w-4 h-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentTime(0)} className="border-white/20 text-white hover:bg-white/10"><SkipBack className="w-4 h-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => {}} className="border-white/20 text-white hover:bg-white/10"><SkipForward className="w-4 h-4" /></Button>
                     <Button variant="outline" size="sm" onClick={() => setIsLooping(!isLooping)} className={isLooping ? 'bg-yellow-400/20 text-yellow-400 border-yellow-400/30' : 'border-white/20 text-white hover:bg-white/10'}>
                       <RotateCcw className="w-4 h-4" />
                     </Button>
@@ -613,14 +606,18 @@ export default function DawPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">BPM:</span>
                       <div className="w-20">
-                        <Slider value={[projectData.bpm]} onValueChange={([v]) => setProjectData({ ...projectData, bpm: v })} min={80} max={160} step={1} />
+                        <Slider value={[projectData.bpm]} onValueChange={([v]) => handleUpdateProjectSettings({ bpm: v })} min={80} max={160} step={1} />
                       </div>
                       <span className="text-sm text-white/70 w-8">{projectData.bpm}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Volume2 className="w-4 h-4" />
                       <div className="w-20">
-                        <Slider value={[projectData.masterVolume * 100]} onValueChange={([v]) => setProjectData({ ...projectData, masterVolume: v / 100 })} />
+                        <Slider value={[projectData.masterVolume * 100]} onValueChange={([v]) => {
+                          const newVolume = v / 100;
+                          setProjectData({ ...projectData, masterVolume: newVolume });
+                          setMasterVolume(newVolume);
+                        }} />
                       </div>
                       <span className="text-sm text-white/70 w-8">{Math.round(projectData.masterVolume * 100)}</span>
                     </div>
@@ -714,8 +711,11 @@ export default function DawPage() {
         {/* Modals and Panels */}
         <OpenProjectModal isOpen={isOpenProjectOpen} onClose={() => setIsOpenProjectOpen(false)} onLoadProject={setActiveProjectId} />
         {projectData && <ProjectSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} projectData={projectData} onSave={handleUpdateProjectSettings} />}
-        {showMixer && projectData && <MixerPanel tracks={projectData.tracks} masterVolume={projectData.masterVolume} onClose={() => setShowMixer(false)} onTrackVolumeChange={(trackId, volume) => updateMixer(trackId, { volume })} onMasterVolumeChange={(volume) => setProjectData({ ...projectData, masterVolume: volume })} />}
-        {showPianoRoll && <PianoRollPanel selectedTrack={selectedTrack} onClose={() => setShowPianoRoll(false)} />}
+        {showMixer && projectData && <MixerPanel tracks={projectData.tracks} masterVolume={projectData.masterVolume} onClose={() => setShowMixer(false)} onTrackVolumeChange={(trackId, volume) => updateMixer(trackId, { volume })} onMasterVolumeChange={(volume) => {
+          setProjectData({ ...projectData, masterVolume: volume });
+          setMasterVolume(volume);
+        }} />}
+        {showPianoRoll && <PianoRollPanel selectedTrack={selectedTrack} onClose={() => setShowPianoRoll(false)} onUpdateNotes={handleUpdateNotes} />}
       </div>
     </div>
   );
