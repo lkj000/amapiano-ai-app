@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Download, BookOpen, Music, TrendingUp, Heart, Pause, AlertCircle, Volume2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Play, Download, BookOpen, Music, TrendingUp, Heart, Pause, AlertCircle, Volume2, Sparkles, Info, Lightbulb, Target, Award } from 'lucide-react';
 import backend from '~backend/client';
 import type { Genre } from '~backend/music/types';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -18,6 +21,14 @@ export default function PatternsPage() {
   const [chordComplexity, setChordComplexity] = useState<'simple' | 'intermediate' | 'advanced' | ''>('');
   const [drumStyle, setDrumStyle] = useState<'classic' | 'modern' | 'minimal' | ''>('');
   const [playingPattern, setPlayingPattern] = useState<{ id: number; audio: HTMLAudioElement } | null>(null);
+  
+  // Recommendation state
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const [projectBpm, setProjectBpm] = useState('118');
+  const [projectKey, setProjectKey] = useState('C');
+  const [userSkillLevel, setUserSkillLevel] = useState<'beginner' | 'intermediate' | 'advanced' | 'expert'>('intermediate');
+  const [culturalPreference, setCulturalPreference] = useState<'traditional' | 'modern' | 'fusion'>('traditional');
+  const [creativeGoal, setCreativeGoal] = useState<'learning' | 'production' | 'experimentation'>('production');
 
   useEffect(() => {
     return () => {
@@ -43,6 +54,41 @@ export default function PatternsPage() {
     }),
   });
 
+  // Pattern Recommendations
+  const { data: recommendations, isLoading: isLoadingRecommendations, refetch: refetchRecommendations } = useQuery({
+    queryKey: ['patternRecommendations', selectedGenre, projectBpm, projectKey, userSkillLevel],
+    queryFn: () => backend.music.getPatternRecommendations({
+      context: {
+        currentProject: {
+          genre: selectedGenre,
+          bpm: parseInt(projectBpm) || undefined,
+          keySignature: projectKey,
+          existingPatterns: [],
+          complexity: userSkillLevel
+        },
+        userPreferences: {
+          favoritePatterns: [],
+          culturalAuthenticity: culturalPreference,
+          skillLevel: userSkillLevel
+        },
+        creativeGoal: creativeGoal
+      },
+      limit: 10
+    }),
+    enabled: showRecommendations
+  });
+
+  const trackUsageMutation = useMutation({
+    mutationFn: (data: { patternId: string; success: boolean }) => 
+      backend.music.trackPatternUsage(data),
+    onSuccess: () => {
+      toast({
+        title: "Usage Tracked",
+        description: "Pattern usage recorded for improving recommendations",
+      });
+    }
+  });
+
   const handlePlay = (patternId: number, patternName: string, type: 'chord' | 'drum') => {
     if (playingPattern && playingPattern.id === patternId) {
       playingPattern.audio.pause();
@@ -62,8 +108,8 @@ export default function PatternsPage() {
     gainNode.connect(audioContext.destination);
     
     const frequencies = {
-      chord: 261.63, // C4
-      drum: 130.81,  // C3
+      chord: 261.63,
+      drum: 130.81,
     };
     
     oscillator.frequency.setValueAtTime(frequencies[type], audioContext.currentTime);
@@ -113,12 +159,28 @@ export default function PatternsPage() {
     });
   };
 
+  const handleUsePattern = (patternId: number, patternName: string) => {
+    trackUsageMutation.mutate({ patternId: patternId.toString(), success: true });
+    
+    toast({
+      title: "Pattern Applied",
+      description: `${patternName} added to your project`,
+    });
+  };
+
   const getComplexityColor = (complexity: string) => {
     switch (complexity.toLowerCase()) {
-      case "simple": return "bg-green-500/20 text-green-400 border-green-500/30";
-      case "intermediate": return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
-      case "advanced": return "bg-red-500/20 text-red-400 border-red-500/30";
-      default: return "bg-gray-500/20 text-gray-400";
+      case "simple": 
+      case "beginner": 
+        return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "intermediate": 
+        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "advanced": 
+        return "bg-orange-500/20 text-orange-400 border-orange-500/30";
+      case "expert":
+        return "bg-red-500/20 text-red-400 border-red-500/30";
+      default: 
+        return "bg-gray-500/20 text-gray-400";
     }
   };
 
@@ -137,14 +199,299 @@ export default function PatternsPage() {
     return colors[style as keyof typeof colors] || 'bg-gray-500/20 text-gray-400';
   };
 
+  const RecommendationCard = ({ rec, category }: { rec: any; category: string }) => (
+    <Card className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border-purple-500/30 hover:border-purple-500/50 transition-all">
+      <CardHeader>
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex-1">
+            <CardTitle className="text-white flex items-center gap-2">
+              {rec.pattern.name}
+              <Badge className="bg-purple-600">
+                {(rec.relevanceScore * 100).toFixed(0)}% Match
+              </Badge>
+            </CardTitle>
+            <CardDescription className="mt-2">
+              {category === 'culturally' && <Award className="inline h-4 w-4 mr-1 text-yellow-400" />}
+              {category === 'progressive' && <Target className="inline h-4 w-4 mr-1 text-green-400" />}
+              {rec.pattern.description}
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Reasoning */}
+        {rec.reasoning && rec.reasoning.length > 0 && (
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Info className="h-4 w-4 text-blue-400" />
+              <span className="text-sm font-medium text-blue-400">Why This Pattern?</span>
+            </div>
+            <ul className="space-y-1">
+              {rec.reasoning.slice(0, 3).map((reason: string, idx: number) => (
+                <li key={idx} className="text-sm text-white/80 flex items-start gap-2">
+                  <span className="text-blue-400">•</span>
+                  <span>{reason}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Music Theory */}
+        {rec.musicTheory && (
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="h-4 w-4 text-yellow-400" />
+              <span className="text-sm font-medium text-yellow-400">Music Theory</span>
+            </div>
+            <p className="text-sm text-white/80">{rec.musicTheory}</p>
+          </div>
+        )}
+
+        {/* Cultural Context */}
+        {rec.culturalContext && (
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Award className="h-4 w-4 text-purple-400" />
+              <span className="text-sm font-medium text-purple-400">Cultural Context</span>
+            </div>
+            <p className="text-sm text-white/80">{rec.culturalContext}</p>
+          </div>
+        )}
+
+        {/* Usage Example */}
+        {rec.usageExample && (
+          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Lightbulb className="h-4 w-4 text-green-400" />
+              <span className="text-sm font-medium text-green-400">How to Use</span>
+            </div>
+            <p className="text-sm text-white/80">{rec.usageExample}</p>
+          </div>
+        )}
+
+        {/* Badges */}
+        <div className="flex gap-2 flex-wrap">
+          <Badge className={getComplexityColor(rec.difficulty)}>
+            {rec.difficulty}
+          </Badge>
+          {rec.pattern.culturalSignificance && rec.pattern.culturalSignificance >= 0.8 && (
+            <Badge className="bg-yellow-600">
+              Culturally Significant
+            </Badge>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          <Button 
+            size="sm" 
+            className="bg-purple-600 hover:bg-purple-700 flex-1"
+            onClick={() => handleUsePattern(rec.pattern.id, rec.pattern.name)}
+          >
+            <Music className="h-3 w-3 mr-1" />
+            Use This Pattern
+          </Button>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="border-white/20 text-white"
+            onClick={() => handleDownload(rec.pattern.name)}
+          >
+            <Download className="w-3 h-3" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-8">
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-white">Pattern Library</h1>
         <p className="text-white/80 max-w-2xl mx-auto">
-          Learn from 1,000+ chord progressions and drum patterns with cultural context and complexity ratings.
+          Learn from 1,000+ chord progressions and drum patterns with AI-powered recommendations and cultural context.
         </p>
       </div>
+
+      {/* AI Recommendations Section */}
+      <Card className="bg-gradient-to-br from-purple-500/20 to-blue-500/20 border-purple-500/30">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-purple-400" />
+            AI-Powered Pattern Recommendations
+          </CardTitle>
+          <CardDescription>
+            Get personalized pattern suggestions based on your project context and skill level
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Dialog open={showRecommendations} onOpenChange={setShowRecommendations}>
+            <DialogTrigger asChild>
+              <Button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                <Sparkles className="h-4 w-4 mr-2" />
+                Get Personalized Recommendations
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-900 border-gray-700">
+              <DialogHeader>
+                <DialogTitle className="text-white flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-purple-400" />
+                  Configure Your Recommendations
+                </DialogTitle>
+                <DialogDescription>
+                  Tell us about your project to get the most relevant pattern suggestions
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6 mt-4">
+                {/* Project Context */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-white">Project BPM</Label>
+                    <Input 
+                      type="number" 
+                      value={projectBpm}
+                      onChange={(e) => setProjectBpm(e.target.value)}
+                      className="bg-white/10 border-white/20 text-white"
+                      placeholder="118"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-white">Key Signature</Label>
+                    <Select value={projectKey} onValueChange={setProjectKey}>
+                      <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].map(key => (
+                          <SelectItem key={key} value={key}>{key}</SelectItem>
+                        ))}
+                        {['Cm', 'Dm', 'Em', 'Fm', 'Gm', 'Am', 'Bm'].map(key => (
+                          <SelectItem key={key} value={key}>{key}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* User Preferences */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-white">Your Skill Level</Label>
+                    <Select value={userSkillLevel} onValueChange={(value: any) => setUserSkillLevel(value)}>
+                      <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="beginner">Beginner</SelectItem>
+                        <SelectItem value="intermediate">Intermediate</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
+                        <SelectItem value="expert">Expert</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-white">Cultural Preference</Label>
+                    <Select value={culturalPreference} onValueChange={(value: any) => setCulturalPreference(value)}>
+                      <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="traditional">Traditional/Authentic</SelectItem>
+                        <SelectItem value="modern">Modern</SelectItem>
+                        <SelectItem value="fusion">Fusion</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-white">Creative Goal</Label>
+                  <Select value={creativeGoal} onValueChange={(value: any) => setCreativeGoal(value)}>
+                    <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="learning">Learning & Education</SelectItem>
+                      <SelectItem value="production">Music Production</SelectItem>
+                      <SelectItem value="experimentation">Experimentation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button 
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                  onClick={() => refetchRecommendations()}
+                  disabled={isLoadingRecommendations}
+                >
+                  {isLoadingRecommendations ? (
+                    <>
+                      <LoadingSpinner />
+                      Generating Recommendations...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate Recommendations
+                    </>
+                  )}
+                </Button>
+
+                {/* Recommendations Display */}
+                {recommendations && (
+                  <div className="space-y-6 mt-6">
+                    {/* Primary Recommendations */}
+                    {recommendations.primary && recommendations.primary.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                          <TrendingUp className="h-5 w-5 text-purple-400" />
+                          Top Recommendations for You
+                        </h3>
+                        <div className="grid gap-4">
+                          {recommendations.primary.slice(0, 3).map((rec: any, idx: number) => (
+                            <RecommendationCard key={idx} rec={rec} category="primary" />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Progressive Learning */}
+                    {recommendations.progressive && recommendations.progressive.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                          <Target className="h-5 w-5 text-green-400" />
+                          Challenge Yourself (Next Level)
+                        </h3>
+                        <div className="grid gap-4">
+                          {recommendations.progressive.map((rec: any, idx: number) => (
+                            <RecommendationCard key={idx} rec={rec} category="progressive" />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Culturally Significant */}
+                    {recommendations.culturallySignificant && recommendations.culturallySignificant.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                          <Award className="h-5 w-5 text-yellow-400" />
+                          Culturally Significant Patterns
+                        </h3>
+                        <div className="grid gap-4">
+                          {recommendations.culturallySignificant.slice(0, 2).map((rec: any, idx: number) => (
+                            <RecommendationCard key={idx} rec={rec} category="culturally" />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </CardContent>
+      </Card>
 
       <Card className="bg-blue-400/10 border-blue-400/20">
         <CardContent className="p-4">
@@ -153,8 +500,8 @@ export default function PatternsPage() {
             <div className="text-blue-400 font-medium">Demo Mode</div>
           </div>
           <p className="text-white/80 text-sm mt-2">
-            This is a demonstration of the pattern library interface. In the full version, you'll hear actual musical patterns and download real MIDI files. 
-            Currently, play buttons generate demo tones and downloads create placeholder files.
+            Pattern recommendations are powered by AI and provide personalized suggestions based on your context.
+            In demo mode, play buttons generate tones and downloads create placeholder files.
           </p>
         </CardContent>
       </Card>

@@ -1,10 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Radio, Search, Library, Layers, Music, Sparkles, SlidersHorizontal } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Radio, Search, Library, Layers, Music, Sparkles, SlidersHorizontal, BarChart3, Zap, TrendingUp, Award } from 'lucide-react';
+import backend from '~backend/client';
 
 export default function HomePage() {
+  const { data: researchStats } = useQuery({
+    queryKey: ['researchDashboard'],
+    queryFn: () => backend.music.getResearchDashboard(),
+    refetchInterval: 60000
+  });
+
   const features = [
     {
       icon: SlidersHorizontal,
@@ -37,9 +46,16 @@ export default function HomePage() {
     {
       icon: Layers,
       title: 'Pattern Library',
-      description: 'Explore chord progressions, drum patterns, and musical structures.',
+      description: 'Explore chord progressions, drum patterns with AI recommendations.',
       link: '/patterns',
       color: 'text-purple-400'
+    },
+    {
+      icon: BarChart3,
+      title: 'Research Dashboard',
+      description: 'View real-time research metrics and doctoral thesis experiments.',
+      link: '/research',
+      color: 'text-blue-400'
     }
   ];
 
@@ -86,7 +102,7 @@ export default function HomePage() {
       </div>
 
       {/* Features Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {features.map((feature, index) => (
           <Link key={index} to={feature.link}>
             <Card className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors cursor-pointer h-full flex flex-col">
@@ -103,6 +119,70 @@ export default function HomePage() {
           </Link>
         ))}
       </div>
+
+      {/* Research Highlights */}
+      {researchStats && (
+        <Card className="bg-gradient-to-br from-purple-500/20 to-blue-500/20 border-purple-500/30">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Zap className="h-5 w-5 text-purple-400" />
+              PhD Research Highlights
+            </CardTitle>
+            <CardDescription>
+              Real-time metrics from doctoral thesis research infrastructure
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white/5 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="h-4 w-4 text-green-400" />
+                  <span className="text-sm text-white/70">Performance</span>
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {researchStats.performance?.averageLatency.toFixed(0)}ms
+                </div>
+                <p className="text-xs text-green-400 mt-1">
+                  {researchStats.performance?.latencyReduction.toFixed(1)}% faster
+                </p>
+              </div>
+
+              <div className="bg-white/5 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Award className="h-4 w-4 text-purple-400" />
+                  <span className="text-sm text-white/70">Cultural Authenticity</span>
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {(researchStats.cultural?.averageAuthenticity * 100 || 0).toFixed(1)}%
+                </div>
+                <Badge className="bg-purple-600 text-xs mt-2">
+                  {researchStats.cultural?.expertPanelSize || 0} Experts
+                </Badge>
+              </div>
+
+              <div className="bg-white/5 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart3 className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm text-white/70">Total Experiments</span>
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  {researchStats.overview?.totalExperiments || 0}
+                </div>
+                <p className="text-xs text-blue-400 mt-1">
+                  {researchStats.overview?.activeExperiments || 0} active
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 text-center">
+              <Link to="/research">
+                <Button variant="outline" className="border-purple-500/30 text-purple-400 hover:bg-purple-500/20">
+                  View Full Research Dashboard
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Genre Information */}
       <div className="space-y-8">
