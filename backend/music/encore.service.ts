@@ -1,3 +1,4 @@
+// Amapiano AI Music Service - Fixed AI SDK dependencies
 import { Service } from "encore.dev/service";
 import { auraXCore } from "./aura-x/core";
 import { AuraXCulturalValidator } from "./aura-x/cultural-validator";

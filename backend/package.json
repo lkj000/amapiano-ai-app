@@ -4,16 +4,13 @@
   "type": "module",
   "packageManager": "bun",
   "scripts": {
-    "build": "cd ../frontend \u0026\u0026 bun install \u0026\u0026 vite build --outDir=../backend/frontend/dist"
+    "build": "cd ../frontend \u0026\u0026 bun install \u0026\u0026 npx vite build --outDir=../backend/frontend/dist"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^2.0.52",
-    "ai": "^5.0.72",
-    "encore.dev": "^1.50.6",
-    "openai": "^^4.90.0",
-    "zod": "^^3.24.2"
+    "encore.dev": "^1.51.6",
+    "openai": "^4.90.0"
   },
   "devDependencies": {
-    "typescript": "^^5.8.3"
+    "typescript": "^5.8.3"
   }
 }

@@ -1,8 +1,6 @@
 import { secret } from "encore.dev/config";
 import log from "encore.dev/log";
-import { generateObject, generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-import { z } from "zod";
+import { OpenAI } from "openai";
 
 const openAIKey = secret("OpenAIKey");
 
@@ -43,28 +41,14 @@ interface CulturalAnalysisResult {
   };
 }
 
-const CulturalAnalysisSchema = z.object({
-  rhythmicAuthenticity: z.number().min(0).max(1),
-  harmonicAuthenticity: z.number().min(0).max(1),
-  instrumentalAuthenticity: z.number().min(0).max(1),
-  culturalRespect: z.number().min(0).max(1),
-  logDrumPresence: z.number().min(0).max(1),
-  gospelInfluence: z.number().min(0).max(1),
-  jazzSophistication: z.number().min(0).max(1),
-  traditionalElements: z.array(z.string()),
-  modernAdaptations: z.array(z.string()),
-  recommendations: z.array(z.string()),
-  overallScore: z.number().min(0).max(1)
-});
-
 export class EnhancedCulturalValidator {
-  private openai: any;
+  private openai: OpenAI;
   private culturalKnowledgeBase: Map<string, any>;
   private authenticityThresholds: Map<string, number>;
   private expertRules: Map<string, any>;
 
   constructor() {
-    this.openai = createOpenAI({ apiKey: openAIKey() });
+    this.openai = new OpenAI({ apiKey: openAIKey() });
     this.culturalKnowledgeBase = new Map();
     this.authenticityThresholds = new Map();
     this.expertRules = new Map();
@@ -181,13 +165,21 @@ export class EnhancedCulturalValidator {
         and how modern adaptations maintain cultural integrity.
       `;
 
-      const result = await generateObject({
-        model: this.openai("gpt-4o"),
-        prompt,
-        schema: CulturalAnalysisSchema,
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are an expert in Amapiano music and South African cultural traditions. Analyze audio features and return cultural analysis in JSON format." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
       });
 
-      return result.object;
+      const content = completion.choices[0].message.content;
+      if (!content) {
+        throw new Error("AI returned empty content.");
+      }
+
+      return JSON.parse(content);
 
     } catch (error) {
       log.warn("AI cultural analysis failed, using fallback", { error: (error as Error).message });
@@ -377,10 +369,15 @@ export class EnhancedCulturalValidator {
         Focus on maintaining cultural integrity while allowing for artistic innovation.
       `;
 
-      const result = await generateText({
-        model: this.openai("gpt-4o"),
-        prompt,
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are an expert in Amapiano music and South African cultural traditions. Provide cultural insights and recommendations." },
+          { role: "user", content: prompt }
+        ],
       });
+
+      const result = { text: completion.choices[0].message.content || "" };
 
       // Parse the AI response (in a real implementation, you'd use structured output)
       const culturalElements = this.extractCulturalElements(analysis);

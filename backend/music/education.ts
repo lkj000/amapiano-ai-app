@@ -1,9 +1,7 @@
 import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
-import { generateText, generateObject } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import { secret } from "encore.dev/config";
-import { z } from "zod";
+import { OpenAI } from "openai";
 import { auraXCore } from "./encore.service";
 import type { AuraXContext } from "./aura-x/types";
 import log from "encore.dev/log";
@@ -88,34 +86,11 @@ export interface UserProgress {
   lastActivity: Date;
 }
 
-const TutorialGenerationSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-  difficulty: z.enum(['beginner', 'intermediate', 'advanced', 'expert']),
-  category: z.enum(['production', 'cultural_history', 'music_theory', 'mixing', 'arrangement']),
-  content: z.string(),
-  learningObjectives: z.array(z.string()),
-  estimatedTimeMinutes: z.number(),
-  tags: z.array(z.string()),
-  prerequisites: z.array(z.string()).optional()
-});
-
-const CulturalInsightSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-  culturalContext: z.string(),
-  musicalElements: z.array(z.string()),
-  historicalBackground: z.string(),
-  modernRelevance: z.string(),
-  relatedGenres: z.array(z.string()),
-  keyFigures: z.array(z.string())
-});
-
 export class EducationService {
-  private openai: any;
+  private openai: OpenAI;
 
   constructor() {
-    this.openai = createOpenAI({ apiKey: openAIKey() });
+    this.openai = new OpenAI({ apiKey: openAIKey() });
   }
 
   async generateEducationalContent(
@@ -186,11 +161,21 @@ export class EducationService {
         Include specific techniques, cultural insights, and learning objectives.
       `;
 
-      const result = await generateObject({
-        model: this.openai("gpt-4o"),
-        prompt,
-        schema: TutorialGenerationSchema,
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are an expert in Amapiano music production and education. Generate educational content in JSON format matching the requested schema." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
       });
+
+      const content = completion.choices[0].message.content;
+      if (!content) {
+        throw new Error("AI returned empty content.");
+      }
+
+      const result = { object: JSON.parse(content) };
 
       // Store in database
       const contentResult = await musicDB.queryRow<{ id: number; created_at: Date }>`
@@ -268,11 +253,21 @@ export class EducationService {
         gospel influences, jazz heritage, and township music history.
       `;
 
-      const result = await generateObject({
-        model: this.openai("gpt-4o"),
-        prompt,
-        schema: CulturalInsightSchema,
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are an expert in Amapiano music and South African cultural traditions. Generate cultural insights in JSON format matching the requested schema." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
       });
+
+      const content = completion.choices[0].message.content;
+      if (!content) {
+        throw new Error("AI returned empty content.");
+      }
+
+      const result = { object: JSON.parse(content) };
 
       // Store in database
       const insightResult = await musicDB.queryRow<{ id: number; created_at: Date }>`
@@ -405,10 +400,15 @@ export class EducationService {
         after completing this learning path.
       `;
 
-      const result = await generateText({
-        model: this.openai("gpt-4o"),
-        prompt,
+      const completion = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are an expert in Amapiano music education. Generate clear learning outcomes based on the content provided." },
+          { role: "user", content: prompt }
+        ],
       });
+
+      const result = { text: completion.choices[0].message.content || "" };
 
       // Parse outcomes from the response
       const outcomes = result.text
