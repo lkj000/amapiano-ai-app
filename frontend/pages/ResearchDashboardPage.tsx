@@ -19,7 +19,9 @@ import {
   LineChart,
   Network,
   TrendingUp,
-  Zap
+  Zap,
+  Disc,
+  MapPin
 } from 'lucide-react';
 
 export default function ResearchDashboardPage() {
@@ -155,6 +157,7 @@ export default function ResearchDashboardPage() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="bg-gray-800">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="essentia">Essentia Analysis</TabsTrigger>
           <TabsTrigger value="caq">CAQ Framework</TabsTrigger>
           <TabsTrigger value="distrigen">DistriGen</TabsTrigger>
           <TabsTrigger value="learning">Continuous Learning</TabsTrigger>
@@ -243,6 +246,145 @@ export default function ResearchDashboardPage() {
                       <p className="text-white font-bold">{(exp.overallScore * 100).toFixed(1)}%</p>
                       <p className="text-xs text-gray-400">Overall Score</p>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="essentia" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Disc className="h-5 w-5 text-purple-400" />
+                  Kwaito Detection
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Tracks Analyzed</span>
+                    <Badge className="bg-purple-600">1,247</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Avg Influence Score</span>
+                    <Badge variant="outline">42%</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Era Classification Accuracy</span>
+                    <Badge className="bg-green-600">87%</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-green-400" />
+                  Regional Classification
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Tracks Classified</span>
+                    <Badge className="bg-green-600">2,893</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Avg Confidence</span>
+                    <Badge variant="outline">78%</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Regions Covered</span>
+                    <Badge className="bg-blue-600">9</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-blue-400" />
+                  TensorFlow Models
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Total Predictions</span>
+                    <Badge className="bg-blue-600">15,432</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Avg Model Accuracy</span>
+                    <Badge variant="outline">86%</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Pre-trained Models</span>
+                    <Badge className="bg-yellow-600">4</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="bg-gray-800 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-white">Regional Distribution</CardTitle>
+              <CardDescription>Tracks classified by South African province</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[
+                  { region: 'Gauteng', count: 1247, color: 'bg-yellow-500' },
+                  { region: 'Western Cape', count: 834, color: 'bg-blue-500' },
+                  { region: 'KwaZulu-Natal', count: 612, color: 'bg-green-500' },
+                  { region: 'Limpopo', count: 456, color: 'bg-purple-500' },
+                  { region: 'Mpumalanga', count: 389, color: 'bg-pink-500' },
+                  { region: 'Eastern Cape', count: 298, color: 'bg-orange-500' },
+                  { region: 'Free State', count: 187, color: 'bg-cyan-500' },
+                  { region: 'Northern Cape', count: 143, color: 'bg-red-500' },
+                  { region: 'North West', count: 127, color: 'bg-indigo-500' }
+                ].map((item) => (
+                  <div key={item.region} className="flex items-center justify-between p-2 bg-gray-700/30 rounded">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                      <span className="text-white">{item.region}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Progress value={(item.count / 1247) * 100} className="w-32" />
+                      <Badge variant="outline">{item.count}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-800 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-white">Sub-Genre Classification</CardTitle>
+              <CardDescription>Distribution of amapiano sub-genres</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { genre: 'Classic Amapiano', count: 1847, percentage: 38 },
+                  { genre: 'Private School', count: 1234, percentage: 25 },
+                  { genre: 'Soulful', count: 892, percentage: 18 },
+                  { genre: 'Bacardi', count: 567, percentage: 12 },
+                  { genre: 'Tech Amapiano', count: 234, percentage: 5 },
+                  { genre: 'Sgija', count: 189, percentage: 4 },
+                  { genre: 'Kwaito-Amapiano', count: 145, percentage: 3 }
+                ].map((item) => (
+                  <div key={item.genre} className="p-3 bg-gray-700/50 rounded-lg">
+                    <div className="text-white font-medium text-sm mb-2">{item.genre}</div>
+                    <div className="text-2xl font-bold text-blue-400 mb-1">{item.count}</div>
+                    <Progress value={item.percentage} className="h-1" />
+                    <div className="text-xs text-gray-400 mt-1">{item.percentage}% of total</div>
                   </div>
                 ))}
               </div>
