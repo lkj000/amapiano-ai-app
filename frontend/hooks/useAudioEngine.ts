@@ -88,7 +88,7 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     }
   }, [projectData?.bpm]);
 
-  const scheduleNote = (note: MidiNote, clipStartTime: number, track: DawTrack) => {
+  const scheduleNote = useCallback((note: MidiNote, clipStartTime: number, track: DawTrack) => {
     if (!audioContextRef.current || track.mixer.isMuted) return;
 
     const secondsPerBeat = 60.0 / bpm;
@@ -113,7 +113,12 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
 
     osc.start(noteStartTime);
     osc.stop(noteStartTime + note.duration * secondsPerBeat);
-  };
+  }, [bpm]);
+
+  const stop = useCallback(() => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+  }, []);
 
   const scheduler = useCallback(() => {
     if (!audioContextRef.current || !projectData) return;
@@ -121,10 +126,10 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     const totalDurationInSeconds = (32 * 4 / bpm) * 60;
     const currentEngineTime = audioContextRef.current.currentTime - startTimeRef.current;
 
-    if (currentEngineTime > totalDurationInSeconds) {
+    if (currentEngineTime >= totalDurationInSeconds) {
         if (isLooping) {
             startTimeRef.current = audioContextRef.current.currentTime;
-            nextNoteTime.current = 0;
+            nextNoteTime.current = audioContextRef.current.currentTime;
             setCurrentTime(0);
         } else {
             stop();
@@ -140,7 +145,6 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
 
       projectData.tracks.forEach(track => {
         if (projectData.tracks.some(t => t.mixer.isSolo) && !track.mixer.isSolo) {
-          // If other tracks are solo'd, but this one isn't, skip it
           return;
         }
 
@@ -158,7 +162,7 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
 
       nextNoteTime.current += scheduleAheadTime / 2;
     }
-  }, [bpm, projectData, isPlaying, isLooping]);
+  }, [bpm, projectData, isPlaying, isLooping, stop, scheduleNote]);
 
   useScheduler(scheduler, isPlaying);
 
@@ -176,10 +180,16 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     setIsPlaying(false);
   }, []);
 
-  const stop = useCallback(() => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-  }, []);
+  const seek = useCallback((time: number) => {
+    if (!audioContextRef.current) return;
+    const totalDurationInSeconds = projectData ? (32 * 4 / projectData.bpm) * 60 : 0;
+    const newTime = Math.max(0, Math.min(time, totalDurationInSeconds));
+    setCurrentTime(newTime);
+    if (isPlaying) {
+      startTimeRef.current = audioContextRef.current.currentTime - newTime;
+      nextNoteTime.current = audioContextRef.current.currentTime;
+    }
+  }, [isPlaying, projectData]);
 
   const setTrackVolume = useCallback((trackId: string, volume: number) => {
     const node = trackNodesRef.current.get(trackId);
@@ -197,7 +207,7 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
   return {
     isPlaying,
     currentTime,
-    setCurrentTime,
+    seek,
     isLooping,
     setIsLooping,
     play,
