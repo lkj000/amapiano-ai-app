@@ -98,7 +98,6 @@ export default function DawPage() {
   const timelineContainerRef = useRef<HTMLDivElement>(null);
 
   // Project State
-  const [projectId, setProjectId] = useState<number | undefined>();
   const [projectName, setProjectName] = useState("Untitled Project");
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
 
@@ -120,32 +119,40 @@ export default function DawPage() {
     },
   });
 
-  // Step 3: Load the first project from the list
+  // Step 3: Decide whether to create a project
+  const shouldCreateProject = projectsList && projectsList.projects.length === 0;
+
+  // Step 4: Trigger creation
+  useEffect(() => {
+    if (shouldCreateProject && !createDefaultProjectMutation.isPending) {
+      createDefaultProjectMutation.mutate();
+    }
+  }, [shouldCreateProject, createDefaultProjectMutation]);
+
+  // Step 5: Get project ID to load
   const projectIdToLoad = projectsList?.projects[0]?.id;
+
+  // Step 6: Fetch the project
   const { data: loadedProject, isLoading: isLoadingProject, isError: isProjectError, error: projectError } = useQuery({
     queryKey: ['dawProject', projectIdToLoad],
     queryFn: () => backend.music.loadProject({ projectId: projectIdToLoad! }),
     enabled: !!projectIdToLoad,
   });
 
-  // Effect to handle the logic flow
+  // Step 7: Sync state once project is loaded
   useEffect(() => {
-    if (projectsList && projectsList.projects.length === 0 && !createDefaultProjectMutation.isPending) {
-      createDefaultProjectMutation.mutate();
-    }
     if (loadedProject) {
-      setProjectId(loadedProject.id);
       setProjectName(loadedProject.name);
       setProjectData(loadedProject.projectData);
-      if (loadedProject.tracks.length > 0) {
-        setSelectedTrackId(loadedProject.tracks[0].id);
+      if (loadedProject.projectData.tracks.length > 0) {
+        setSelectedTrackId(loadedProject.projectData.tracks[0].id);
       }
     }
-  }, [projectsList, loadedProject, createDefaultProjectMutation]);
+  }, [loadedProject]);
 
   // Playback simulation effect
   useEffect(() => {
-    if (!projectData) return;
+    if (!projectData || !isPlaying) return;
 
     let animationFrameId: number;
     const totalDuration = (32 * 4 / projectData.bpm) * 60;
@@ -163,9 +170,7 @@ export default function DawPage() {
       animationFrameId = requestAnimationFrame(animatePlayhead);
     };
 
-    if (isPlaying) {
-      animationFrameId = requestAnimationFrame(animatePlayhead);
-    }
+    animationFrameId = requestAnimationFrame(animatePlayhead);
 
     return () => cancelAnimationFrame(animationFrameId!);
   }, [isPlaying, isLooping, projectData]);
@@ -173,10 +178,9 @@ export default function DawPage() {
   const saveMutation = useMutation({
     mutationFn: (data: { name: string; projectData: DawProjectData; projectId?: number }) => backend.music.saveProject(data),
     onSuccess: (data) => {
-      setProjectId(data.projectId);
-      toast.success(`Project "${data.name}" (v${data.version}) saved successfully.`);
-      queryClient.invalidateQueries({ queryKey: ['dawProject', data.projectId] });
+      queryClient.setQueryData(['dawProject', data.projectId], (oldData: any) => ({...oldData, name: data.name, version: data.version, updatedAt: data.lastSaved}));
       queryClient.invalidateQueries({ queryKey: ['dawProjectsList'] });
+      toast.success(`Project "${data.name}" (v${data.version}) saved successfully.`);
     },
     onError: (error: any) => {
       toast.error("Save Failed", { description: error.message });
@@ -198,14 +202,14 @@ export default function DawPage() {
   });
 
   const handleSave = () => {
-    if (!projectData) {
+    if (!projectData || !loadedProject) {
       toast.error("No project data to save.");
       return;
     }
     saveMutation.mutate({
       name: projectName,
       projectData: projectData,
-      projectId: projectId,
+      projectId: loadedProject.id,
     });
   };
 
@@ -363,28 +367,44 @@ export default function DawPage() {
     "Generate saxophone melody for the bridge section"
   ];
 
-  const isLoading = isLoadingList || createDefaultProjectMutation.isPending || (!!projectIdToLoad && isLoadingProject);
-  const isError = isListError || createDefaultProjectMutation.isError || isProjectError;
-  const error = listError || createDefaultProjectMutation.error || projectError;
-
-  if (isLoading) {
-    let statusMessage = "Loading projects...";
-    if (createDefaultProjectMutation.isPending) statusMessage = "Creating your first project...";
-    else if (isLoadingProject) statusMessage = "Loading project...";
+  // RENDER LOGIC
+  if (isLoadingList) {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-white">
         <LoadingSpinner />
-        <p className="mt-4 text-lg">{statusMessage}</p>
+        <p className="mt-4 text-lg">Loading projects...</p>
       </div>
     );
   }
 
-  if (isError) {
+  if (isListError) {
+    return <div className="flex flex-col items-center justify-center h-screen text-white"><ErrorMessage error={listError as Error} /></div>;
+  }
+
+  if (shouldCreateProject || createDefaultProjectMutation.isPending) {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-white">
-        <ErrorMessage error={error as Error} />
+        <LoadingSpinner />
+        <p className="mt-4 text-lg">Creating your first project...</p>
       </div>
     );
+  }
+
+  if (createDefaultProjectMutation.isError) {
+    return <div className="flex flex-col items-center justify-center h-screen text-white"><ErrorMessage error={createDefaultProjectMutation.error as Error} /></div>;
+  }
+
+  if (isLoadingProject) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-white">
+        <LoadingSpinner />
+        <p className="mt-4 text-lg">Loading project...</p>
+      </div>
+    );
+  }
+
+  if (isProjectError) {
+    return <div className="flex flex-col items-center justify-center h-screen text-white"><ErrorMessage error={projectError as Error} /></div>;
   }
 
   if (!projectData) {
