@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { DawProjectData, DawTrack, DawClip, MidiNote, Effect } from '~backend/music/types';
+import type { DawProjectData, DawTrack, DawClip, MidiNote, Effect, AutomationData } from '~backend/music/types';
 
 // A simple scheduler that uses requestAnimationFrame
 const useScheduler = (callback: () => void, isRunning: boolean) => {
@@ -30,9 +30,11 @@ const useScheduler = (callback: () => void, isRunning: boolean) => {
 
 export const useAudioEngine = (projectData: DawProjectData | null) => {
   const audioContextRef = useRef<AudioContext | null>(null);
-  const trackNodesRef = useRef<Map<string, { gain: GainNode, analyser: AnalyserNode, effectsChain: AudioNode[] }>>(new Map());
+  const trackNodesRef = useRef<Map<string, { gain: GainNode, pan: StereoPannerNode, analyser: AnalyserNode, effectsChain: AudioNode[] }>>(new Map());
   const masterGainRef = useRef<GainNode | null>(null);
   const masterAnalyserRef = useRef<AnalyserNode | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -72,11 +74,9 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     const trackNode = trackNodesRef.current.get(trackId);
     if (!trackNode) return;
   
-    // Disconnect old effects chain
-    trackNode.gain.disconnect();
-    let lastNode: AudioNode = trackNode.gain;
+    trackNode.pan.disconnect();
+    let lastNode: AudioNode = trackNode.pan;
   
-    // Create and connect new effects chain
     const newEffectsChain: AudioNode[] = [];
     effects.forEach(effect => {
       if (!effect.enabled) return;
@@ -103,7 +103,6 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
             effectNode = compressor;
             break;
           }
-          // Add other effects here...
         }
       } catch (e) {
         console.error(`Error creating effect node for ${effect.name}:`, e);
@@ -116,7 +115,6 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
       }
     });
   
-    // Connect the end of the effects chain to the analyser
     lastNode.connect(trackNode.analyser);
     trackNode.effectsChain = newEffectsChain;
   }, []);
@@ -125,20 +123,26 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
   useEffect(() => {
     if (!audioContextRef.current || !masterGainRef.current || !projectData) return;
 
-    const newTrackNodes = new Map<string, { gain: GainNode, analyser: AnalyserNode, effectsChain: AudioNode[] }>();
+    const newTrackNodes = new Map<string, { gain: GainNode, pan: StereoPannerNode, analyser: AnalyserNode, effectsChain: AudioNode[] }>();
     projectData.tracks.forEach(track => {
       const existingNode = trackNodesRef.current.get(track.id);
       if (existingNode) {
         existingNode.gain.gain.setValueAtTime(track.mixer.volume, audioContextRef.current!.currentTime);
+        existingNode.pan.pan.setValueAtTime(track.mixer.pan, audioContextRef.current!.currentTime);
         updateEffectsChain(track.id, track.mixer.effects);
         newTrackNodes.set(track.id, existingNode);
       } else {
         const gainNode = audioContextRef.current!.createGain();
         gainNode.gain.value = track.mixer.volume;
+        const panNode = audioContextRef.current!.createStereoPanner();
+        panNode.pan.value = track.mixer.pan;
         const analyserNode = audioContextRef.current!.createAnalyser();
-        gainNode.connect(analyserNode);
+        
+        gainNode.connect(panNode);
+        panNode.connect(analyserNode);
         analyserNode.connect(masterGainRef.current!);
-        const newNode = { gain: gainNode, analyser: analyserNode, effectsChain: [] };
+
+        const newNode = { gain: gainNode, pan: panNode, analyser: analyserNode, effectsChain: [] };
         trackNodesRef.current.set(track.id, newNode);
         updateEffectsChain(track.id, track.mixer.effects);
         newTrackNodes.set(track.id, newNode);
@@ -147,19 +151,14 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     trackNodesRef.current = newTrackNodes;
   }, [projectData, updateEffectsChain]);
 
-  // Update BPM when projectData changes
   useEffect(() => {
-    if (projectData) {
-      setBpm(projectData.bpm);
-    }
+    if (projectData) setBpm(projectData.bpm);
   }, [projectData?.bpm]);
 
   const scheduleNote = useCallback((note: MidiNote, clipStartTime: number, track: DawTrack) => {
     if (!audioContextRef.current || track.mixer.isMuted) return;
-
     const secondsPerBeat = 60.0 / bpm;
     const noteStartTime = startTimeRef.current + (clipStartTime + note.startTime) * secondsPerBeat;
-    
     if (noteStartTime < audioContextRef.current.currentTime) return;
 
     const osc = audioContextRef.current.createOscillator();
@@ -167,19 +166,31 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     osc.connect(gainNode);
     
     const trackGainNode = trackNodesRef.current.get(track.id)?.gain;
-    if (trackGainNode) {
-      gainNode.connect(trackGainNode);
-    } else {
-      gainNode.connect(masterGainRef.current!);
-    }
+    if (trackGainNode) gainNode.connect(trackGainNode);
+    else gainNode.connect(masterGainRef.current!);
 
     osc.frequency.value = 440 * Math.pow(2, (note.pitch - 69) / 12);
     gainNode.gain.setValueAtTime(note.velocity / 127 * 0.5, noteStartTime);
     gainNode.gain.exponentialRampToValueAtTime(0.001, noteStartTime + note.duration * secondsPerBeat);
-
     osc.start(noteStartTime);
     osc.stop(noteStartTime + note.duration * secondsPerBeat);
   }, [bpm]);
+
+  const scheduleAutomation = useCallback((automation: AutomationData, trackNode: any, currentBeat: number, secondsPerBeat: number) => {
+    if (!audioContextRef.current || !automation.enabled) return;
+    
+    const param = automation.parameter === 'volume' ? trackNode.gain.gain :
+                  automation.parameter === 'pan' ? trackNode.pan.pan : null;
+    if (!param) return;
+
+    automation.points.forEach((point, index) => {
+      const pointBeat = point.time;
+      if (pointBeat >= currentBeat && pointBeat < currentBeat + (scheduleAheadTime / secondsPerBeat)) {
+        const pointTime = startTimeRef.current + pointBeat * secondsPerBeat;
+        param.linearRampToValueAtTime(point.value, pointTime);
+      }
+    });
+  }, []);
 
   const stop = useCallback(() => {
     setIsPlaying(false);
@@ -188,21 +199,20 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
 
   const scheduler = useCallback(() => {
     if (!audioContextRef.current || !projectData) return;
-
     const totalDurationInSeconds = (32 * 4 / bpm) * 60;
     const currentEngineTime = audioContextRef.current.currentTime - startTimeRef.current;
 
     if (currentEngineTime >= totalDurationInSeconds) {
-        if (isLooping) {
-            startTimeRef.current = audioContextRef.current.currentTime;
-            nextNoteTime.current = audioContextRef.current.currentTime;
-            setCurrentTime(0);
-        } else {
-            stop();
-            return;
-        }
+      if (isLooping) {
+        startTimeRef.current = audioContextRef.current.currentTime;
+        nextNoteTime.current = audioContextRef.current.currentTime;
+        setCurrentTime(0);
+      } else {
+        stop();
+        return;
+      }
     } else {
-        setCurrentTime(currentEngineTime);
+      setCurrentTime(currentEngineTime);
     }
 
     while (nextNoteTime.current < audioContextRef.current.currentTime + scheduleAheadTime) {
@@ -210,10 +220,8 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
       const currentBeat = (nextNoteTime.current - startTimeRef.current) / secondsPerBeat;
 
       projectData.tracks.forEach(track => {
-        if (projectData.tracks.some(t => t.mixer.isSolo) && !track.mixer.isSolo) {
-          return;
-        }
-
+        if (projectData.tracks.some(t => t.mixer.isSolo) && !track.mixer.isSolo) return;
+        
         track.clips.forEach(clip => {
           if (track.type === 'midi' && clip.notes) {
             clip.notes.forEach(note => {
@@ -224,11 +232,15 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
             });
           }
         });
-      });
 
+        const trackNode = trackNodesRef.current.get(track.id);
+        if (trackNode) {
+          track.automation.forEach(auto => scheduleAutomation(auto, trackNode, currentBeat, secondsPerBeat));
+        }
+      });
       nextNoteTime.current += scheduleAheadTime / 2;
     }
-  }, [bpm, projectData, isPlaying, isLooping, stop, scheduleNote]);
+  }, [bpm, projectData, isPlaying, isLooping, stop, scheduleNote, scheduleAutomation]);
 
   const meterUpdater = useCallback(() => {
     if (!isPlaying) {
@@ -241,11 +253,8 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
       const dataArray = new Uint8Array(nodes.analyser.frequencyBinCount);
       nodes.analyser.getByteTimeDomainData(dataArray);
       let sum = 0;
-      for (const amplitude of dataArray) {
-        sum += Math.pow((amplitude / 128.0) - 1, 2);
-      }
-      const rms = Math.sqrt(sum / dataArray.length);
-      newLevels.set(trackId, rms);
+      for (const amplitude of dataArray) sum += Math.pow((amplitude / 128.0) - 1, 2);
+      newLevels.set(trackId, Math.sqrt(sum / dataArray.length));
     });
     setVolumeLevels(newLevels);
 
@@ -253,11 +262,8 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
       const dataArray = new Uint8Array(masterAnalyserRef.current.frequencyBinCount);
       masterAnalyserRef.current.getByteTimeDomainData(dataArray);
       let sum = 0;
-      for (const amplitude of dataArray) {
-        sum += Math.pow((amplitude / 128.0) - 1, 2);
-      }
-      const rms = Math.sqrt(sum / dataArray.length);
-      setMasterVolumeLevel(rms);
+      for (const amplitude of dataArray) sum += Math.pow((amplitude / 128.0) - 1, 2);
+      setMasterVolumeLevel(Math.sqrt(sum / dataArray.length));
     }
   }, [isPlaying]);
 
@@ -266,60 +272,87 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
 
   const play = useCallback(() => {
     if (!audioContextRef.current) return;
-    if (audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume();
-    }
+    if (audioContextRef.current.state === 'suspended') audioContextRef.current.resume();
     setIsPlaying(true);
     startTimeRef.current = audioContextRef.current.currentTime - currentTime;
     nextNoteTime.current = audioContextRef.current.currentTime;
   }, [currentTime]);
 
-  const pause = useCallback(() => {
-    setIsPlaying(false);
-  }, []);
+  const pause = useCallback(() => setIsPlaying(false), []);
 
   const seek = useCallback((timeOrFn: number | ((prevTime: number) => number)) => {
     setCurrentTime(prevTime => {
       const newTime = typeof timeOrFn === 'function' ? timeOrFn(prevTime) : timeOrFn;
       const totalDurationInSeconds = projectData ? (32 * 4 / projectData.bpm) * 60 : 0;
       const clampedTime = Math.max(0, Math.min(newTime, totalDurationInSeconds));
-      
       if (isPlaying && audioContextRef.current) {
         startTimeRef.current = audioContextRef.current.currentTime - clampedTime;
         nextNoteTime.current = audioContextRef.current.currentTime;
       }
-      
       return clampedTime;
     });
   }, [isPlaying, projectData]);
 
   const setTrackVolume = useCallback((trackId: string, volume: number) => {
     const node = trackNodesRef.current.get(trackId)?.gain;
-    if (node && audioContextRef.current) {
-      node.gain.setValueAtTime(volume, audioContextRef.current.currentTime);
-    }
+    if (node && audioContextRef.current) node.gain.setValueAtTime(volume, audioContextRef.current.currentTime);
   }, []);
 
   const setMasterVolume = useCallback((volume: number) => {
-    if (masterGainRef.current && audioContextRef.current) {
-      masterGainRef.current.gain.setValueAtTime(volume, audioContextRef.current.currentTime);
-    }
+    if (masterGainRef.current && audioContextRef.current) masterGainRef.current.gain.setValueAtTime(volume, audioContextRef.current.currentTime);
   }, []);
 
+  const startRecording = async () => {
+    if (!audioContextRef.current) return;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const source = audioContextRef.current.createMediaStreamSource(stream);
+    mediaRecorderRef.current = new MediaRecorder(stream);
+    recordingChunksRef.current = [];
+    mediaRecorderRef.current.ondataavailable = (e) => recordingChunksRef.current.push(e.data);
+    mediaRecorderRef.current.start();
+  };
+
+  const stopRecording = (): Promise<Blob> => {
+    return new Promise(resolve => {
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.onstop = () => {
+          const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
+          resolve(blob);
+        };
+        mediaRecorderRef.current.stop();
+      }
+    });
+  };
+
+  const playClip = useCallback((clip: DawClip, track: DawTrack) => {
+    if (!audioContextRef.current || !projectData) return;
+    if (audioContextRef.current.state === 'suspended') audioContextRef.current.resume();
+    
+    const secondsPerBeat = 60.0 / bpm;
+    const clipStartTimeInSeconds = clip.startTime * secondsPerBeat;
+    const now = audioContextRef.current.currentTime;
+
+    if (track.type === 'midi' && clip.notes) {
+      clip.notes.forEach(note => {
+        const noteStartTime = now + (note.startTime * secondsPerBeat);
+        const osc = audioContextRef.current!.createOscillator();
+        const gainNode = audioContextRef.current!.createGain();
+        osc.connect(gainNode);
+        const trackGainNode = trackNodesRef.current.get(track.id)?.gain;
+        if (trackGainNode) gainNode.connect(trackGainNode);
+        else gainNode.connect(masterGainRef.current!);
+        osc.frequency.value = 440 * Math.pow(2, (note.pitch - 69) / 12);
+        gainNode.gain.setValueAtTime(note.velocity / 127 * 0.5, noteStartTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, noteStartTime + note.duration * secondsPerBeat);
+        osc.start(noteStartTime);
+        osc.stop(noteStartTime + note.duration * secondsPerBeat);
+      });
+    }
+  }, [bpm, projectData]);
+
   return {
-    isPlaying,
-    currentTime,
-    seek,
-    isLooping,
-    setIsLooping,
-    play,
-    pause,
-    stop,
-    setBpm,
-    setTrackVolume,
-    setMasterVolume,
-    audioContext: audioContextRef.current,
-    volumeLevels,
-    masterVolumeLevel,
+    isPlaying, currentTime, seek, isLooping, setIsLooping, play, pause, stop, setBpm,
+    setTrackVolume, setMasterVolume, audioContext: audioContextRef.current,
+    volumeLevels, masterVolumeLevel, startRecording, stopRecording, playClip
   };
 };

@@ -104,6 +104,18 @@ export interface DawMixerChannel {
   effects: Effect[];
 }
 
+export interface AutomationPoint {
+  time: number; // in beats
+  value: number; // 0-1 for most params
+}
+
+export interface AutomationData {
+  id: string;
+  parameter: 'volume' | 'pan' | string; // string for effect params
+  points: AutomationPoint[];
+  enabled: boolean;
+}
+
 export interface DawClip {
   id: string;
   name: string;
@@ -112,6 +124,8 @@ export interface DawClip {
   // For audio clips
   sampleId?: number;
   audioUrl?: string;
+  waveform?: number[]; // Array of numbers (-1 to 1) for visualization
+  isReversed?: boolean;
   // For MIDI clips
   notes?: MidiNote[];
 }
@@ -125,6 +139,7 @@ export interface DawTrack {
   mixer: DawMixerChannel;
   isArmed: boolean;
   color: string;
+  automation: AutomationData[];
 }
 
 export interface DawProjectData {
