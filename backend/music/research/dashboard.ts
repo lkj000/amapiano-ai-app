@@ -254,8 +254,8 @@ export class ResearchDashboardService {
   }
 
   private async getTopExperiments() {
-    const experiments = await musicDB.rawQueryAll<any>`
-      SELECT 
+    const experiments = await musicDB.rawQueryAll<any>(
+      `SELECT 
         experiment_id,
         experiment_name,
         (quality_metrics->>'overallScore')::FLOAT as overall_score,
@@ -264,8 +264,8 @@ export class ResearchDashboardService {
       FROM research_experiments
       WHERE quality_metrics IS NOT NULL
       ORDER BY (quality_metrics->>'overallScore')::FLOAT DESC
-      LIMIT 10
-    `;
+      LIMIT 10`
+    );
     
     return experiments.map((e: any) => ({
       experimentId: e.experiment_id,
@@ -282,17 +282,18 @@ export class ResearchDashboardService {
   async getTimeSeriesData(
     days: number = 30
   ): Promise<TimeSeriesData> {
-    const experiments = await musicDB.rawQueryAll<any>`
-      SELECT 
+    const experiments = await musicDB.rawQueryAll<any>(
+      `SELECT 
         created_at,
         (performance_metrics->>'durationMs')::FLOAT as latency,
         (cultural_metrics->>'authenticityScore')::FLOAT as cultural,
         (quality_metrics->>'overallScore')::FLOAT as quality,
         (performance_metrics->>'costUSD')::FLOAT as cost
       FROM research_experiments
-      WHERE created_at >= NOW() - INTERVAL '${days} days'
-      ORDER BY created_at ASC
-    `;
+      WHERE created_at >= NOW() - INTERVAL '$1 days'
+      ORDER BY created_at ASC`,
+      [days]
+    );
     
     return {
       timestamps: experiments.map((e: any) => e.created_at),
@@ -307,8 +308,8 @@ export class ResearchDashboardService {
    * Get ablation study results
    */
   async getAblationStudies() {
-    const studies = await musicDB.rawQueryAll<any>`
-      SELECT 
+    const studies = await musicDB.rawQueryAll<any>(
+      `SELECT 
         study_id,
         study_name,
         disabled_features,
@@ -318,8 +319,8 @@ export class ResearchDashboardService {
         feature_importance
       FROM ablation_studies
       ORDER BY created_at DESC
-      LIMIT 20
-    `;
+      LIMIT 20`
+    );
     
     return studies;
   }

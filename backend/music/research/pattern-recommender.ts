@@ -67,7 +67,11 @@ export class IntelligentPatternRecommender {
     const progressive = this.getProgressiveRecommendations(primary, context);
 
     const culturallySignificant = sortedPatterns
-      .filter(p => p.pattern.culturalSignificance && p.pattern.culturalSignificance >= 0.8)
+      .filter(p => {
+        const cs = p.pattern.culturalSignificance;
+        const numVal = typeof cs === 'string' ? parseFloat(cs) : (cs as number | undefined);
+        return numVal && numVal >= 0.8;
+      })
       .slice(0, 5);
 
     return {
@@ -260,7 +264,9 @@ export class IntelligentPatternRecommender {
   }
 
   private scoreCulturalRelevance(pattern: Pattern, context: PatternContext): number {
-    const culturalScore = pattern.culturalSignificance || 0.5;
+    const culturalScore = typeof pattern.culturalSignificance === 'string' 
+      ? parseFloat(pattern.culturalSignificance) 
+      : (pattern.culturalSignificance || 0.5);
 
     if (context.userPreferences.culturalAuthenticity === 'authentic') {
       return culturalScore;
@@ -324,7 +330,10 @@ export class IntelligentPatternRecommender {
     }
 
     if (scores.culturalRelevance >= 0.8) {
-      reasoning.push(`Highly culturally significant pattern (${((pattern.culturalSignificance || 0) * 100).toFixed(0)}%)`);
+      const culturalNum = typeof pattern.culturalSignificance === 'string' 
+        ? parseFloat(pattern.culturalSignificance) 
+        : (pattern.culturalSignificance || 0);
+      reasoning.push(`Highly culturally significant pattern (${(culturalNum * 100).toFixed(0)}%)`);
     }
 
     if (scores.complexityFit >= 0.9) {
@@ -349,7 +358,9 @@ export class IntelligentPatternRecommender {
   }
 
   private generateCulturalContext(pattern: Pattern): string {
-    const culturalScore = pattern.culturalSignificance || 0.5;
+    const culturalScore = typeof pattern.culturalSignificance === 'string' 
+      ? parseFloat(pattern.culturalSignificance) 
+      : (pattern.culturalSignificance || 0.5);
 
     if (culturalScore >= 0.9) {
       return 'Highly authentic pattern used in traditional amapiano productions. Preserves core cultural elements.';

@@ -266,11 +266,12 @@ export const getExperiments = api(
   { expose: true, method: "GET", path: "/research/experiments" },
   async ({ limit = 50 }: { limit?: number }) => {
     try {
-      const results = await musicDB.rawQueryAll<any>`
-        SELECT * FROM research_experiments
+      const results = await musicDB.rawQueryAll<any>(
+        `SELECT * FROM research_experiments
         ORDER BY created_at DESC
-        LIMIT ${limit}
-      `;
+        LIMIT $1`,
+        [limit]
+      );
       
       return { experiments: results, total: results.length };
       

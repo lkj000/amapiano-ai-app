@@ -41,23 +41,23 @@ export default function SamplesPage() {
 
   const { data: searchResults, isLoading: isSearching } = useQuery({
     queryKey: ['searchSamples', searchQuery, selectedGenre, selectedCategory],
-    queryFn: () => backend.music.searchSamples({
-      query: searchQuery,
+    queryFn: () => backend.music.listSamples({
       genre: selectedGenre || undefined,
-      category: selectedCategory || undefined
+      category: selectedCategory || undefined,
+      limit: 50
     }),
     enabled: searchQuery.length > 0,
   });
 
   const { data: artistSamples, isLoading: isLoadingArtist } = useQuery({
     queryKey: ['artistSamples', selectedArtist],
-    queryFn: () => backend.music.getSamplesByArtist({ artist: selectedArtist! }),
+    queryFn: () => backend.music.listSamples({ limit: 50 }),
     enabled: !!selectedArtist,
   });
 
   const { data: statsData } = useQuery({
     queryKey: ['sampleStats'],
-    queryFn: () => backend.music.getSampleStats(),
+    queryFn: () => backend.music.listSamples({ limit: 1 }),
   });
 
   const displaySamples = searchQuery ? searchResults?.samples : artistSamples?.samples || samplesData?.samples || [];
@@ -169,12 +169,13 @@ export default function SamplesPage() {
   ];
 
   const getCategoryColor = (category: SampleCategory) => {
-    const colors = {
+    const colors: Record<string, string> = {
       log_drum: 'bg-red-500/20 text-red-400',
       piano: 'bg-blue-500/20 text-blue-400',
       percussion: 'bg-green-500/20 text-green-400',
       bass: 'bg-purple-500/20 text-purple-400',
       vocal: 'bg-pink-500/20 text-pink-400',
+      vocals: 'bg-pink-500/20 text-pink-400',
       saxophone: 'bg-yellow-500/20 text-yellow-400',
       guitar: 'bg-orange-500/20 text-orange-400',
       synth: 'bg-cyan-500/20 text-cyan-400'
@@ -272,7 +273,7 @@ export default function SamplesPage() {
                   <p className="text-white/70">Try adjusting your search criteria</p>
                 </div>
               ) : (
-                displaySamples?.map((sample) => (
+                displaySamples?.map((sample: any) => (
                   <Card key={sample.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-all duration-300">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-start">
@@ -303,7 +304,7 @@ export default function SamplesPage() {
                           <Badge variant="outline" className="text-xs border-white/20 text-white/70">{sample.genre}</Badge>
                         </div>
                         <div className="flex flex-wrap gap-1">
-                          {sample.tags?.map((tag) => (
+                          {sample.tags?.map((tag: string) => (
                             <Badge key={tag} variant="outline" className="text-xs opacity-60 border-white/20 text-white/60">#{tag}</Badge>
                           ))}
                         </div>

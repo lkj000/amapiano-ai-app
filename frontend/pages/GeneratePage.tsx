@@ -243,11 +243,13 @@ export default function GeneratePage() {
 
     // Validate BPM range
     if (trackForm.bpm) {
-      const genreBpmRanges = {
+      const genreBpmRanges: Record<string, [number, number]> = {
         amapiano: [100, 130],
-        private_school_amapiano: [95, 125]
+        private_school_amapiano: [95, 125],
+        bacardi: [100, 130],
+        sgija: [100, 130]
       };
-      const [minBpm, maxBpm] = genreBpmRanges[trackForm.genre];
+      const [minBpm, maxBpm] = genreBpmRanges[trackForm.genre] || [100, 130];
       if (trackForm.bpm < minBpm || trackForm.bpm > maxBpm) {
         toast({
           title: "Invalid BPM",
@@ -282,11 +284,13 @@ export default function GeneratePage() {
   const handleGenerateLoop = () => {
     // Validate BPM range
     if (loopForm.bpm) {
-      const genreBpmRanges = {
+      const genreBpmRanges: Record<string, [number, number]> = {
         amapiano: [100, 130],
-        private_school_amapiano: [95, 125]
+        private_school_amapiano: [95, 125],
+        bacardi: [100, 130],
+        sgija: [100, 130]
       };
-      const [minBpm, maxBpm] = genreBpmRanges[loopForm.genre];
+      const [minBpm, maxBpm] = genreBpmRanges[loopForm.genre] || [100, 130];
       if (loopForm.bpm < minBpm || loopForm.bpm > maxBpm) {
         toast({
           title: "Invalid BPM",

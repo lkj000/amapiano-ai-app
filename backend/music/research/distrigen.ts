@@ -23,6 +23,7 @@ export interface GenerationTask {
   stemType: string;
   prompt: string;
   workerId: number;
+  complexity: 'simple' | 'intermediate' | 'advanced' | 'expert';
   status: 'pending' | 'running' | 'completed' | 'failed';
   startTime?: Date;
   endTime?: Date;
@@ -472,7 +473,7 @@ export class DistriGen {
       const latency = testResult.totalLatency;
       const throughput = 3600000 / latency;
       const efficiency = testResult.parallelizationGain / gpuCount;
-      const scalingFactor = gpuCount === 1 ? 1 : 
+      const scalingFactor: number = gpuCount === 1 ? 1 : 
         (configurations[0]?.latency || latency) / latency;
 
       configurations.push({

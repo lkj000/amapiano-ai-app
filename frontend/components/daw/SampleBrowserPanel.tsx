@@ -21,11 +21,7 @@ export default function SampleBrowserPanel({ onClose }: SampleBrowserPanelProps)
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['samples', searchQuery],
     queryFn: async () => {
-      if (searchQuery) {
-        return await backend.music.searchSamples({ query: searchQuery });
-      } else {
-        return await backend.music.listSamples({ limit: 100 });
-      }
+      return await backend.music.listSamples({ limit: 100 });
     },
   });
 

@@ -500,7 +500,9 @@ export class EssentiaAudioAnalyzer {
   private assessGenreFit(features: ComprehensiveAudioFeatures, genre: Genre): number {
     const genreRanges: Record<Genre, { bpm: [number, number] }> = {
       'amapiano': { bpm: [108, 118] },
-      'private_school_amapiano': { bpm: [110, 120] }
+      'private_school_amapiano': { bpm: [110, 120] },
+      'bacardi': { bpm: [110, 120] },
+      'sgija': { bpm: [110, 120] }
     };
     
     const range = genreRanges[genre] || genreRanges.amapiano;

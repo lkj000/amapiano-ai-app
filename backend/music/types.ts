@@ -1,4 +1,4 @@
-export type Genre = "amapiano" | "private_school_amapiano";
+export type Genre = "amapiano" | "private_school_amapiano" | "bacardi" | "sgija";
 export type SampleCategory = "log_drum" | "piano" | "percussion" | "bass" | "vocal" | "vocals" | "saxophone" | "guitar" | "synth";
 export type PatternCategory = "drum_pattern" | "bass_pattern" | "chord_progression" | "melody" | "percussion_pattern" | "arpeggio";
 export type Mood = "chill" | "energetic" | "soulful" | "groovy" | "mellow" | "uplifting" | "deep" | "jazzy";
@@ -43,6 +43,7 @@ export interface Pattern {
   complexity?: string;
   culturalSignificance?: string;
   description?: string;
+  usageCount?: number;
   createdAt: Date;
 }
 
@@ -131,6 +132,7 @@ export interface DawClip {
   audioUrl?: string;
   waveform?: number[]; // Array of numbers (-1 to 1) for visualization
   isReversed?: boolean;
+  pitch?: number;
   // For MIDI clips
   notes?: MidiNote[];
 }

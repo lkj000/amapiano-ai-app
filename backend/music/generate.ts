@@ -222,9 +222,11 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
 
       // Enhanced BPM validation with genre-specific ranges
       if (req.bpm !== undefined && req.bpm !== null) {
-        const genreBpmRanges = {
+        const genreBpmRanges: Record<Genre, [number, number]> = {
           amapiano: [100, 130],
-          private_school_amapiano: [95, 125]
+          private_school_amapiano: [95, 125],
+          bacardi: [100, 130],
+          sgija: [100, 130]
         };
         const [minBpm, maxBpm] = genreBpmRanges[req.genre];
         if (req.bpm < minBpm || req.bpm > maxBpm) {
@@ -527,9 +529,11 @@ export const generateLoop = api<GenerateLoopRequest, GenerateLoopResponse>(
     try {
       // Enhanced validation
       if (req.bpm !== undefined && req.bpm !== null) {
-        const genreBpmRanges = {
+        const genreBpmRanges: Record<Genre, [number, number]> = {
           amapiano: [100, 130],
-          private_school_amapiano: [95, 125]
+          private_school_amapiano: [95, 125],
+          bacardi: [100, 130],
+          sgija: [100, 130]
         };
         const [minBpm, maxBpm] = genreBpmRanges[req.genre];
         if (req.bpm < minBpm || req.bpm > maxBpm) {
@@ -871,18 +875,22 @@ function assessMusicalComplexity(req: GenerateTrackRequest, arrangement: string,
 }
 
 function generateLoopStyle(category: string, genre: Genre, complexity: string, culturalAuthenticity?: string): string {
-  const styles = {
+  const styles: Record<string, Partial<Record<Genre, string>>> = {
     log_drum: {
       amapiano: complexity === "expert" ? "masterful" : complexity === "advanced" ? "sophisticated" : "classic",
-      private_school_amapiano: complexity === "expert" ? "refined" : "subtle"
+      private_school_amapiano: complexity === "expert" ? "refined" : "subtle",
+      bacardi: "energetic",
+      sgija: "powerful"
     },
     piano: {
       amapiano: complexity === "expert" ? "virtuosic" : "soulful",
-      private_school_amapiano: complexity === "expert" ? "virtuosic" : "jazzy"
+      private_school_amapiano: complexity === "expert" ? "virtuosic" : "jazzy",
+      bacardi: "upbeat",
+      sgija: "dynamic"
     }
   };
 
-  const categoryStyles = styles[category as keyof typeof styles]?.[genre] || ["standard"];
+  const categoryStyles = styles[category as keyof typeof styles]?.[genre] || "standard";
   let selectedStyle = Array.isArray(categoryStyles) ? categoryStyles[0] : categoryStyles;
 
   if (culturalAuthenticity === "traditional") {

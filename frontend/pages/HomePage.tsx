@@ -103,21 +103,26 @@ export default function HomePage() {
 
       {/* Features Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {features.map((feature, index) => (
-          <Link key={index} to={feature.link}>
-            <Card className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors cursor-pointer h-full flex flex-col">
-              <CardHeader className="text-center">
-                <feature.icon className={`h-12 w-12 mx-auto ${feature.color}`} />
-                <CardTitle className="text-white mt-4">{feature.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <CardDescription className="text-white/70 text-center">
-                  {feature.description}
-                </CardDescription>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+        {features.map((feature, index) => {
+          const Icon = feature.icon;
+          return (
+            <React.Fragment key={index}>
+              <Link to={feature.link}>
+                <Card className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors cursor-pointer h-full flex flex-col">
+                  <CardHeader className="text-center">
+                    <Icon className={`h-12 w-12 mx-auto ${feature.color}`} />
+                    <CardTitle className="text-white mt-4">{feature.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-grow">
+                    <CardDescription className="text-white/70 text-center">
+                      {feature.description}
+                    </CardDescription>
+                  </CardContent>
+                </Card>
+              </Link>
+            </React.Fragment>
+          );
+        })}
       </div>
 
       {/* Research Highlights */}
@@ -140,10 +145,10 @@ export default function HomePage() {
                   <span className="text-sm text-white/70">Performance</span>
                 </div>
                 <div className="text-2xl font-bold text-white">
-                  {researchStats.performance?.averageLatency.toFixed(0)}ms
+                  {((researchStats as any).performance?.averageLatency || 0).toFixed(0)}ms
                 </div>
                 <p className="text-xs text-green-400 mt-1">
-                  {researchStats.performance?.latencyReduction.toFixed(1)}% faster
+                  {((researchStats as any).performance?.latencyReduction || 0).toFixed(1)}% faster
                 </p>
               </div>
 
@@ -153,10 +158,10 @@ export default function HomePage() {
                   <span className="text-sm text-white/70">Cultural Authenticity</span>
                 </div>
                 <div className="text-2xl font-bold text-white">
-                  {(researchStats.cultural?.averageAuthenticity * 100 || 0).toFixed(1)}%
+                  {(((researchStats as any).cultural?.averageAuthenticity || 0) * 100).toFixed(1)}%
                 </div>
                 <Badge className="bg-purple-600 text-xs mt-2">
-                  {researchStats.cultural?.expertPanelSize || 0} Experts
+                  {(researchStats as any).cultural?.expertPanelSize || 0} Experts
                 </Badge>
               </div>
 
@@ -166,10 +171,10 @@ export default function HomePage() {
                   <span className="text-sm text-white/70">Total Experiments</span>
                 </div>
                 <div className="text-2xl font-bold text-white">
-                  {researchStats.overview?.totalExperiments || 0}
+                  {(researchStats as any).overview?.totalExperiments || 0}
                 </div>
                 <p className="text-xs text-blue-400 mt-1">
-                  {researchStats.overview?.activeExperiments || 0} active
+                  {(researchStats as any).overview?.activeExperiments || 0} active
                 </p>
               </div>
             </div>

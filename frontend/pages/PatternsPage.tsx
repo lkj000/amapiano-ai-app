@@ -40,17 +40,18 @@ export default function PatternsPage() {
 
   const { data: chordProgressions, isLoading: isLoadingChords, error: errorChords } = useQuery({
     queryKey: ['chordProgressions', selectedGenre, chordComplexity],
-    queryFn: () => backend.music.getChordProgressions({
+    queryFn: () => backend.music.listPatterns({
       genre: selectedGenre,
+      category: 'chord_progression',
       complexity: chordComplexity || undefined
     }),
   });
 
   const { data: drumPatterns, isLoading: isLoadingDrums, error: errorDrums } = useQuery({
     queryKey: ['drumPatterns', selectedGenre, drumStyle],
-    queryFn: () => backend.music.getDrumPatterns({
+    queryFn: () => backend.music.listPatterns({
       genre: selectedGenre,
-      style: drumStyle || undefined
+      category: 'drum_pattern'
     }),
   });
 
@@ -407,7 +408,7 @@ export default function PatternsPage() {
                 </div>
 
                 <div>
-                  <Label className="text-white">Creative Goal</Label>
+                  <div className="text-white text-sm font-medium mb-2">Creative Goal</div>
                   <Select value={creativeGoal} onValueChange={(value: any) => setCreativeGoal(value)}>
                     <SelectTrigger className="bg-white/10 border-white/20 text-white">
                       <SelectValue />
@@ -442,14 +443,14 @@ export default function PatternsPage() {
                 {recommendations && (
                   <div className="space-y-6 mt-6">
                     {/* Primary Recommendations */}
-                    {recommendations.primary && recommendations.primary.length > 0 && (
+                    {(recommendations as any).primary && (recommendations as any).primary.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                           <TrendingUp className="h-5 w-5 text-purple-400" />
                           Top Recommendations for You
                         </h3>
                         <div className="grid gap-4">
-                          {recommendations.primary.slice(0, 3).map((rec: any, idx: number) => (
+                          {(recommendations as any).primary.slice(0, 3).map((rec: any, idx: number) => (
                             <RecommendationCard key={idx} rec={rec} category="primary" />
                           ))}
                         </div>
@@ -457,14 +458,14 @@ export default function PatternsPage() {
                     )}
 
                     {/* Progressive Learning */}
-                    {recommendations.progressive && recommendations.progressive.length > 0 && (
+                    {(recommendations as any).progressive && (recommendations as any).progressive.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                           <Target className="h-5 w-5 text-green-400" />
                           Challenge Yourself (Next Level)
                         </h3>
                         <div className="grid gap-4">
-                          {recommendations.progressive.map((rec: any, idx: number) => (
+                          {(recommendations as any).progressive.map((rec: any, idx: number) => (
                             <RecommendationCard key={idx} rec={rec} category="progressive" />
                           ))}
                         </div>
@@ -472,14 +473,14 @@ export default function PatternsPage() {
                     )}
 
                     {/* Culturally Significant */}
-                    {recommendations.culturallySignificant && recommendations.culturallySignificant.length > 0 && (
+                    {(recommendations as any).culturallySignificant && (recommendations as any).culturallySignificant.length > 0 && (
                       <div>
                         <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                           <Award className="h-5 w-5 text-yellow-400" />
                           Culturally Significant Patterns
                         </h3>
                         <div className="grid gap-4">
-                          {recommendations.culturallySignificant.slice(0, 2).map((rec: any, idx: number) => (
+                          {(recommendations as any).culturallySignificant.slice(0, 2).map((rec: any, idx: number) => (
                             <RecommendationCard key={idx} rec={rec} category="culturally" />
                           ))}
                         </div>
@@ -560,7 +561,7 @@ export default function PatternsPage() {
 
               {isLoadingChords ? <LoadingSpinner /> : errorChords ? <ErrorMessage error={errorChords as Error} /> : (
                 <div className="grid lg:grid-cols-2 gap-6">
-                  {chordProgressions?.progressions.map((progression) => (
+                  {chordProgressions?.patterns.map((progression: any) => (
                     <Card key={progression.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
                       <CardHeader>
                         <div className="flex justify-between items-start">
@@ -574,19 +575,16 @@ export default function PatternsPage() {
                         <div className="bg-black/20 p-4 rounded-lg space-y-3">
                           <div className="text-center">
                             <div className="text-2xl font-bold text-yellow-400 mb-1">
-                              {progression.chords.join(' - ')}
+                              {progression.name}
                             </div>
                             <div className="text-sm text-white/70">
-                              Roman Numerals: {progression.romanNumerals.join(' - ')}
+                              {progression.description}
                             </div>
                           </div>
                         </div>
                         <div className="flex gap-2 flex-wrap">
                           <Badge className={getComplexityColor(progression.complexity)}>
-                            {progression.complexity}
-                          </Badge>
-                          <Badge className={getStyleColor(progression.style)}>
-                            {progression.style}
+                            {progression.complexity || 'intermediate'}
                           </Badge>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -636,21 +634,18 @@ export default function PatternsPage() {
 
               {isLoadingDrums ? <LoadingSpinner /> : errorDrums ? <ErrorMessage error={errorDrums as Error} /> : (
                 <div className="grid lg:grid-cols-2 gap-6">
-                  {drumPatterns?.patterns.map((pattern) => (
+                  {drumPatterns?.patterns.map((pattern: any) => (
                     <Card key={pattern.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
                       <CardHeader>
                         <div className="flex justify-between items-start">
                           <CardTitle className="text-xl mb-2 text-white">{pattern.name}</CardTitle>
-                          <Badge className={getStyleColor(pattern.style)}>
-                            {pattern.style}
-                          </Badge>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-6">
                         <div className="bg-black/20 p-4 rounded-lg space-y-3 font-mono text-sm">
                           <div>
-                            <div className="text-red-400 font-medium">Log Drum:</div>
-                            <div className="text-red-300 tracking-wider">{pattern.logDrum}</div>
+                            <div className="text-red-400 font-medium">Pattern Description:</div>
+                            <div className="text-red-300 tracking-wider">{pattern.description || 'Drum pattern'}</div>
                           </div>
                           <div>
                             <div className="text-blue-400 font-medium">Kick:</div>

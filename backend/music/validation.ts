@@ -203,9 +203,7 @@ export const validators = {
 // Helper to convert validation errors to API errors
 export function handleValidationError(error: unknown): never {
   if (error instanceof ValidationError) {
-    throw APIError.invalidArgument(error.message, {
-      field: error.field
-    });
+    throw APIError.invalidArgument(error.message);
   }
   
   if (error instanceof APIError) {

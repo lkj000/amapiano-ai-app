@@ -87,10 +87,10 @@ export default function ResearchDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">
-              {dashboard?.overview.totalExperiments || 0}
+              {(dashboard as any)?.overview?.totalExperiments || 0}
             </div>
             <p className="text-xs text-gray-400 mt-1">
-              {dashboard?.overview.activeExperiments || 0} active
+              {(dashboard as any)?.overview?.activeExperiments || 0} active
             </p>
           </CardContent>
         </Card>
@@ -104,12 +104,12 @@ export default function ResearchDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">
-              {dashboard?.performance.averageLatency.toFixed(0)}ms
+              {((dashboard as any)?.performance?.averageLatency || 0).toFixed(0)}ms
             </div>
             <div className="flex items-center gap-1 mt-1">
               <TrendingUp className="h-3 w-3 text-green-400" />
               <p className="text-xs text-green-400">
-                {dashboard?.performance.latencyReduction.toFixed(1)}% reduction
+                {((dashboard as any)?.performance?.latencyReduction || 0).toFixed(1)}% reduction
               </p>
             </div>
           </CardContent>
@@ -124,10 +124,10 @@ export default function ResearchDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">
-              {(dashboard?.cultural.averageAuthenticity * 100 || 0).toFixed(1)}%
+              {(((dashboard as any)?.cultural?.averageAuthenticity || 0) * 100).toFixed(1)}%
             </div>
             <Progress 
-              value={dashboard?.cultural.averageAuthenticity * 100 || 0} 
+              value={((dashboard as any)?.cultural?.averageAuthenticity || 0) * 100} 
               className="mt-2 h-2"
             />
           </CardContent>
@@ -142,10 +142,10 @@ export default function ResearchDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">
-              {(dashboard?.quality.averageOverallScore * 100 || 0).toFixed(1)}%
+              {(((dashboard as any)?.quality?.averageOverallScore || 0) * 100).toFixed(1)}%
             </div>
             <Progress 
-              value={dashboard?.quality.averageOverallScore * 100 || 0} 
+              value={((dashboard as any)?.quality?.averageOverallScore || 0) * 100} 
               className="mt-2 h-2"
             />
           </CardContent>
@@ -171,19 +171,19 @@ export default function ResearchDashboardPage() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">Average Throughput</span>
-                  <Badge>{dashboard?.performance.averageThroughput.toFixed(1)} tracks/hr</Badge>
+                  <Badge>{((dashboard as any)?.performance?.averageThroughput || 0).toFixed(1)} tracks/hr</Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">Memory Usage</span>
-                  <Badge variant="outline">{dashboard?.performance.averageMemoryUsage.toFixed(0)} MB</Badge>
+                  <Badge variant="outline">{((dashboard as any)?.performance?.averageMemoryUsage || 0).toFixed(0)} MB</Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">CPU Usage</span>
-                  <Progress value={dashboard?.performance.averageCpuUsage * 100 || 0} className="w-32" />
+                  <Progress value={((dashboard as any)?.performance?.averageCpuUsage || 0) * 100} className="w-32" />
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">GPU Utilization</span>
-                  <Progress value={dashboard?.performance.averageGpuUtilization * 100 || 0} className="w-32" />
+                  <Progress value={((dashboard as any)?.performance?.averageGpuUtilization || 0) * 100} className="w-32" />
                 </div>
               </CardContent>
             </Card>
@@ -197,23 +197,23 @@ export default function ResearchDashboardPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">Average Authenticity</span>
                   <Badge className="bg-purple-600">
-                    {(dashboard?.cultural.averageAuthenticity * 100 || 0).toFixed(1)}%
+                    {(((dashboard as any)?.cultural?.averageAuthenticity || 0) * 100).toFixed(1)}%
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">Expert Panel Size</span>
-                  <Badge variant="outline">{dashboard?.cultural.expertPanelSize || 0} experts</Badge>
+                  <Badge variant="outline">{(dashboard as any)?.cultural?.expertPanelSize || 0} experts</Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">Elements Preserved</span>
                   <span className="text-white">
-                    {dashboard?.cultural.culturalElementsPreserved}/{dashboard?.cultural.culturalElementsDetected}
+                    {(dashboard as any)?.cultural?.culturalElementsPreserved || 0}/{(dashboard as any)?.cultural?.culturalElementsDetected || 0}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">Preservation Rate</span>
                   <Progress 
-                    value={(dashboard?.cultural.culturalElementsPreserved / dashboard?.cultural.culturalElementsDetected * 100) || 0} 
+                    value={(((dashboard as any)?.cultural?.culturalElementsPreserved || 0) / ((dashboard as any)?.cultural?.culturalElementsDetected || 1) * 100)} 
                     className="w-32" 
                   />
                 </div>
@@ -230,7 +230,7 @@ export default function ResearchDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {dashboard?.topExperiments.slice(0, 5).map((exp, idx) => (
+                {((dashboard as any)?.topExperiments || []).slice(0, 5).map((exp: any, idx: number) => (
                   <div key={exp.experimentId} className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg">
                     <div className="flex items-center gap-3">
                       <Badge className="bg-blue-600">#{idx + 1}</Badge>
@@ -261,10 +261,10 @@ export default function ResearchDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-white">
-                  {dashboard?.caq.averageCompression.toFixed(1)}×
+                  {((dashboard as any)?.caq?.averageCompression || 0).toFixed(1)}×
                 </div>
                 <p className="text-sm text-gray-400 mt-2">
-                  {dashboard?.caq.efficiencyGain.toFixed(1)}% efficiency gain vs naive
+                  {((dashboard as any)?.caq?.efficiencyGain || 0).toFixed(1)}% efficiency gain vs naive
                 </p>
               </CardContent>
             </Card>
@@ -278,10 +278,10 @@ export default function ResearchDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-white">
-                  {(dashboard?.caq.culturalPreservation * 100 || 0).toFixed(1)}%
+                  {(((dashboard as any)?.caq?.culturalPreservation || 0) * 100).toFixed(1)}%
                 </div>
                 <Progress 
-                  value={dashboard?.caq.culturalPreservation * 100 || 0} 
+                  value={((dashboard as any)?.caq?.culturalPreservation || 0) * 100} 
                   className="mt-3 h-2"
                 />
               </CardContent>
@@ -296,7 +296,7 @@ export default function ResearchDashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-white">
-                  {dashboard?.caq.averageProcessingTime.toFixed(0)}ms
+                  {((dashboard as any)?.caq?.averageProcessingTime || 0).toFixed(0)}ms
                 </div>
                 <p className="text-sm text-gray-400 mt-2">
                   Per quantization operation
@@ -365,15 +365,15 @@ export default function ResearchDashboardPage() {
               <CardContent className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">Total Examples</span>
-                  <Badge>{learningStats?.totalLearningExamples || 0}</Badge>
+                  <Badge>{(learningStats as any)?.totalLearningExamples || 0}</Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">Expert Validated</span>
-                  <Badge variant="outline">{learningStats?.expertValidatedExamples || 0}</Badge>
+                  <Badge variant="outline">{(learningStats as any)?.expertValidatedExamples || 0}</Badge>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-300">Adaptation Sessions</span>
-                  <Badge className="bg-purple-600">{learningStats?.successfulAdaptations || 0}</Badge>
+                  <Badge className="bg-purple-600">{(learningStats as any)?.successfulAdaptations || 0}</Badge>
                 </div>
               </CardContent>
             </Card>
@@ -389,23 +389,23 @@ export default function ResearchDashboardPage() {
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-300">Last 24 Hours</span>
-                    <span className="text-white">{learningStats?.recentPerformance.last24Hours.count || 0} examples</span>
+                    <span className="text-white">{(learningStats as any)?.recentPerformance?.last24Hours?.count || 0} examples</span>
                   </div>
-                  <Progress value={(learningStats?.recentPerformance.last24Hours.avgQuality || 0) * 100} className="h-2" />
+                  <Progress value={((learningStats as any)?.recentPerformance?.last24Hours?.avgQuality || 0) * 100} className="h-2" />
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-300">Last 7 Days</span>
-                    <span className="text-white">{learningStats?.recentPerformance.last7Days.count || 0} examples</span>
+                    <span className="text-white">{(learningStats as any)?.recentPerformance?.last7Days?.count || 0} examples</span>
                   </div>
-                  <Progress value={(learningStats?.recentPerformance.last7Days.avgQuality || 0) * 100} className="h-2" />
+                  <Progress value={((learningStats as any)?.recentPerformance?.last7Days?.avgQuality || 0) * 100} className="h-2" />
                 </div>
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-300">Last 30 Days</span>
-                    <span className="text-white">{learningStats?.recentPerformance.last30Days.count || 0} examples</span>
+                    <span className="text-white">{(learningStats as any)?.recentPerformance?.last30Days?.count || 0} examples</span>
                   </div>
-                  <Progress value={(learningStats?.recentPerformance.last30Days.avgQuality || 0) * 100} className="h-2" />
+                  <Progress value={((learningStats as any)?.recentPerformance?.last30Days?.avgQuality || 0) * 100} className="h-2" />
                 </div>
               </CardContent>
             </Card>
@@ -425,19 +425,19 @@ export default function ResearchDashboardPage() {
                 <div>
                   <p className="text-sm text-gray-400">Total Patterns Tracked</p>
                   <div className="text-2xl font-bold text-white mt-1">
-                    {recommenderStats?.totalPatternsTracked || 0}
+                    {(recommenderStats as any)?.totalPatternsTracked || 0}
                   </div>
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">Usage Events</p>
                   <div className="text-2xl font-bold text-white mt-1">
-                    {recommenderStats?.totalUsageEvents || 0}
+                    {(recommenderStats as any)?.totalUsageEvents || 0}
                   </div>
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">Success Rate</p>
                   <div className="text-2xl font-bold text-white mt-1">
-                    {((recommenderStats?.averageSuccessRate || 0) * 100).toFixed(1)}%
+                    {(((recommenderStats as any)?.averageSuccessRate || 0) * 100).toFixed(1)}%
                   </div>
                 </div>
               </div>
@@ -445,7 +445,7 @@ export default function ResearchDashboardPage() {
               <div className="pt-4 border-t border-gray-700">
                 <p className="text-sm font-medium text-gray-300 mb-3">Top Patterns</p>
                 <div className="space-y-2">
-                  {recommenderStats?.topPatterns.slice(0, 5).map((pattern, idx) => (
+                  {((recommenderStats as any)?.topPatterns || []).slice(0, 5).map((pattern: any, idx: number) => (
                     <div key={pattern.patternId} className="flex items-center justify-between p-2 bg-gray-700/30 rounded">
                       <div className="flex items-center gap-2">
                         <Badge className="bg-blue-600">#{idx + 1}</Badge>

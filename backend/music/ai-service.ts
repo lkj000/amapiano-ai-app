@@ -20,7 +20,7 @@ export interface AIGenerationConfig {
 
 export interface MusicGenerationRequest {
   prompt: string;
-  genre: 'amapiano' | 'private_school_amapiano';
+  genre: 'amapiano' | 'private_school_amapiano' | 'bacardi' | 'sgija';
   bpm?: number;
   keySignature?: string;
   duration?: number;

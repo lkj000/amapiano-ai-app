@@ -74,7 +74,7 @@ export interface AuraXContext {
   // Cultural context for all operations
   culture: {
     region: 'south_africa' | 'global';
-    musicGenre: 'amapiano' | 'private_school_amapiano' | 'amapiano_fusion';
+    musicGenre: 'amapiano' | 'private_school_amapiano' | 'amapiano_fusion' | 'bacardi' | 'sgija';
     authenticity: 'traditional' | 'modern' | 'experimental';
     language: 'english' | 'zulu' | 'sotho' | 'xhosa' | 'afrikaans';
   };
