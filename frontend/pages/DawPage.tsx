@@ -158,24 +158,7 @@ export default function DawPage() {
   const [projectName, setProjectName] = useState("Untitled Project");
 
   // Audio Engine
-  const audioEngine = useAudioEngine();
-  const { 
-    isInitialized, 
-    playbackState, 
-    tracks, 
-    masterVolume, 
-    play, 
-    pause, 
-    stop, 
-    seekTo, 
-    updateMasterVolume, 
-    updateTrackVolume, 
-    updateTempo,
-    createTrack,
-    addClipToTrack,
-    playBuffer,
-    audioContext 
-  } = audioEngine;
+  const { isPlaying, currentTime, seek, isLooping, setIsLooping, play, pause, stop, setBpm, setTrackVolume, setMasterVolume, audioContext, volumeLevels, masterVolumeLevel, startRecording, stopRecording, playClip } = useAudioEngine(projectData);
 
   // Dragging state
   const [draggingClip, setDraggingClip] = useState<{ clipId: string; trackId: string; initialX: number; initialStartTime: number; } | null>(null);
@@ -307,7 +290,7 @@ export default function DawPage() {
     setProjectData(prev => {
       if (!prev) return null;
       const newTracks = prev.tracks.map(t => t.id === trackId ? { ...t, mixer: { ...t.mixer, ...updates } } : t);
-      if (updates.volume !== undefined) updateTrackVolume(parseInt(trackId), updates.volume);
+      if (updates.volume !== undefined) setTrackVolume(trackId, updates.volume);
       return { ...prev, tracks: newTracks };
     });
     sendChange({ type: 'MIXER_UPDATE', payload: { trackId, updates } });
@@ -424,7 +407,7 @@ export default function DawPage() {
   const handleUpdateProjectSettings = (updatedData: Partial<DawProjectData>) => {
     if (projectData) {
       setProjectData({ ...projectData, ...updatedData });
-      if (updatedData.bpm) updateTempo(updatedData.bpm);
+      if (updatedData.bpm) setBpm(updatedData.bpm);
       sendChange({ type: 'PROJECT_SETTINGS_UPDATE', payload: { updates: updatedData } });
       toast.info("Project settings updated. Don't forget to save!");
     }
@@ -503,12 +486,14 @@ export default function DawPage() {
 
   const handleArmTrack = async (trackId: string) => {
     if (recordingTrackId === trackId) {
-      // TODO: Implement recording functionality
+      const blob = await stopRecording();
+      const audioUrl = URL.createObjectURL(blob);
       const newClip: DawClip = {
         id: `clip_${Date.now()}`,
         name: `Rec ${new Date().toLocaleTimeString()}`,
-        startTime: playbackState.currentTime / (60 / projectData!.bpm),
+        startTime: currentTime / (60 / projectData!.bpm),
         duration: 8,
+        audioUrl,
         waveform: Array.from({ length: 100 }, () => Math.random() * 2 - 1),
       };
       setProjectData(prev => prev ? { ...prev, tracks: prev.tracks.map(t => t.id === trackId ? { ...t, clips: [...t.clips, newClip], isArmed: false } : t) } : null);
@@ -517,7 +502,7 @@ export default function DawPage() {
       setRecordingTrackId(null);
       toast.success("Recording finished");
     } else {
-      // TODO: Implement recording start
+      await startRecording();
       setRecordingTrackId(trackId);
       updateTrack(trackId, { isArmed: true });
       toast.info("Recording started...");
@@ -764,11 +749,11 @@ export default function DawPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={playbackState.isPlaying ? pause : play}>{playbackState.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}</Button>
+                  <Button variant="outline" size="sm" onClick={isPlaying ? pause : play}>{isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}</Button>
                   <Button variant="outline" size="sm" onClick={stop}><Square className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" onClick={() => seekTo(Math.max(0, playbackState.currentTime - 5))}><SkipBack className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" onClick={() => seekTo(playbackState.currentTime + 5)}><SkipForward className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" onClick={() => {/* TODO: implement loop toggle */}} className={playbackState.loop ? 'bg-primary/20 text-primary' : ''}><RotateCcw className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="sm" onClick={() => seek(t => t - 5)}><SkipBack className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="sm" onClick={() => seek(t => t + 5)}><SkipForward className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="sm" onClick={() => setIsLooping(!isLooping)} className={isLooping ? 'bg-primary/20 text-primary' : ''}><RotateCcw className="w-4 h-4" /></Button>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
@@ -778,7 +763,7 @@ export default function DawPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Volume2 className="w-4 h-4" />
-                    <div className="w-20"><Slider value={[projectData.masterVolume * 100]} onValueChange={([v]) => { const newVolume = v / 100; setProjectData({ ...projectData, masterVolume: newVolume }); updateMasterVolume(newVolume); }} /></div>
+                    <div className="w-20"><Slider value={[projectData.masterVolume * 100]} onValueChange={([v]) => { const newVolume = v / 100; setProjectData({ ...projectData, masterVolume: newVolume }); setMasterVolume(newVolume); }} /></div>
                     <span className="text-sm text-muted-foreground w-8">{Math.round(projectData.masterVolume * 100)}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -797,7 +782,7 @@ export default function DawPage() {
               <SessionView tracks={projectData.tracks} onPlayClip={(trackId, clipId) => {
                 const track = projectData.tracks.find(t => t.id === trackId);
                 const clip = track?.clips.find(c => c.id === clipId);
-                if (track && clip && clip.audioUrl) playBuffer(clip.audioUrl, 0, 0);
+                if (track && clip) playClip(clip, track);
               }} />
             ) : (
               <div className="h-full flex">
@@ -859,7 +844,7 @@ export default function DawPage() {
                         />
                       ))}
                     </div>
-                    <div className="absolute top-0 bottom-0 w-0.5 bg-primary z-20" style={{ left: `${(playbackState.currentTime / 120) * 100}%` }} />
+                    <div className="absolute top-0 bottom-0 w-0.5 bg-primary z-20" style={{ left: `${(currentTime / 120) * 100}%` }} />
                   </div>
                 </div>
               </div>
@@ -871,7 +856,7 @@ export default function DawPage() {
       {/* Modals and Panels */}
       <OpenProjectModal isOpen={isOpenProjectOpen} onClose={() => setIsOpenProjectOpen(false)} onLoadProject={setActiveProjectId} />
       {projectData && <ProjectSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} projectData={projectData} onSave={handleUpdateProjectSettings} />}
-      {showMixer && projectData && <MixerPanel tracks={projectData.tracks} masterVolume={projectData.masterVolume} volumeLevels={new Map()} masterVolumeLevel={masterVolume} onClose={() => setShowMixer(false)} onTrackVolumeChange={(trackId, volume) => updateMixer(trackId, { volume })} onMasterVolumeChange={(volume) => { setProjectData({ ...projectData, masterVolume: volume }); updateMasterVolume(volume); }} />}
+      {showMixer && projectData && <MixerPanel tracks={projectData.tracks} masterVolume={projectData.masterVolume} volumeLevels={volumeLevels} masterVolumeLevel={masterVolumeLevel} onClose={() => setShowMixer(false)} onTrackVolumeChange={(trackId, volume) => updateMixer(trackId, { volume })} onMasterVolumeChange={(volume) => { setProjectData({ ...projectData, masterVolume: volume }); setMasterVolume(volume); }} />}
       {showPianoRoll && <PianoRollPanel selectedTrack={selectedTrack} onClose={() => setShowPianoRoll(false)} onUpdateNotes={handleUpdateNotes} audioContext={audioContext} />}
       {showEffectsPanel && <EffectsPanel selectedTrack={selectedTrack} onClose={() => setShowEffectsPanel(false)} onUpdateEffectParam={handleUpdateEffectParam} />}
       {showSampleBrowser && <SampleBrowserPanel onClose={() => setShowSampleBrowser(false)} />}
