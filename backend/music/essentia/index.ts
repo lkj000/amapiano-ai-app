@@ -1,2 +1,10 @@
 export { EssentiaAudioAnalyzer, essentiaAnalyzer } from './audio-analyzer';
+export { KwaitoDetector, kwaitoDetector } from './kwaito-detector';
+export { RegionalClassifier, regionalClassifier } from './regional-classifier';
+export { StreamingAnalyzer, createStreamingAnalyzer } from './streaming-analyzer';
+export { TensorFlowModelManager, tensorflowManager } from './tensorflow-models';
 export * from './types';
+export type { KwaitoFeatures } from './kwaito-detector';
+export type { RegionalCharacteristics, SubGenreClassification, SouthAfricanRegion, AmapianoSubGenre } from './regional-classifier';
+export type { StreamingConfig, StreamingFeatures, StreamingEvent } from './streaming-analyzer';
+export type { ModelMetadata, ModelPrediction, TrainingData } from './tensorflow-models';
