@@ -121,7 +121,25 @@ export class AIService {
         duration: result.duration as number,
       };
   
-    } catch (error) {
+    } catch (error: any) {
+      // Check for OpenAI quota/rate limit error (status 429)
+      if (error && error.status === 429) {
+        log.warn("OpenAI quota exceeded. Returning a fallback MIDI pattern.", { prompt });
+        
+        // Return a predefined fallback pattern
+        return {
+          duration: 4,
+          notes: [
+            { pitch: 36, startTime: 0, duration: 0.5, velocity: 100 },
+            { pitch: 38, startTime: 1, duration: 0.25, velocity: 80 },
+            { pitch: 36, startTime: 1.5, duration: 0.5, velocity: 100 },
+            { pitch: 36, startTime: 2.5, duration: 0.5, velocity: 90 },
+            { pitch: 38, startTime: 3, duration: 0.25, velocity: 80 },
+            { pitch: 36, startTime: 3.5, duration: 0.5, velocity: 100 },
+          ],
+        };
+      }
+
       log.error("Error generating MIDI pattern with OpenAI", { 
         errorMessage: (error as Error).message, 
         stack: (error as Error).stack 

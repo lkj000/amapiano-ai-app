@@ -123,7 +123,7 @@ export class EnhancedErrorHandler {
   }
 
   private handleAIServiceError(error: any, context: ErrorContext): ErrorDetails {
-    if (error.message?.includes('rate limit')) {
+    if (error.message?.includes('rate limit') || error.status === 429) {
       return {
         code: 'ai_rate_limit',
         message: 'AI service rate limit exceeded',
@@ -419,7 +419,8 @@ export class EnhancedErrorHandler {
       error.message.includes('generation') ||
       error.message.includes('OpenAI') ||
       error.message.includes('HuggingFace') ||
-      error.message.includes('JSON')
+      error.message.includes('JSON') ||
+      error.status === 429
     );
   }
 
