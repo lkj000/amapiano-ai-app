@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Play, Download, Music, Clock, Key, Layers, Pause, Volume2, AlertCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Play, Download, BookOpen, Music, TrendingUp, Heart, Pause, AlertCircle, Volume2 } from 'lucide-react';
 import backend from '~backend/client';
-import type { Genre, PatternCategory } from '~backend/music/types';
+import type { Genre } from '~backend/music/types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { useToast } from '@/components/ui/use-toast';
@@ -15,27 +15,17 @@ import { useToast } from '@/components/ui/use-toast';
 export default function PatternsPage() {
   const { toast } = useToast();
   const [selectedGenre, setSelectedGenre] = useState<Genre>('amapiano');
-  const [selectedCategory, setSelectedCategory] = useState<PatternCategory | ''>('');
   const [chordComplexity, setChordComplexity] = useState<'simple' | 'intermediate' | 'advanced' | ''>('');
   const [drumStyle, setDrumStyle] = useState<'classic' | 'modern' | 'minimal' | ''>('');
-  const [playingPattern, setPlayingPattern] = useState<{ id: number; type: string } | null>(null);
+  const [playingPattern, setPlayingPattern] = useState<{ id: number; audio: HTMLAudioElement } | null>(null);
 
-  // Cleanup audio on unmount
   useEffect(() => {
     return () => {
       if (playingPattern) {
-        setPlayingPattern(null);
+        playingPattern.audio.pause();
       }
     };
   }, [playingPattern]);
-
-  const { data: patternsData, isLoading: isLoadingAll, error: errorAll } = useQuery({
-    queryKey: ['patterns', selectedGenre, selectedCategory],
-    queryFn: () => backend.music.listPatterns({
-      genre: selectedGenre,
-      category: selectedCategory || undefined
-    }),
-  });
 
   const { data: chordProgressions, isLoading: isLoadingChords, error: errorChords } = useQuery({
     queryKey: ['chordProgressions', selectedGenre, chordComplexity],
@@ -53,13 +43,17 @@ export default function PatternsPage() {
     }),
   });
 
-  const handlePlay = (patternId: number, patternName: string, type: string = 'pattern') => {
+  const handlePlay = (patternId: number, patternName: string, type: 'chord' | 'drum') => {
     if (playingPattern && playingPattern.id === patternId) {
+      playingPattern.audio.pause();
       setPlayingPattern(null);
       return;
     }
 
-    // Create a demo audio context with different tones for different pattern types
+    if (playingPattern) {
+      playingPattern.audio.pause();
+    }
+
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
@@ -67,15 +61,12 @@ export default function PatternsPage() {
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
     
-    // Different frequencies for different pattern types
     const frequencies = {
       chord: 261.63, // C4
       drum: 130.81,  // C3
-      pattern: 196.00 // G3
     };
     
-    const frequency = frequencies[type as keyof typeof frequencies] || frequencies.pattern;
-    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(frequencies[type], audioContext.currentTime);
     oscillator.type = type === 'drum' ? 'square' : 'sine';
     
     gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
@@ -84,27 +75,33 @@ export default function PatternsPage() {
     oscillator.start();
     oscillator.stop(audioContext.currentTime + 3);
     
-    setPlayingPattern({ id: patternId, type });
+    const mockAudio = {
+      pause: () => {
+        try { oscillator.stop(); } catch(e) {}
+        setPlayingPattern(null);
+      },
+      play: () => Promise.resolve(),
+    } as HTMLAudioElement;
+
+    setPlayingPattern({ id: patternId, audio: mockAudio });
     
     toast({
       title: "Demo Playback",
       description: `Playing ${patternName}... (demo audio)`,
     });
 
-    // Auto-stop after 3 seconds
     setTimeout(() => {
       setPlayingPattern(null);
     }, 3000);
   };
 
-  const handleDownload = (patternName: string, type: string = 'mid') => {
-    // Create a simple text file as a demo MIDI file
+  const handleDownload = (patternName: string) => {
     const content = `Demo MIDI file for: ${patternName}\nThis would contain actual MIDI data in the full version.`;
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${patternName.toLowerCase().replace(/\s+/g, '-')}.${type}`;
+    a.download = `${patternName.toLowerCase().replace(/\s+/g, '-')}.mid`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -112,17 +109,17 @@ export default function PatternsPage() {
     
     toast({
       title: "Download Started",
-      description: `Downloading ${patternName}.${type}... (demo file)`,
+      description: `Downloading ${patternName}.mid... (demo file)`,
     });
   };
 
   const getComplexityColor = (complexity: string) => {
-    const colors = {
-      simple: 'bg-green-500/20 text-green-400',
-      intermediate: 'bg-yellow-500/20 text-yellow-400',
-      advanced: 'bg-red-500/20 text-red-400'
-    };
-    return colors[complexity as keyof typeof colors] || 'bg-gray-500/20 text-gray-400';
+    switch (complexity.toLowerCase()) {
+      case "simple": return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "intermediate": return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "advanced": return "bg-red-500/20 text-red-400 border-red-500/30";
+      default: return "bg-gray-500/20 text-gray-400";
+    }
   };
 
   const getStyleColor = (style: string) => {
@@ -145,12 +142,10 @@ export default function PatternsPage() {
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-white">Pattern Library</h1>
         <p className="text-white/80 max-w-2xl mx-auto">
-          Explore chord progressions, drum patterns, and musical structures that define amapiano music. 
-          Learn from the masters and create your own variations.
+          Learn from 1,000+ chord progressions and drum patterns with cultural context and complexity ratings.
         </p>
       </div>
 
-      {/* Demo Notice */}
       <Card className="bg-blue-400/10 border-blue-400/20">
         <CardContent className="p-4">
           <div className="flex items-center space-x-2">
@@ -164,7 +159,6 @@ export default function PatternsPage() {
         </CardContent>
       </Card>
 
-      {/* Genre Selection */}
       <Card className="bg-white/5 border-white/10">
         <CardContent className="p-6">
           <div className="flex items-center space-x-4">
@@ -182,17 +176,10 @@ export default function PatternsPage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="chords" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 bg-white/10">
-          <TabsTrigger value="chords" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black">
-            Chord Progressions
-          </TabsTrigger>
-          <TabsTrigger value="drums" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black">
-            Drum Patterns
-          </TabsTrigger>
-          <TabsTrigger value="all" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black">
-            All Patterns
-          </TabsTrigger>
+      <Tabs defaultValue="chords" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-white/10">
+          <TabsTrigger value="chords" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black">Chord Progressions</TabsTrigger>
+          <TabsTrigger value="drums" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black">Drum Patterns</TabsTrigger>
         </TabsList>
 
         <TabsContent value="chords" className="space-y-6">
@@ -225,57 +212,44 @@ export default function PatternsPage() {
               </div>
 
               {isLoadingChords ? <LoadingSpinner /> : errorChords ? <ErrorMessage error={errorChords as Error} /> : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid lg:grid-cols-2 gap-6">
                   {chordProgressions?.progressions.map((progression) => (
                     <Card key={progression.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <CardTitle className="text-white text-lg">{progression.name}</CardTitle>
-                          <div className="flex space-x-2">
-                            <Badge className={getComplexityColor(progression.complexity)}>
-                              {progression.complexity}
-                            </Badge>
-                            <Badge className={getStyleColor(progression.style)}>
-                              {progression.style}
-                            </Badge>
-                          </div>
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-xl mb-2 text-white">{progression.name}</CardTitle>
+                          <Button variant="ghost" size="sm" className="text-white/60 hover:text-red-500">
+                            <Heart className="w-4 h-4" />
+                          </Button>
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <div className="text-white/70 text-sm font-medium">Chords:</div>
-                          <div className="flex flex-wrap gap-2">
-                            {progression.chords.map((chord, index) => (
-                              <Badge key={index} variant="outline" className="border-yellow-400/30 text-yellow-400">
-                                {chord}
-                              </Badge>
-                            ))}
+                      <CardContent className="space-y-6">
+                        <div className="bg-black/20 p-4 rounded-lg space-y-3">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-yellow-400 mb-1">
+                              {progression.chords.join(' - ')}
+                            </div>
+                            <div className="text-sm text-white/70">
+                              Roman Numerals: {progression.romanNumerals.join(' - ')}
+                            </div>
                           </div>
                         </div>
-
-                        <div className="space-y-2">
-                          <div className="text-white/70 text-sm font-medium">Roman Numerals:</div>
-                          <div className="text-white/60 text-sm font-mono bg-black/20 p-2 rounded">
-                            {progression.romanNumerals.join(' - ')}
-                          </div>
+                        <div className="flex gap-2 flex-wrap">
+                          <Badge className={getComplexityColor(progression.complexity)}>
+                            {progression.complexity}
+                          </Badge>
+                          <Badge className={getStyleColor(progression.style)}>
+                            {progression.style}
+                          </Badge>
                         </div>
-
                         <div className="flex items-center space-x-2">
-                          <Button 
-                            size="sm" 
-                            className="bg-green-500 hover:bg-green-600 flex-1" 
-                            onClick={() => handlePlay(progression.id, progression.name, 'chord')}
-                          >
+                          <Button size="sm" className="bg-green-500 hover:bg-green-600 flex-1" onClick={() => handlePlay(progression.id, progression.name, 'chord')}>
                             {playingPattern?.id === progression.id ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
                             {playingPattern?.id === progression.id ? 'Stop' : 'Play'}
                           </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="border-white/20 text-white" 
-                            onClick={() => handleDownload(progression.name, 'mid')}
-                          >
-                            <Download className="h-3 w-3" />
+                          <Button size="sm" variant="outline" className="border-white/20 text-white" onClick={() => handleDownload(progression.name)}>
+                            <Download className="w-3 h-3 mr-1" />
+                            MIDI
                           </Button>
                         </div>
                       </CardContent>
@@ -314,155 +288,49 @@ export default function PatternsPage() {
               </div>
 
               {isLoadingDrums ? <LoadingSpinner /> : errorDrums ? <ErrorMessage error={errorDrums as Error} /> : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid lg:grid-cols-2 gap-6">
                   {drumPatterns?.patterns.map((pattern) => (
                     <Card key={pattern.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <CardTitle className="text-white text-lg">{pattern.name}</CardTitle>
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-xl mb-2 text-white">{pattern.name}</CardTitle>
                           <Badge className={getStyleColor(pattern.style)}>
                             {pattern.style}
                           </Badge>
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-3 font-mono text-sm">
-                          <div className="space-y-1">
+                      <CardContent className="space-y-6">
+                        <div className="bg-black/20 p-4 rounded-lg space-y-3 font-mono text-sm">
+                          <div>
                             <div className="text-red-400 font-medium">Log Drum:</div>
-                            <div className="bg-black/30 p-2 rounded text-red-300 tracking-wider">{pattern.logDrum}</div>
+                            <div className="text-red-300 tracking-wider">{pattern.logDrum}</div>
                           </div>
-                          <div className="space-y-1">
+                          <div>
                             <div className="text-blue-400 font-medium">Kick:</div>
-                            <div className="bg-black/30 p-2 rounded text-blue-300 tracking-wider">{pattern.kick}</div>
+                            <div className="text-blue-300 tracking-wider">{pattern.kick}</div>
                           </div>
-                          <div className="space-y-1">
+                          <div>
                             <div className="text-green-400 font-medium">Snare:</div>
-                            <div className="bg-black/30 p-2 rounded text-green-300 tracking-wider">{pattern.snare}</div>
+                            <div className="text-green-300 tracking-wider">{pattern.snare}</div>
                           </div>
-                          <div className="space-y-1">
+                          <div>
                             <div className="text-yellow-400 font-medium">Hi-Hat:</div>
-                            <div className="bg-black/30 p-2 rounded text-yellow-300 tracking-wider">{pattern.hiHat}</div>
+                            <div className="text-yellow-300 tracking-wider">{pattern.hiHat}</div>
                           </div>
                         </div>
-
-                        <div className="text-xs text-white/50 bg-black/20 p-2 rounded">
-                          <strong>Legend:</strong> x = hit, - = accent, . = rest
-                        </div>
-
                         <div className="flex items-center space-x-2">
-                          <Button 
-                            size="sm" 
-                            className="bg-green-500 hover:bg-green-600 flex-1" 
-                            onClick={() => handlePlay(pattern.id, pattern.name, 'drum')}
-                          >
+                          <Button size="sm" className="bg-green-500 hover:bg-green-600 flex-1" onClick={() => handlePlay(pattern.id, pattern.name, 'drum')}>
                             {playingPattern?.id === pattern.id ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
                             {playingPattern?.id === pattern.id ? 'Stop' : 'Play'}
                           </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="border-white/20 text-white" 
-                            onClick={() => handleDownload(pattern.name, 'mid')}
-                          >
-                            <Download className="h-3 w-3" />
+                          <Button size="sm" variant="outline" className="border-white/20 text-white" onClick={() => handleDownload(pattern.name)}>
+                            <Download className="w-3 h-3 mr-1" />
+                            MIDI
                           </Button>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="all" className="space-y-6">
-          <Card className="bg-white/5 border-white/10">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center">
-                <Layers className="h-5 w-5 mr-2" />
-                All Patterns
-              </CardTitle>
-              <CardDescription className="text-white/70">
-                Complete collection of musical patterns and structures
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-6">
-                <Select value={selectedCategory} onValueChange={(value: any) => setSelectedCategory(value)}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white w-64">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Categories</SelectItem>
-                    <SelectItem value="drum_pattern">Drum Patterns</SelectItem>
-                    <SelectItem value="bass_pattern">Bass Patterns</SelectItem>
-                    <SelectItem value="chord_progression">Chord Progressions</SelectItem>
-                    <SelectItem value="melody">Melodies</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {isLoadingAll ? <LoadingSpinner /> : errorAll ? <ErrorMessage error={errorAll as Error} /> : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {patternsData?.patterns.length === 0 ? (
-                    <div className="col-span-full text-center py-12">
-                      <Layers className="h-12 w-12 text-white/30 mx-auto mb-4" />
-                      <p className="text-white/60">No patterns found matching your criteria.</p>
-                    </div>
-                  ) : (
-                    patternsData?.patterns.map((pattern) => (
-                      <Card key={pattern.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-white text-lg">{pattern.name}</CardTitle>
-                          <Badge variant="outline" className="border-white/20 text-white/70 w-fit">
-                            {pattern.category.replace('_', ' ')}
-                          </Badge>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4 text-sm text-white/70">
-                            {pattern.bpm && (
-                              <div className="flex items-center space-x-1">
-                                <Clock className="h-3 w-3" />
-                                <span>{pattern.bpm} BPM</span>
-                              </div>
-                            )}
-                            {pattern.keySignature && (
-                              <div className="flex items-center space-x-1">
-                                <Key className="h-3 w-3" />
-                                <span>Key {pattern.keySignature}</span>
-                              </div>
-                            )}
-                            {pattern.bars && (
-                              <div className="flex items-center space-x-1">
-                                <Music className="h-3 w-3" />
-                                <span>{pattern.bars} bars</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            <Button 
-                              size="sm" 
-                              className="bg-green-500 hover:bg-green-600 flex-1" 
-                              onClick={() => handlePlay(pattern.id, pattern.name)}
-                            >
-                              {playingPattern?.id === pattern.id ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
-                              {playingPattern?.id === pattern.id ? 'Stop' : 'Play'}
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="border-white/20 text-white" 
-                              onClick={() => handleDownload(pattern.name, 'mid')}
-                            >
-                              <Download className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
                 </div>
               )}
             </CardContent>

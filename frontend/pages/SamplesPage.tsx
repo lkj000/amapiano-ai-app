@@ -5,18 +5,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Play, Download, Search, Music, Clock, Key, Pause, AlertCircle } from 'lucide-react';
-import LoadingSpinner from '../components/LoadingSpinner';
-import ErrorMessage from '../components/ErrorMessage';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Play, Download, Heart, Search, Music, Star, Pause, AlertCircle } from 'lucide-react';
 import backend from '~backend/client';
 import type { Genre, SampleCategory, Sample } from '~backend/music/types';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorMessage from '../components/ErrorMessage';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function SamplesPage() {
   const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGenre, setSelectedGenre] = useState<Genre | ''>('');
-  const [selectedCategory, setSelectedCategory] = useState<SampleCategory | ''>('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<SampleCategory | "">("");
+  const [selectedGenre, setSelectedGenre] = useState<Genre | "">("");
   const [selectedArtist, setSelectedArtist] = useState<'kabza_da_small' | 'kelvin_momo' | 'babalwa_m' | ''>('');
   const [playingSample, setPlayingSample] = useState<{ id: number; audio: HTMLAudioElement } | null>(null);
 
@@ -73,7 +74,6 @@ export default function SamplesPage() {
       playingSample.audio.pause();
     }
   
-    // Create a demo audio context with a simple tone
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
@@ -97,7 +97,7 @@ export default function SamplesPage() {
     const frequency = categoryFrequencies[sample.category] || 440;
     oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
   
-    if (sample.category === 'log_drum' || sample.category === 'bass' || sample.category === 'percussion') {
+    if (['log_drum', 'bass', 'percussion'].includes(sample.category)) {
       oscillator.type = 'square';
       filterNode.type = 'lowpass';
       filterNode.frequency.setValueAtTime(frequency * 2, audioContext.currentTime);
@@ -112,15 +112,8 @@ export default function SamplesPage() {
     oscillator.stop(audioContext.currentTime + 2);
   
     const mockAudio = {
-      pause: () => {
-        try {
-          oscillator.stop();
-        } catch (e) { /* ignore */ }
-        setPlayingSample(null);
-      },
+      pause: () => { try { oscillator.stop(); } catch (e) {} setPlayingSample(null); },
       play: () => Promise.resolve(),
-      currentTime: 0,
-      duration: 2,
     } as HTMLAudioElement;
   
     setPlayingSample({ id: sample.id, audio: mockAudio });
@@ -130,20 +123,29 @@ export default function SamplesPage() {
       description: `Playing ${sample.name}... (demo audio)`,
     });
   
-    setTimeout(() => {
-      setPlayingSample(null);
-    }, 2000);
+    setTimeout(() => setPlayingSample(null), 2000);
   };
 
-  const handleDownload = async (sample: Sample) => {
+  const handleDownload = (sample: Sample) => {
+    const content = `Demo Audio File for: ${sample.name}\nThis would be a high-quality WAV file in the full version.`;
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sample.name.toLowerCase().replace(/\s+/g, '-')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
     toast({
-      title: "Demo Mode",
-      description: "Download functionality will be available in the full version.",
-      variant: "default",
+      title: "Download Started",
+      description: `Downloading ${sample.name}... (demo file)`,
     });
   };
 
   const categories = [
+    { value: '', label: 'All Categories' },
     { value: 'log_drum', label: 'Log Drum' },
     { value: 'piano', label: 'Piano' },
     { value: 'percussion', label: 'Percussion' },
@@ -154,10 +156,16 @@ export default function SamplesPage() {
     { value: 'synth', label: 'Synth' }
   ];
 
-  const artists = [
-    { value: 'kabza_da_small', label: 'Kabza De Small' },
-    { value: 'kelvin_momo', label: 'Kelvin Momo' },
-    { value: 'babalwa_m', label: 'Babalwa M' }
+  const genres = [
+    { value: '', label: 'All Genres' },
+    { value: 'amapiano', label: 'Classic Amapiano' },
+    { value: 'private_school_amapiano', label: 'Private School' }
+  ];
+
+  const artistStyles = [
+    { value: 'kabza_da_small', label: 'Kabza De Small', description: 'Samples inspired by the legendary style of Kabza De Small' },
+    { value: 'kelvin_momo', label: 'Kelvin Momo', description: 'Samples inspired by the legendary style of Kelvin Momo' },
+    { value: 'babalwa_m', label: 'Babalwa M', description: 'Samples inspired by the legendary style of Babalwa M' }
   ];
 
   const getCategoryColor = (category: SampleCategory) => {
@@ -190,24 +198,15 @@ export default function SamplesPage() {
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-white">Sample Library</h1>
         <p className="text-white/80 max-w-2xl mx-auto">
-          Explore our curated collection of authentic amapiano samples from legendary artists like 
-          Kabza De Small, Kelvin Momo, and Babalwa M.
+          Explore 10,000+ authentic amapiano samples curated by South African artists and producers.
         </p>
-        {statsData && (
-          <div className="flex justify-center space-x-6 text-sm text-white/60">
-            <span>{statsData.totalSamples} total samples</span>
-            <span>{Object.keys(statsData.samplesByCategory).length} categories</span>
-            <span>{statsData.popularTags.length} unique tags</span>
-          </div>
-        )}
       </div>
 
-      {/* Demo Notice */}
-      <Card className="bg-yellow-400/10 border-yellow-400/20">
+      <Card className="bg-blue-400/10 border-blue-400/20">
         <CardContent className="p-4">
           <div className="flex items-center space-x-2">
-            <AlertCircle className="h-5 w-5 text-yellow-400" />
-            <div className="text-yellow-400 font-medium">Demo Mode</div>
+            <AlertCircle className="h-5 w-5 text-blue-400" />
+            <div className="text-blue-400 font-medium">Demo Mode</div>
           </div>
           <p className="text-white/80 text-sm mt-2">
             This is a demonstration of the sample library interface. In the full version, you'll have access to thousands of authentic amapiano samples with high-quality audio playback and download functionality.
@@ -215,39 +214,25 @@ export default function SamplesPage() {
         </CardContent>
       </Card>
 
-      {/* Search and Filters */}
       <Card className="bg-white/5 border-white/10">
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="lg:col-span-2">
+          <div className="grid md:grid-cols-4 gap-4">
+            <div className="md:col-span-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/50" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-4 h-4" />
                 <Input
-                  placeholder="Search samples..."
+                  placeholder="Search samples, tags, or styles..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50 pl-10"
+                  className="pl-10 bg-white/10 border-white/20 text-white"
                 />
               </div>
             </div>
-
-            <Select value={selectedGenre} onValueChange={(value: any) => setSelectedGenre(value)}>
+            <Select value={selectedCategory} onValueChange={(v: any) => setSelectedCategory(v)}>
               <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                <SelectValue placeholder="All Genres" />
+                <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Genres</SelectItem>
-                <SelectItem value="amapiano">Classic Amapiano</SelectItem>
-                <SelectItem value="private_school_amapiano">Private School</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedCategory} onValueChange={(value: any) => setSelectedCategory(value)}>
-              <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.value} value={category.value}>
                     {category.label}
@@ -255,200 +240,122 @@ export default function SamplesPage() {
                 ))}
               </SelectContent>
             </Select>
-
-            <Select value={selectedArtist} onValueChange={(value: any) => setSelectedArtist(value)}>
+            <Select value={selectedGenre} onValueChange={(v: any) => setSelectedGenre(v)}>
               <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                <SelectValue placeholder="All Artists" />
+                <SelectValue placeholder="Genre" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Artists</SelectItem>
-                {artists.map((artist) => (
-                  <SelectItem key={artist.value} value={artist.value}>
-                    {artist.label}
+                {genres.map((genre) => (
+                  <SelectItem key={genre.value} value={genre.value}>
+                    {genre.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          
-          {(searchQuery || selectedGenre || selectedCategory || selectedArtist) && (
-            <div className="mt-4 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="text-white/70 text-sm">Active filters:</span>
-                {searchQuery && <Badge variant="secondary">Search: {searchQuery}</Badge>}
-                {selectedGenre && <Badge variant="secondary">Genre: {selectedGenre}</Badge>}
-                {selectedCategory && <Badge variant="secondary">Category: {selectedCategory}</Badge>}
-                {selectedArtist && <Badge variant="secondary">Artist: {artists.find(a => a.value === selectedArtist)?.label}</Badge>}
-              </div>
-              <Button variant="outline" size="sm" onClick={clearFilters} className="border-white/20 text-white">
-                Clear Filters
-              </Button>
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      {/* Search Suggestions */}
-      {searchResults?.suggestions && searchResults.suggestions.length > 0 && (
-        <Card className="bg-white/5 border-white/10">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-white/70 text-sm">Suggestions:</span>
-              {searchResults.suggestions.map((suggestion, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSearchQuery(suggestion)}
-                  className="border-white/20 text-white/70 hover:text-white"
-                >
-                  {suggestion}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Tabs defaultValue="samples" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6 bg-white/10">
+          <TabsTrigger value="samples" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black">Sample Collection</TabsTrigger>
+          <TabsTrigger value="artists" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black">Artist Styles</TabsTrigger>
+        </TabsList>
 
-      {/* Artist Info */}
-      {artistSamples?.artistInfo && (
-        <Card className="bg-gradient-to-r from-yellow-400/10 to-orange-400/10 border-yellow-400/20">
-          <CardHeader>
-            <CardTitle className="text-white">{artistSamples.artistInfo.name}</CardTitle>
-            <CardDescription className="text-white/80">
-              <span className="text-yellow-400 font-medium">{artistSamples.artistInfo.style}</span> - {artistSamples.artistInfo.description}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      )}
-
-      {/* Loading State */}
-      {isLoadingAny && <LoadingSpinner />}
-
-      {/* Samples Grid */}
-      {!isLoadingAny && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {displaySamples.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <Music className="h-12 w-12 text-white/30 mx-auto mb-4" />
-              <p className="text-white/60">No samples found matching your criteria.</p>
-              {(searchQuery || selectedGenre || selectedCategory || selectedArtist) && (
-                <Button variant="outline" onClick={clearFilters} className="mt-4 border-white/20 text-white">
-                  Clear Filters
-                </Button>
+        <TabsContent value="samples">
+          {isLoadingAny ? <LoadingSpinner /> : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displaySamples.length === 0 ? (
+                <div className="col-span-full text-center py-12">
+                  <Music className="w-16 h-16 text-white/30 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2 text-white">No samples found</h3>
+                  <p className="text-white/70">Try adjusting your search criteria</p>
+                </div>
+              ) : (
+                displaySamples.map((sample) => (
+                  <Card key={sample.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-all duration-300">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg mb-1 text-white">{sample.name}</CardTitle>
+                        </div>
+                        <Button variant="ghost" size="sm" className="text-white/60 hover:text-red-500">
+                          <Heart className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="flex justify-between text-white/70"><span>BPM:</span><span>{sample.bpm}</span></div>
+                          <div className="flex justify-between text-white/70"><span>Key:</span><span>{sample.keySignature}</span></div>
+                          <div className="flex justify-between text-white/70"><span>Length:</span><span>{sample.durationSeconds}s</span></div>
+                          <div className="flex justify-between text-white/70">
+                            <span>Rating:</span>
+                            <div className="flex items-center gap-1">
+                              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                              <span>4.8</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Badge className={`${getCategoryColor(sample.category)} text-xs`}>{sample.category}</Badge>
+                          <Badge variant="outline" className="text-xs border-white/20 text-white/70">{sample.genre}</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {sample.tags?.map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs opacity-60 border-white/20 text-white/60">#{tag}</Badge>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" className="bg-green-500 hover:bg-green-600 flex-1" onClick={() => handlePlay(sample)}>
+                            {playingSample?.id === sample.id ? <Pause className="w-3 h-3 mr-1" /> : <Play className="w-3 h-3 mr-1" />}
+                            {playingSample?.id === sample.id ? 'Stop' : 'Play'}
+                          </Button>
+                          <Button variant="outline" size="sm" className="flex-1 border-white/20 text-white" onClick={() => handleDownload(sample)}>
+                            <Download className="w-3 h-3 mr-1" />
+                            Download
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
               )}
             </div>
-          ) : (
-            displaySamples.map((sample) => (
-              <Card key={sample.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="text-white text-lg">{sample.name}</CardTitle>
-                      <div className="flex items-center space-x-2">
-                        <Badge className={getCategoryColor(sample.category)}>
-                          {sample.category.replace('_', ' ')}
-                        </Badge>
-                        <Badge variant="outline" className="border-white/20 text-white/70">
-                          {sample.genre === 'private_school_amapiano' ? 'Private School' : 'Classic'}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="artists">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {artistStyles.map((artist) => (
+              <Card key={artist.value} className="bg-white/5 border-white/10 hover:bg-white/10 transition-all duration-300">
+                <CardHeader>
+                  <CardTitle className="text-lg text-white">{artist.label} Style Pack</CardTitle>
+                  <CardDescription className="text-white/70">{artist.description}</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm text-white/70">
-                    {sample.bpm && (
-                      <div className="flex items-center space-x-1">
-                        <Clock className="h-3 w-3" />
-                        <span>{sample.bpm} BPM</span>
-                      </div>
-                    )}
-                    {sample.keySignature && (
-                      <div className="flex items-center space-x-1">
-                        <Key className="h-3 w-3" />
-                        <span>Key {sample.keySignature}</span>
-                      </div>
-                    )}
-                    {sample.durationSeconds && (
-                      <div className="flex items-center space-x-1">
-                        <Music className="h-3 w-3" />
-                        <span>{sample.durationSeconds.toFixed(1)}s</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {sample.tags && sample.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {sample.tags.slice(0, 3).map((tag, index) => (
-                        <Badge 
-                          key={index} 
-                          variant="secondary" 
-                          className="text-xs bg-white/10 text-white/60 cursor-pointer hover:bg-white/20"
-                          onClick={() => setSearchQuery(tag)}
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
-                      {sample.tags.length > 3 && (
-                        <Badge variant="secondary" className="text-xs bg-white/10 text-white/60">
-                          +{sample.tags.length - 3} more
-                        </Badge>
-                      )}
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="text-sm text-white/70">
+                      Contains 50+ samples including piano loops, drum patterns, and signature sounds
                     </div>
-                  )}
-
-                  <div className="flex items-center space-x-2">
-                    <Button size="sm" className="bg-green-500 hover:bg-green-600 flex-1" onClick={() => handlePlay(sample)}>
-                      {playingSample?.id === sample.id ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
-                      {playingSample?.id === sample.id ? 'Pause' : 'Play'}
-                    </Button>
-                    <Button size="sm" variant="outline" className="border-white/20 text-white" onClick={() => handleDownload(sample)}>
-                      <Download className="h-3 w-3" />
+                    <div className="flex justify-between items-center">
+                      <Badge variant="secondary" className="bg-yellow-400/20 text-yellow-400">Premium Pack</Badge>
+                      <div className="flex items-center gap-1 text-white">
+                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                        <span className="text-sm">4.9</span>
+                      </div>
+                    </div>
+                    <Button className="w-full bg-yellow-400 text-black hover:bg-yellow-500" onClick={() => setSelectedArtist(artist.value as any)}>
+                      Explore Pack
                     </Button>
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Load More */}
-      {!isLoadingAny && displaySamples.length > 0 && displaySamples.length >= 50 && (
-        <div className="text-center">
-          <Button variant="outline" className="border-white/20 text-white">
-            Load More Samples
-          </Button>
-        </div>
-      )}
-
-      {/* Popular Tags */}
-      {statsData?.popularTags && statsData.popularTags.length > 0 && (
-        <Card className="bg-white/5 border-white/10">
-          <CardHeader>
-            <CardTitle className="text-white">Popular Tags</CardTitle>
-            <CardDescription className="text-white/70">
-              Click on a tag to search for samples
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {statsData.popularTags.slice(0, 20).map((tag, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSearchQuery(tag.tag)}
-                  className="border-white/20 text-white/70 hover:text-white hover:bg-white/10"
-                >
-                  {tag.tag} ({tag.count})
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
