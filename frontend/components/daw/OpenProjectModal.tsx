@@ -21,10 +21,10 @@ export default function OpenProjectModal({ isOpen, onClose, onLoadProject }: Ope
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-background text-white border-border">
+      <DialogContent className="bg-black/80 backdrop-blur-md text-white border-white/10">
         <DialogHeader>
           <DialogTitle>Open Project</DialogTitle>
-          <DialogDescription>Select a project to load into the DAW.</DialogDescription>
+          <DialogDescription className="text-white/70">Select a project to load into the DAW.</DialogDescription>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-y-auto py-4">
           {isLoading && <LoadingSpinner />}
@@ -32,15 +32,15 @@ export default function OpenProjectModal({ isOpen, onClose, onLoadProject }: Ope
           {data && (
             <div className="space-y-2">
               {data.projects.map(project => (
-                <div key={project.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                <div key={project.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-white/10 transition-colors">
                   <div>
                     <p className="font-medium">{project.name}</p>
-                    <p className="text-sm text-muted-foreground">Last updated: {new Date(project.updatedAt).toLocaleString()}</p>
+                    <p className="text-sm text-white/70">Last updated: {new Date(project.updatedAt).toLocaleString()}</p>
                   </div>
                   <Button onClick={() => {
                     onLoadProject(project.id);
                     onClose();
-                  }}>Load</Button>
+                  }} className="bg-yellow-400 text-black hover:bg-yellow-500">Load</Button>
                 </div>
               ))}
             </div>

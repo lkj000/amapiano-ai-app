@@ -48,8 +48,8 @@ const AIPromptParser = ({ prompt, className }: { prompt: string, className?: str
   if (!parsed) return null;
 
   return (
-    <Card className={`bg-muted/50 p-3 ${className}`}>
-      <h4 className="text-xs font-semibold mb-2">AI Interpretation:</h4>
+    <Card className={`bg-white/5 p-3 ${className}`}>
+      <h4 className="text-xs font-semibold mb-2 text-white/70">AI Interpretation:</h4>
       <div className="flex flex-wrap gap-2">
         {Object.entries(parsed).map(([key, value]) => (
           <Badge key={key} variant="secondary">{key}: {value}</Badge>
@@ -432,45 +432,45 @@ export default function DawPage() {
   const selectedTrack = projectData.tracks.find(t => t.id === selectedTrackId) || null;
 
   return (
-    <div className="min-h-screen bg-background text-white">
+    <div className="min-h-screen text-white">
       <div className="flex flex-col h-screen">
         {/* Header */}
-        <div className="border-b border-border p-4">
+        <div className="bg-black/20 border-b border-white/10 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Music className="w-6 h-6 text-primary" />
+                <Music className="w-6 h-6 text-yellow-400" />
                 <Input 
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
-                  className="text-xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0"
+                  className="text-xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 text-white"
                 />
               </div>
-              <Badge variant="outline">Professional DAW</Badge>
+              <Badge variant="outline" className="border-white/20 text-white/70">Professional DAW</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setIsOpenProjectOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setIsOpenProjectOpen(true)} className="border-white/20 text-white hover:bg-white/10">
                 <FolderOpen className="w-4 h-4 mr-2" />
                 Open
               </Button>
-              <Button variant="outline" size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
+              <Button variant="outline" size="sm" onClick={handleSave} disabled={saveMutation.isPending} className="border-white/20 text-white hover:bg-white/10">
                 {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 Save
               </Button>
-              <Button variant="outline" size="sm" onClick={handleExport}>
+              <Button variant="outline" size="sm" onClick={handleExport} className="border-white/20 text-white hover:bg-white/10">
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
-              <Separator orientation="vertical" className="h-6" />
-              <Button variant="outline" size="sm" onClick={() => setShowMixer(!showMixer)}>
+              <Separator orientation="vertical" className="h-6 bg-white/20" />
+              <Button variant="outline" size="sm" onClick={() => setShowMixer(!showMixer)} className="border-white/20 text-white hover:bg-white/10">
                 <Sliders className="w-4 h-4 mr-2" />
                 Mixer
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowPianoRoll(!showPianoRoll)}>
+              <Button variant="outline" size="sm" onClick={() => setShowPianoRoll(!showPianoRoll)} className="border-white/20 text-white hover:bg-white/10">
                 <Piano className="w-4 h-4 mr-2" />
                 Piano Roll
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)} className="border-white/20 text-white hover:bg-white/10">
                 <Settings className="w-4 h-4" />
               </Button>
             </div>
@@ -479,31 +479,31 @@ export default function DawPage() {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
-          <div className={`${showAIAssistant ? 'w-80' : 'w-64'} border-r border-border bg-sidebar overflow-y-auto transition-all duration-200`}>
+          <div className={`${showAIAssistant ? 'w-80' : 'w-64'} bg-black/20 border-r border-white/10 overflow-y-auto transition-all duration-200`}>
             <Tabs defaultValue="instruments" className="h-full">
-              <TabsList className="grid w-full grid-cols-3 m-2">
-                <TabsTrigger value="instruments" className="text-xs">Instruments</TabsTrigger>
-                <TabsTrigger value="effects" className="text-xs">Effects</TabsTrigger>
-                <TabsTrigger value="ai-assistant" className="text-xs">AI</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 m-2 bg-black/30">
+                <TabsTrigger value="instruments" className="text-xs data-[state=active]:bg-yellow-400 data-[state=active]:text-black text-white/70">Instruments</TabsTrigger>
+                <TabsTrigger value="effects" className="text-xs data-[state=active]:bg-yellow-400 data-[state=active]:text-black text-white/70">Effects</TabsTrigger>
+                <TabsTrigger value="ai-assistant" className="text-xs data-[state=active]:bg-yellow-400 data-[state=active]:text-black text-white/70">AI</TabsTrigger>
               </TabsList>
 
               <TabsContent value="instruments" className="p-4 space-y-4">
                 <div>
-                  <h3 className="font-semibold mb-3">Amapiano Instruments</h3>
+                  <h3 className="font-semibold mb-3 text-white">Amapiano Instruments</h3>
                   <div className="space-y-2">
                     {instruments.map((instrument) => {
                       const Icon = instrument.icon;
                       return (
-                        <Card key={instrument.name} className="p-3 cursor-pointer hover:bg-muted/50 transition-colors group">
+                        <Card key={instrument.name} className="p-3 cursor-pointer bg-white/5 hover:bg-white/10 transition-colors group">
                           <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <Icon className="w-4 h-4 text-primary" />
+                            <div className="w-8 h-8 bg-yellow-400/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <Icon className="w-4 h-4 text-yellow-400" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="font-medium text-sm">{instrument.name}</div>
-                              <div className="text-xs text-muted-foreground mt-1">{instrument.description}</div>
+                              <div className="font-medium text-sm text-white">{instrument.name}</div>
+                              <div className="text-xs text-white/70 mt-1">{instrument.description}</div>
                             </div>
-                            <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleAddTrack(instrument)}>
+                            <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity text-white" onClick={() => handleAddTrack(instrument)}>
                               <Plus className="w-3 h-3" />
                             </Button>
                           </div>
@@ -518,18 +518,18 @@ export default function DawPage() {
                 <div className="space-y-4">
                   {["Core", "Amapiano"].map((category) => (
                     <div key={category}>
-                      <h4 className="font-semibold mb-2 text-sm">{category} Effects</h4>
+                      <h4 className="font-semibold mb-2 text-sm text-white">{category} Effects</h4>
                       <div className="space-y-1">
                         {effects
                           .filter(effect => effect.category === category)
                           .map((effect) => (
-                            <Card key={effect.name} className="p-2 cursor-pointer hover:bg-muted/50 transition-colors">
+                            <Card key={effect.name} className="p-2 cursor-pointer bg-white/5 hover:bg-white/10 transition-colors">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <div className="font-medium text-sm">{effect.name}</div>
-                                  <div className="text-xs text-muted-foreground">{effect.description}</div>
+                                  <div className="font-medium text-sm text-white">{effect.name}</div>
+                                  <div className="text-xs text-white/70">{effect.description}</div>
                                 </div>
-                                <Button size="sm" variant="ghost" onClick={() => handleAddEffectToTrack(effect.name)}>
+                                <Button size="sm" variant="ghost" className="text-white" onClick={() => handleAddEffectToTrack(effect.name)}>
                                   <Plus className="w-3 h-3" />
                                 </Button>
                               </div>
@@ -543,23 +543,23 @@ export default function DawPage() {
 
               <TabsContent value="ai-assistant" className="p-4 space-y-4">
                 <div>
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <Wand2 className="w-4 h-4 text-primary" />
+                  <h3 className="font-semibold mb-3 flex items-center gap-2 text-white">
+                    <Wand2 className="w-4 h-4 text-yellow-400" />
                     AI Assistant
                   </h3>
                   
-                  <Card className="p-3 mb-4">
+                  <Card className="p-3 mb-4 bg-white/5 border-white/10">
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs font-medium text-muted-foreground">Natural Language Prompt</label>
+                        <label className="text-xs font-medium text-white/70">Natural Language Prompt</label>
                         <Input
                           placeholder="Generate a log drum pattern..."
                           value={aiPrompt}
                           onChange={(e) => setAiPrompt(e.target.value)}
-                          className="mt-1"
+                          className="mt-1 bg-white/10 border-white/20 text-white"
                         />
                       </div>
-                      <Button size="sm" className="w-full btn-glow" onClick={() => handleAIGenerate(aiPrompt)} disabled={aiGenerateMutation.isPending}>
+                      <Button size="sm" className="w-full bg-yellow-400 text-black hover:bg-yellow-500" onClick={() => handleAIGenerate(aiPrompt)} disabled={aiGenerateMutation.isPending}>
                         {aiGenerateMutation.isPending ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Zap className="w-3 h-3 mr-2" />}
                         Generate
                       </Button>
@@ -569,16 +569,16 @@ export default function DawPage() {
                   <AIPromptParser prompt={aiPrompt} className="mb-4" />
 
                   <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">Quick Actions</h4>
+                    <h4 className="text-sm font-medium text-white/70">Quick Actions</h4>
                     {aiSuggestions.map((suggestion, index) => (
                       <Button 
                         key={index} 
                         variant="outline" 
                         size="sm" 
                         onClick={() => handleAIGenerate(suggestion)}
-                        className="w-full text-left h-auto p-3 justify-start whitespace-normal"
+                        className="w-full text-left h-auto p-3 justify-start whitespace-normal border-white/20 text-white/80 hover:bg-white/10 hover:text-white"
                       >
-                        <Wand2 className="w-3 h-3 mr-2 flex-shrink-0 mt-0.5" />
+                        <Wand2 className="w-3 h-3 mr-2 flex-shrink-0 mt-0.5 text-yellow-400" />
                         <span className="text-xs">{suggestion}</span>
                       </Button>
                     ))}
@@ -591,20 +591,20 @@ export default function DawPage() {
           {/* Main DAW Area */}
           <div className="flex-1 flex flex-col">
             {/* Transport Controls */}
-            <div className="border-b border-border p-4">
+            <div className="bg-black/20 border-b border-white/10 p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setIsPlaying(!isPlaying)}>
+                    <Button variant="outline" size="sm" onClick={() => setIsPlaying(!isPlaying)} className="border-white/20 text-white hover:bg-white/10">
                       {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handleStop}><Square className="w-4 h-4" /></Button>
-                    <Button variant="outline" size="sm" className={isRecording ? "bg-destructive text-destructive-foreground" : ""} onClick={() => setIsRecording(!isRecording)}>
-                      <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-destructive"}`} />
+                    <Button variant="outline" size="sm" onClick={handleStop} className="border-white/20 text-white hover:bg-white/10"><Square className="w-4 h-4" /></Button>
+                    <Button variant="outline" size="sm" className={isRecording ? "bg-red-500 text-white" : "border-white/20 text-white hover:bg-white/10"} onClick={() => setIsRecording(!isRecording)}>
+                      <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-red-500"}`} />
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleSkip(-5)}><SkipBack className="w-4 h-4" /></Button>
-                    <Button variant="outline" size="sm" onClick={() => handleSkip(5)}><SkipForward className="w-4 h-4" /></Button>
-                    <Button variant="outline" size="sm" onClick={() => setIsLooping(!isLooping)} className={isLooping ? 'bg-primary/20 text-primary' : ''}>
+                    <Button variant="outline" size="sm" onClick={() => handleSkip(-5)} className="border-white/20 text-white hover:bg-white/10"><SkipBack className="w-4 h-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => handleSkip(5)} className="border-white/20 text-white hover:bg-white/10"><SkipForward className="w-4 h-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => setIsLooping(!isLooping)} className={isLooping ? 'bg-yellow-400/20 text-yellow-400 border-yellow-400/30' : 'border-white/20 text-white hover:bg-white/10'}>
                       <RotateCcw className="w-4 h-4" />
                     </Button>
                   </div>
@@ -615,19 +615,19 @@ export default function DawPage() {
                       <div className="w-20">
                         <Slider value={[projectData.bpm]} onValueChange={([v]) => setProjectData({ ...projectData, bpm: v })} min={80} max={160} step={1} />
                       </div>
-                      <span className="text-sm text-muted-foreground w-8">{projectData.bpm}</span>
+                      <span className="text-sm text-white/70 w-8">{projectData.bpm}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Volume2 className="w-4 h-4" />
                       <div className="w-20">
                         <Slider value={[projectData.masterVolume * 100]} onValueChange={([v]) => setProjectData({ ...projectData, masterVolume: v / 100 })} />
                       </div>
-                      <span className="text-sm text-muted-foreground w-8">{Math.round(projectData.masterVolume * 100)}</span>
+                      <span className="text-sm text-white/70 w-8">{Math.round(projectData.masterVolume * 100)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">Zoom:</span>
                       <div className="w-20"><Slider value={zoom} onValueChange={setZoom} min={25} max={400} step={25} /></div>
-                      <span className="text-sm text-muted-foreground">{zoom[0]}%</span>
+                      <span className="text-sm text-white/70">{zoom[0]}%</span>
                     </div>
                   </div>
                 </div>
@@ -638,38 +638,38 @@ export default function DawPage() {
             <div className="flex-1 overflow-auto" ref={timelineContainerRef}>
               <div className="h-full flex">
                 {/* Track List */}
-                <div className="w-80 border-r border-border bg-muted/20 overflow-y-auto">
-                  <div className="p-3 border-b border-border">
+                <div className="w-80 border-r border-white/10 bg-black/20 overflow-y-auto">
+                  <div className="p-3 border-b border-white/10">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">Tracks</h3>
+                      <h3 className="font-semibold text-white">Tracks</h3>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="outline" onClick={() => handleAddTrack()}><Plus className="w-3 h-3" /></Button>
-                        <Button size="sm" variant="outline" onClick={handleUploadAudio}><Upload className="w-3 h-3" /></Button>
+                        <Button size="sm" variant="outline" onClick={() => handleAddTrack()} className="border-white/20 text-white hover:bg-white/10"><Plus className="w-3 h-3" /></Button>
+                        <Button size="sm" variant="outline" onClick={handleUploadAudio} className="border-white/20 text-white hover:bg-white/10"><Upload className="w-3 h-3" /></Button>
                       </div>
                     </div>
                   </div>
                   <div className="space-y-1">
                     {projectData.tracks.map((track) => (
-                      <div key={track.id} className={`p-3 border-b border-border/50 hover:bg-muted/50 transition-colors cursor-pointer ${selectedTrackId === track.id ? 'bg-primary/10' : ''}`} onClick={() => setSelectedTrackId(track.id)}>
+                      <div key={track.id} className={`p-3 border-b border-white/10 hover:bg-white/5 transition-colors cursor-pointer ${selectedTrackId === track.id ? 'bg-yellow-400/10' : ''}`} onClick={() => setSelectedTrackId(track.id)}>
                         <div className="flex items-center gap-2 mb-2">
                           <div className={`w-3 h-3 rounded-full ${track.color}`} />
-                          <Input value={track.name} onChange={(e) => updateTrack(track.id, { name: e.target.value })} className="font-medium text-sm flex-1 border-0 p-0 h-auto bg-transparent focus-visible:ring-0" />
-                          <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => handleRemoveTrack(track.id)}><Minus className="w-3 h-3 text-red-500" /></Button>
-                          <Button size="sm" variant="ghost" className={`w-6 h-6 p-0 ${track.isArmed ? 'text-destructive' : ''}`} onClick={(e) => { e.stopPropagation(); updateTrack(track.id, { isArmed: !track.isArmed }); }}>
-                            <div className={`w-2 h-2 rounded-full ${track.isArmed ? 'bg-destructive animate-pulse' : 'bg-muted-foreground'}`} />
+                          <Input value={track.name} onChange={(e) => updateTrack(track.id, { name: e.target.value })} className="font-medium text-sm flex-1 border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-white" />
+                          <Button size="sm" variant="ghost" className="w-6 h-6 p-0 text-white/60 hover:text-white" onClick={() => handleRemoveTrack(track.id)}><Minus className="w-3 h-3 text-red-500" /></Button>
+                          <Button size="sm" variant="ghost" className={`w-6 h-6 p-0 text-white/60 hover:text-white ${track.isArmed ? 'text-red-500' : ''}`} onClick={(e) => { e.stopPropagation(); updateTrack(track.id, { isArmed: !track.isArmed }); }}>
+                            <div className={`w-2 h-2 rounded-full ${track.isArmed ? 'bg-red-500 animate-pulse' : 'bg-white/50'}`} />
                           </Button>
-                          <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowPianoRoll(!showPianoRoll)}><Piano className="w-3 h-3" /></Button>
+                          <Button size="sm" variant="ghost" className="w-6 h-6 p-0 text-white/60 hover:text-white" onClick={() => setShowPianoRoll(!showPianoRoll)}><Piano className="w-3 h-3" /></Button>
                         </div>
                         <div className="flex items-center gap-2 text-xs mb-2">
-                          <Button size="sm" variant={track.mixer.isMuted ? "destructive" : "outline"} className="w-8 h-6 text-xs" onClick={() => updateMixer(track.id, { isMuted: !track.mixer.isMuted })}>M</Button>
-                          <Button size="sm" variant={track.mixer.isSolo ? "secondary" : "outline"} className="w-8 h-6 text-xs" onClick={() => updateMixer(track.id, { isSolo: !track.mixer.isSolo })}>S</Button>
+                          <Button size="sm" variant={track.mixer.isMuted ? "destructive" : "outline"} className="w-8 h-6 text-xs border-white/20" onClick={() => updateMixer(track.id, { isMuted: !track.mixer.isMuted })}>M</Button>
+                          <Button size="sm" variant={track.mixer.isSolo ? "secondary" : "outline"} className="w-8 h-6 text-xs border-white/20" onClick={() => updateMixer(track.id, { isSolo: !track.mixer.isSolo })}>S</Button>
                           <div className="flex-1"><Slider value={[track.mixer.volume * 100]} onValueChange={([v]) => updateMixer(track.id, { volume: v / 100 })} /></div>
-                          <span className="text-xs w-8 text-right">{Math.round(track.mixer.volume * 100)}</span>
+                          <span className="text-xs w-8 text-right text-white/70">{Math.round(track.mixer.volume * 100)}</span>
                         </div>
                         {track.mixer.effects.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {track.mixer.effects.map((effect) => (
-                              <Badge key={effect} variant="outline" className="text-xs px-1 py-0 relative group">
+                              <Badge key={effect} variant="outline" className="text-xs px-1 py-0 relative group border-white/20 text-white/70">
                                 {effect}
                                 <button onClick={() => handleRemoveEffectFromTrack(track.id, effect)} className="absolute -top-1 -right-1 bg-red-500 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <X className="w-2 h-2 text-white" />
@@ -684,26 +684,26 @@ export default function DawPage() {
                 </div>
 
                 {/* Timeline Grid */}
-                <div className="flex-1 bg-background overflow-auto">
+                <div className="flex-1 overflow-auto">
                   <div className="h-full relative" style={{ width: `${zoom[0]}%` }}>
-                    <div className="h-8 bg-muted border-b border-border flex items-center px-4 sticky top-0 z-10">
-                      {Array.from({ length: 32 }, (_, i) => (<div key={i} className="flex-1 text-xs text-center border-r border-border/30 py-1">{i + 1}</div>))}
+                    <div className="h-8 bg-black/20 border-b border-white/10 flex items-center px-4 sticky top-0 z-10">
+                      {Array.from({ length: 32 }, (_, i) => (<div key={i} className="flex-1 text-xs text-center border-r border-white/20 py-1 text-white/70">{i + 1}</div>))}
                     </div>
                     <div className="space-y-1">
                       {projectData.tracks.map((track, trackIndex) => (
-                        <div key={track.id} className="h-24 border-b border-border/30 relative flex items-center">
+                        <div key={track.id} className="h-24 border-b border-white/10 relative flex items-center">
                           {track.clips.map(clip => (
                             <div key={clip.id} className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center`} style={{ left: `${(clip.startTime / 32) * 100}%`, width: `${(clip.duration / 32) * 100}%` }}>
                               <span className="text-xs text-white font-medium">{clip.name}</span>
                             </div>
                           ))}
                           {Array.from({ length: 32 * 4 }, (_, i) => (
-                            <div key={i} className={`absolute top-0 bottom-0 border-r ${i % 4 === 0 ? 'border-border/30' : 'border-border/10'}`} style={{ left: `${(i / (32 * 4)) * 100}%` }} />
+                            <div key={i} className={`absolute top-0 bottom-0 border-r ${i % 4 === 0 ? 'border-white/20' : 'border-white/10'}`} style={{ left: `${(i / (32 * 4)) * 100}%` }} />
                           ))}
                         </div>
                       ))}
                     </div>
-                    <div className="absolute top-0 bottom-0 w-0.5 bg-primary z-20" style={{ left: `${(currentTime / totalDuration) * 100}%` }} />
+                    <div className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-20" style={{ left: `${(currentTime / totalDuration) * 100}%` }} />
                   </div>
                 </div>
               </div>

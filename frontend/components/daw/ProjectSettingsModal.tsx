@@ -33,10 +33,10 @@ export default function ProjectSettingsModal({ isOpen, onClose, projectData, onS
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-background text-white border-border">
+      <DialogContent className="bg-black/80 backdrop-blur-md text-white border-white/10">
         <DialogHeader>
           <DialogTitle>Project Settings</DialogTitle>
-          <DialogDescription>Manage your project's global settings.</DialogDescription>
+          <DialogDescription className="text-white/70">Manage your project's global settings.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
@@ -46,13 +46,13 @@ export default function ProjectSettingsModal({ isOpen, onClose, projectData, onS
               type="number"
               value={bpm}
               onChange={(e) => setBpm(Number(e.target.value))}
-              className="col-span-3 bg-muted border-border"
+              className="col-span-3 bg-white/10 border-white/20"
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="key" className="text-right">Key</Label>
             <Select value={keySignature} onValueChange={setKeySignature}>
-              <SelectTrigger className="col-span-3 bg-muted border-border">
+              <SelectTrigger className="col-span-3 bg-white/10 border-white/20">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -64,8 +64,8 @@ export default function ProjectSettingsModal({ isOpen, onClose, projectData, onS
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave}>Save Changes</Button>
+          <Button variant="outline" onClick={onClose} className="border-white/20 text-white hover:bg-white/10">Cancel</Button>
+          <Button onClick={handleSave} className="bg-yellow-400 text-black hover:bg-yellow-500">Save Changes</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
