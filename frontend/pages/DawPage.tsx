@@ -97,7 +97,6 @@ export default function DawPage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAIAssistant, setShowAIAssistant] = useState(true);
   const [zoom, setZoom] = useState([100]);
-  const [isLooping, setIsLooping] = useState(false);
   const timelineContainerRef = useRef<HTMLDivElement>(null);
 
   // Modals state
@@ -110,7 +109,7 @@ export default function DawPage() {
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
 
   // Audio Engine
-  const { isPlaying, currentTime, play, pause, stop, setBpm, setTrackVolume, setMasterVolume } = useAudioEngine(projectData);
+  const { isPlaying, currentTime, setCurrentTime, isLooping, setIsLooping, play, pause, stop, setBpm, setTrackVolume, setMasterVolume } = useAudioEngine(projectData);
 
   // Step 1: Fetch project list
   const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
@@ -594,8 +593,8 @@ export default function DawPage() {
                   <Button variant="outline" size="sm" className={isRecording ? "bg-destructive text-destructive-foreground" : ""} onClick={() => setIsRecording(!isRecording)}>
                     <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-destructive"}`} />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => setCurrentTime(0)}><SkipBack className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" onClick={() => {}}><SkipForward className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentTime(t => Math.max(0, t - 5))}><SkipBack className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentTime(t => t + 5)}><SkipForward className="w-4 h-4" /></Button>
                   <Button variant="outline" size="sm" onClick={() => setIsLooping(!isLooping)} className={isLooping ? 'bg-primary/20 text-primary' : ''}>
                     <RotateCcw className="w-4 h-4" />
                   </Button>

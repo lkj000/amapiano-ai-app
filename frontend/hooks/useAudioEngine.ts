@@ -36,6 +36,7 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [bpm, setBpm] = useState(projectData?.bpm || 120);
+  const [isLooping, setIsLooping] = useState(false);
 
   const lookahead = 25.0; // ms
   const scheduleAheadTime = 0.1; // seconds
@@ -152,7 +153,7 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
 
       nextNoteTime.current += scheduleAheadTime / 2;
     }
-  }, [bpm, projectData, isPlaying]);
+  }, [bpm, projectData, isPlaying, isLooping]);
 
   useScheduler(scheduler, isPlaying);
 
@@ -191,6 +192,9 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
   return {
     isPlaying,
     currentTime,
+    setCurrentTime,
+    isLooping,
+    setIsLooping,
     play,
     pause,
     stop,
