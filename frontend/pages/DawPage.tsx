@@ -661,8 +661,8 @@ export default function DawPage() {
                   <Button variant="outline" size="sm" className={isRecording ? "bg-destructive text-destructive-foreground" : ""} onClick={() => setIsRecording(!isRecording)}>
                     <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-destructive"}`} />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => seek(currentTime - 5)}><SkipBack className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" onClick={() => seek(currentTime + 5)}><SkipForward className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="sm" onClick={() => seek(t => t - 5)}><SkipBack className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="sm" onClick={() => seek(t => t + 5)}><SkipForward className="w-4 h-4" /></Button>
                   <Button variant="outline" size="sm" onClick={() => setIsLooping(!isLooping)} className={isLooping ? 'bg-primary/20 text-primary' : ''}>
                     <RotateCcw className="w-4 h-4" />
                   </Button>

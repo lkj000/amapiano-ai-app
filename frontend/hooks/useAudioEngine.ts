@@ -180,15 +180,19 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     setIsPlaying(false);
   }, []);
 
-  const seek = useCallback((time: number) => {
-    if (!audioContextRef.current) return;
-    const totalDurationInSeconds = projectData ? (32 * 4 / projectData.bpm) * 60 : 0;
-    const newTime = Math.max(0, Math.min(time, totalDurationInSeconds));
-    setCurrentTime(newTime);
-    if (isPlaying) {
-      startTimeRef.current = audioContextRef.current.currentTime - newTime;
-      nextNoteTime.current = audioContextRef.current.currentTime;
-    }
+  const seek = useCallback((timeOrFn: number | ((prevTime: number) => number)) => {
+    setCurrentTime(prevTime => {
+      const newTime = typeof timeOrFn === 'function' ? timeOrFn(prevTime) : timeOrFn;
+      const totalDurationInSeconds = projectData ? (32 * 4 / projectData.bpm) * 60 : 0;
+      const clampedTime = Math.max(0, Math.min(newTime, totalDurationInSeconds));
+      
+      if (isPlaying && audioContextRef.current) {
+        startTimeRef.current = audioContextRef.current.currentTime - clampedTime;
+        nextNoteTime.current = audioContextRef.current.currentTime;
+      }
+      
+      return clampedTime;
+    });
   }, [isPlaying, projectData]);
 
   const setTrackVolume = useCallback((trackId: string, volume: number) => {
