@@ -20,7 +20,14 @@ export interface ListTemplatesResponse {
 export const listTemplates = api(
   { method: "GET", path: "/plugins/templates", expose: true },
   async (req: ListTemplatesRequest): Promise<ListTemplatesResponse> => {
-    let query = 'SELECT * FROM smart_templates WHERE 1=1';
+    let query = `SELECT 
+      id, name, version, description, author, genre, category,
+      signal_chain::text as signal_chain,
+      preset_parameters::text as preset_parameters,
+      tags,
+      target_framework, verified, downloads, rating,
+      cultural_context, use_case, created_at, updated_at
+    FROM smart_templates WHERE 1=1`;
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -44,12 +51,9 @@ export const listTemplates = api(
 
     query += ' ORDER BY rating DESC, downloads DESC';
 
-    if (req.limit) {
-      query += ` LIMIT $${paramIndex}`;
-      params.push(req.limit);
-    } else {
-      query += ' LIMIT 50';
-    }
+    const limitValue = req.limit || 50;
+    query += ` LIMIT $${paramIndex}`;
+    params.push(limitValue);
 
     const results = await musicDB.rawQueryAll<any>(query, params);
     
@@ -61,13 +65,13 @@ export const listTemplates = api(
       author: row.author,
       genre: row.genre,
       category: row.category,
-      signalChain: row.signal_chain,
-      presetParameters: row.preset_parameters,
-      tags: row.tags,
+      signalChain: JSON.parse(row.signal_chain),
+      presetParameters: JSON.parse(row.preset_parameters),
+      tags: row.tags || [],
       targetFramework: row.target_framework,
       verified: row.verified,
       downloads: row.downloads,
-      rating: parseFloat(row.rating),
+      rating: row.rating ? parseFloat(row.rating) : 0,
       culturalContext: row.cultural_context,
       useCase: row.use_case,
       createdAt: row.created_at,
@@ -86,7 +90,14 @@ export const getTemplate = api(
   { method: "GET", path: "/plugins/templates/:templateId", expose: true },
   async ({ templateId }: GetTemplateRequest): Promise<SmartTemplate> => {
     const results = await musicDB.rawQueryAll<any>(
-      'SELECT * FROM smart_templates WHERE id = $1',
+      `SELECT 
+        id, name, version, description, author, genre, category,
+        signal_chain::text as signal_chain,
+        preset_parameters::text as preset_parameters,
+        tags,
+        target_framework, verified, downloads, rating,
+        cultural_context, use_case, created_at, updated_at
+      FROM smart_templates WHERE id = $1`,
       [templateId]
     );
 
@@ -103,13 +114,13 @@ export const getTemplate = api(
       author: row.author,
       genre: row.genre,
       category: row.category,
-      signalChain: row.signal_chain,
-      presetParameters: row.preset_parameters,
-      tags: row.tags,
+      signalChain: JSON.parse(row.signal_chain),
+      presetParameters: JSON.parse(row.preset_parameters),
+      tags: row.tags || [],
       targetFramework: row.target_framework,
       verified: row.verified,
       downloads: row.downloads,
-      rating: parseFloat(row.rating),
+      rating: row.rating ? parseFloat(row.rating) : 0,
       culturalContext: row.cultural_context,
       useCase: row.use_case,
       createdAt: row.created_at,
@@ -133,7 +144,14 @@ export const generateFromTemplate = api(
   { method: "POST", path: "/plugins/generate", expose: true },
   async (req: GeneratePluginRequest): Promise<GeneratePluginResponse> => {
     const templateResults = await musicDB.rawQueryAll<any>(
-      'SELECT * FROM smart_templates WHERE id = $1',
+      `SELECT 
+        id, name, version, description, author, genre, category,
+        signal_chain::text as signal_chain,
+        preset_parameters::text as preset_parameters,
+        tags,
+        target_framework, verified, downloads, rating,
+        cultural_context, use_case, created_at, updated_at
+      FROM smart_templates WHERE id = $1`,
       [req.templateId]
     );
 
@@ -150,13 +168,13 @@ export const generateFromTemplate = api(
       author: templateRow.author,
       genre: templateRow.genre,
       category: templateRow.category,
-      signalChain: templateRow.signal_chain,
-      presetParameters: templateRow.preset_parameters,
-      tags: templateRow.tags,
+      signalChain: JSON.parse(templateRow.signal_chain),
+      presetParameters: JSON.parse(templateRow.preset_parameters),
+      tags: JSON.parse(templateRow.tags),
       targetFramework: templateRow.target_framework,
       verified: templateRow.verified,
       downloads: templateRow.downloads,
-      rating: parseFloat(templateRow.rating),
+      rating: templateRow.rating ? parseFloat(templateRow.rating) : 0,
       culturalContext: templateRow.cultural_context,
       useCase: templateRow.use_case,
       createdAt: templateRow.created_at,
@@ -222,7 +240,14 @@ export const suggestTemplates = api(
   { method: "POST", path: "/plugins/suggest", expose: true },
   async (req: SuggestTemplatesRequest): Promise<SuggestTemplatesResponse> => {
     const allTemplates = await musicDB.rawQueryAll<any>(
-      'SELECT * FROM smart_templates ORDER BY rating DESC'
+      `SELECT 
+        id, name, version, description, author, genre, category,
+        signal_chain::text as signal_chain,
+        preset_parameters::text as preset_parameters,
+        tags,
+        target_framework, verified, downloads, rating,
+        cultural_context, use_case, created_at, updated_at
+      FROM smart_templates ORDER BY rating DESC`
     );
 
     const templates: SmartTemplate[] = allTemplates.map(row => ({
@@ -233,13 +258,13 @@ export const suggestTemplates = api(
       author: row.author,
       genre: row.genre,
       category: row.category,
-      signalChain: row.signal_chain,
-      presetParameters: row.preset_parameters,
-      tags: row.tags,
+      signalChain: JSON.parse(row.signal_chain),
+      presetParameters: JSON.parse(row.preset_parameters),
+      tags: row.tags || [],
       targetFramework: row.target_framework,
       verified: row.verified,
       downloads: row.downloads,
-      rating: parseFloat(row.rating),
+      rating: row.rating ? parseFloat(row.rating) : 0,
       culturalContext: row.cultural_context,
       useCase: row.use_case,
       createdAt: row.created_at,
