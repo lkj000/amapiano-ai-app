@@ -49,7 +49,7 @@ export class AIService {
   constructor() {
     this.config = {
       provider: 'openai',
-      model: 'gpt-4o',
+      model: 'gpt-oss-120b',
       maxTokens: 4096,
       temperature: 0.7,
       culturalWeight: 0.8
