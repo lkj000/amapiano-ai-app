@@ -157,3 +157,19 @@ export interface DawProject {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export type DawChangeAction =
+  | { type: 'CLIP_ADD'; payload: { trackId: string; clip: DawClip } }
+  | { type: 'CLIP_UPDATE'; payload: { trackId: string; clipId: string; updates: Partial<DawClip> } }
+  | { type: 'CLIP_DELETE'; payload: { trackId: string; clipId: string } }
+  | { type: 'TRACK_ADD'; payload: { track: DawTrack } }
+  | { type: 'TRACK_UPDATE'; payload: { trackId: string; updates: Partial<Omit<DawTrack, 'clips' | 'mixer' | 'automation'>> } }
+  | { type: 'TRACK_DELETE'; payload: { trackId: string } }
+  | { type: 'MIXER_UPDATE'; payload: { trackId: string; updates: Partial<DawMixerChannel> } }
+  | { type: 'AUTOMATION_UPDATE'; payload: { trackId:string; automationId: string; points: AutomationPoint[] } }
+  | { type: 'PROJECT_SETTINGS_UPDATE'; payload: { updates: Partial<Pick<DawProjectData, 'bpm' | 'keySignature'>> } };
+
+export interface DawChange {
+  action: DawChangeAction;
+  senderId: string; // Unique ID for the client instance that sent the change
+}

@@ -3,6 +3,12 @@ import { musicDB } from "./db";
 import { errorHandler } from "./error-handler";
 import { collaborationCache, generateCollaborationFeedCacheKey } from "./cache";
 import log from "encore.dev/log";
+import { StreamInOut } from "encore.dev/api";
+import type { DawChange } from "./types";
+
+// In-memory store for active collaboration sessions.
+// Maps projectId to a set of connected client streams.
+const activeSessions = new Map<number, Set<StreamInOut<DawChange, DawChange>>>();
 
 export interface CreateCollaborationRequest {
   name: string;
@@ -118,6 +124,52 @@ export interface SubmitRemixResponse {
   submittedAt: Date;
   position: number;
 }
+
+interface CollaborationSessionHandshake {
+  projectId: number;
+}
+
+// Real-time collaboration session for a DAW project.
+export const collaborationSession = api.streamInOut<CollaborationSessionHandshake, DawChange, DawChange>(
+  { expose: true, path: "/daw/projects/:projectId/session" },
+  async ({ projectId }, stream) => {
+    // Get or create the session for this project
+    if (!activeSessions.has(projectId)) {
+      activeSessions.set(projectId, new Set());
+    }
+    const session = activeSessions.get(projectId)!;
+    session.add(stream);
+    log.info("Client joined collaboration session", { projectId, sessionSize: session.size });
+
+    try {
+      // Listen for incoming changes from this client
+      for await (const change of stream) {
+        // Broadcast the change to all other clients in the same session
+        for (const client of session) {
+          if (client !== stream) { // Don't send back to the originator
+            try {
+              await client.send(change);
+            } catch (err) {
+              log.warn("Failed to send change to client, removing from session", { projectId, error: (err as Error).message });
+              session.delete(client);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      log.warn("Collaboration stream error", { projectId, error: (err as Error).message });
+    } finally {
+      // Cleanup: remove the client from the session when they disconnect
+      session.delete(stream);
+      log.info("Client left collaboration session", { projectId, sessionSize: session.size });
+      if (session.size === 0) {
+        activeSessions.delete(projectId);
+        log.info("Collaboration session closed", { projectId });
+      }
+    }
+  }
+);
+
 
 // Creates a new collaboration space
 export const createCollaboration = api<CreateCollaborationRequest, CreateCollaborationResponse>(

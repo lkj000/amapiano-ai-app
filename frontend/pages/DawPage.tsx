@@ -9,11 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { 
-  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Grid, List, Scissors, Repeat, Copy, Users
+  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Grid, List, Scissors, Repeat, Copy, Users, Puzzle
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '~backend/client';
-import type { DawProjectData, DawTrack, DawClip, MidiNote, Effect, AutomationData, Sample } from '~backend/music/types';
+import type { DawProjectData, DawTrack, DawClip, MidiNote, Effect, AutomationData, Sample, DawChangeAction, AutomationPoint } from '~backend/music/types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import OpenProjectModal from '../components/daw/OpenProjectModal';
@@ -25,7 +25,9 @@ import SessionView from '../components/daw/SessionView';
 import SampleBrowserPanel from '../components/daw/SampleBrowserPanel';
 import AutomationLane from '../components/daw/AutomationLane';
 import Waveform from '../components/daw/Waveform';
+import PluginPanel from '../components/daw/PluginPanel';
 import { useAudioEngine } from '../hooks/useAudioEngine';
+import { useCollaboration } from '../hooks/useCollaboration';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -138,6 +140,7 @@ export default function DawPage() {
   const [showMixer, setShowMixer] = useState(false);
   const [showEffectsPanel, setShowEffectsPanel] = useState(false);
   const [showSampleBrowser, setShowSampleBrowser] = useState(false);
+  const [showPluginPanel, setShowPluginPanel] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAIAssistant, setShowAIAssistant] = useState(true);
   const [zoom, setZoom] = useState([100]);
@@ -160,6 +163,38 @@ export default function DawPage() {
   // Dragging state
   const [draggingClip, setDraggingClip] = useState<{ clipId: string; trackId: string; initialX: number; initialStartTime: number; } | null>(null);
   const [resizingClip, setResizingClip] = useState<{ clipId: string; trackId: string; edge: 'start' | 'end'; initialX: number; initialStartTime: number; initialDuration: number; } | null>(null);
+
+  // --- Collaboration ---
+  const applyDawChange = useCallback((change: DawChangeAction) => {
+    toast.info(`Change received: ${change.type}`);
+    setProjectData(currentData => {
+      if (!currentData) return null;
+      switch (change.type) {
+        case 'CLIP_ADD':
+          return { ...currentData, tracks: currentData.tracks.map(t => t.id === change.payload.trackId ? { ...t, clips: [...t.clips, change.payload.clip] } : t) };
+        case 'CLIP_UPDATE':
+          return { ...currentData, tracks: currentData.tracks.map(t => t.id === change.payload.trackId ? { ...t, clips: t.clips.map(c => c.id === change.payload.clipId ? { ...c, ...change.payload.updates } : c) } : t) };
+        case 'CLIP_DELETE':
+          return { ...currentData, tracks: currentData.tracks.map(t => t.id === change.payload.trackId ? { ...t, clips: t.clips.filter(c => c.id !== change.payload.clipId) } : t) };
+        case 'TRACK_ADD':
+          return { ...currentData, tracks: [...currentData.tracks, change.payload.track] };
+        case 'TRACK_UPDATE':
+          return { ...currentData, tracks: currentData.tracks.map(t => t.id === change.payload.trackId ? { ...t, ...change.payload.updates } : t) };
+        case 'TRACK_DELETE':
+          return { ...currentData, tracks: currentData.tracks.filter(t => t.id !== change.payload.trackId) };
+        case 'MIXER_UPDATE':
+          return { ...currentData, tracks: currentData.tracks.map(t => t.id === change.payload.trackId ? { ...t, mixer: { ...t.mixer, ...change.payload.updates } } : t) };
+        case 'AUTOMATION_UPDATE':
+          return { ...currentData, tracks: currentData.tracks.map(t => t.id === change.payload.trackId ? { ...t, automation: t.automation.map(a => a.id === change.payload.automationId ? { ...a, points: change.payload.points } : a) } : t) };
+        case 'PROJECT_SETTINGS_UPDATE':
+          return { ...currentData, ...change.payload.updates };
+        default:
+          return currentData;
+      }
+    });
+  }, []);
+
+  const { isConnected, connect, disconnect, sendChange } = useCollaboration(activeProjectId, applyDawChange);
 
   // --- Data Fetching and State Management ---
 
@@ -195,7 +230,6 @@ export default function DawPage() {
     queryKey: ['dawProject', activeProjectId],
     queryFn: () => backend.music.loadProject({ projectId: activeProjectId! }),
     enabled: !!activeProjectId,
-    refetchInterval: 5000, // Poll for real-time collaboration
   });
 
   useEffect(() => {
@@ -222,6 +256,7 @@ export default function DawPage() {
     mutationFn: (data: { prompt: string; trackType: 'midi' | 'audio' }) => backend.music.generateDawElement(data),
     onSuccess: (data) => {
       setProjectData(prev => prev ? { ...prev, tracks: [...prev.tracks, data.newTrack] } : null);
+      sendChange({ type: 'TRACK_ADD', payload: { track: data.newTrack } });
       toast.success(`AI generated a new "${data.newTrack.name}" track!`);
     },
     onError: (error: any) => toast.error("AI Generation Failed", { description: error.message }),
@@ -248,6 +283,7 @@ export default function DawPage() {
 
   const updateTrack = (trackId: string, updates: Partial<DawTrack>) => {
     setProjectData(prev => prev ? { ...prev, tracks: prev.tracks.map(t => t.id === trackId ? { ...t, ...updates } : t) } : null);
+    sendChange({ type: 'TRACK_UPDATE', payload: { trackId, updates } });
   };
 
   const updateMixer = (trackId: string, updates: Partial<DawTrack['mixer']>) => {
@@ -257,6 +293,7 @@ export default function DawPage() {
       if (updates.volume !== undefined) setTrackVolume(trackId, updates.volume);
       return { ...prev, tracks: newTracks };
     });
+    sendChange({ type: 'MIXER_UPDATE', payload: { trackId, updates } });
   };
 
   const handleAddTrack = (instrument?: { name: string, type: string, color: string }) => {
@@ -275,6 +312,7 @@ export default function DawPage() {
       automation: [],
     };
     setProjectData({ ...projectData, tracks: [...projectData.tracks, newTrack] });
+    sendChange({ type: 'TRACK_ADD', payload: { track: newTrack } });
     toast.success(`Track "${inst.name}" added.`);
   };
 
@@ -285,6 +323,7 @@ export default function DawPage() {
       if (trackToRemove) toast.info(`Track "${trackToRemove.name}" removed.`);
       return { ...prev, tracks: prev.tracks.filter(t => t.id !== trackId) };
     });
+    sendChange({ type: 'TRACK_DELETE', payload: { trackId } });
   };
 
   const handleAddEffectToTrack = (effectName: Effect['name']) => {
@@ -292,54 +331,63 @@ export default function DawPage() {
       toast.error("No track selected", { description: "Please select a track to add an effect." });
       return;
     }
+    let finalMixerState: DawTrack['mixer'] | undefined;
     setProjectData(prev => {
       if (!prev) return null;
-      return {
-        ...prev,
-        tracks: prev.tracks.map(t => {
-          if (t.id === selectedTrackId && !t.mixer.effects.some(e => e.name === effectName)) {
-            const newEffect: Effect = { id: `effect_${Date.now()}`, name: effectName, params: {}, enabled: true };
-            toast.success(`Effect "${effectName}" added to track "${t.name}".`);
-            return { ...t, mixer: { ...t.mixer, effects: [...t.mixer.effects, newEffect] } };
-          }
-          if (t.id === selectedTrackId) toast.info(`Effect "${effectName}" is already on this track.`);
-          return t;
-        })
-      };
+      const newTracks = prev.tracks.map(t => {
+        if (t.id === selectedTrackId && !t.mixer.effects.some(e => e.name === effectName)) {
+          const newEffect: Effect = { id: `effect_${Date.now()}`, name: effectName, params: {}, enabled: true };
+          toast.success(`Effect "${effectName}" added to track "${t.name}".`);
+          finalMixerState = { ...t.mixer, effects: [...t.mixer.effects, newEffect] };
+          return { ...t, mixer: finalMixerState };
+        }
+        if (t.id === selectedTrackId) toast.info(`Effect "${effectName}" is already on this track.`);
+        return t;
+      });
+      return { ...prev, tracks: newTracks };
     });
+    if (finalMixerState) {
+      sendChange({ type: 'MIXER_UPDATE', payload: { trackId: selectedTrackId, updates: finalMixerState } });
+    }
   };
 
   const handleRemoveEffectFromTrack = (trackId: string, effectId: string) => {
+    let finalMixerState: DawTrack['mixer'] | undefined;
     setProjectData(prev => {
       if (!prev) return null;
-      return {
-        ...prev,
-        tracks: prev.tracks.map(t => {
-          if (t.id === trackId) {
-            const effectToRemove = t.mixer.effects.find(e => e.id === effectId);
-            if (effectToRemove) toast.info(`Effect "${effectToRemove.name}" removed from track "${t.name}".`);
-            return { ...t, mixer: { ...t.mixer, effects: t.mixer.effects.filter(e => e.id !== effectId) } };
-          }
-          return t;
-        })
-      };
+      const newTracks = prev.tracks.map(t => {
+        if (t.id === trackId) {
+          const effectToRemove = t.mixer.effects.find(e => e.id === effectId);
+          if (effectToRemove) toast.info(`Effect "${effectToRemove.name}" removed from track "${t.name}".`);
+          finalMixerState = { ...t.mixer, effects: t.mixer.effects.filter(e => e.id !== effectId) };
+          return { ...t, mixer: finalMixerState };
+        }
+        return t;
+      });
+      return { ...prev, tracks: newTracks };
     });
+    if (finalMixerState) {
+      sendChange({ type: 'MIXER_UPDATE', payload: { trackId, updates: finalMixerState } });
+    }
   };
 
   const handleUpdateEffectParam = useCallback((trackId: string, effectId: string, param: string, value: any) => {
+    let finalMixerState: DawTrack['mixer'] | undefined;
     setProjectData(prev => {
       if (!prev) return null;
-      return {
-        ...prev,
-        tracks: prev.tracks.map(t => {
-          if (t.id === trackId) {
-            return { ...t, mixer: { ...t.mixer, effects: t.mixer.effects.map(e => e.id === effectId ? { ...e, params: { ...e.params, [param]: value } } : e) } };
-          }
-          return t;
-        })
-      };
+      const newTracks = prev.tracks.map(t => {
+        if (t.id === trackId) {
+          finalMixerState = { ...t.mixer, effects: t.mixer.effects.map(e => e.id === effectId ? { ...e, params: { ...e.params, [param]: value } } : e) };
+          return { ...t, mixer: finalMixerState };
+        }
+        return t;
+      });
+      return { ...prev, tracks: newTracks };
     });
-  }, []);
+    if (finalMixerState) {
+      sendChange({ type: 'MIXER_UPDATE', payload: { trackId, updates: finalMixerState } });
+    }
+  }, [sendChange]);
 
   const handleExport = () => {
     if (!projectData) {
@@ -360,6 +408,7 @@ export default function DawPage() {
     if (projectData) {
       setProjectData({ ...projectData, ...updatedData });
       if (updatedData.bpm) setBpm(updatedData.bpm);
+      sendChange({ type: 'PROJECT_SETTINGS_UPDATE', payload: { updates: updatedData } });
       toast.info("Project settings updated. Don't forget to save!");
     }
   };
@@ -369,14 +418,16 @@ export default function DawPage() {
       if (!prev) return null;
       return { ...prev, tracks: prev.tracks.map(t => t.id === trackId ? { ...t, clips: t.clips.map(c => c.id === clipId ? { ...c, notes: newNotes } : c) } : t) };
     });
-  }, []);
+    sendChange({ type: 'CLIP_UPDATE', payload: { trackId, clipId, updates: { notes: newNotes } } });
+  }, [sendChange]);
 
   const handleUpdateClip = useCallback((trackId: string, clipId: string, updates: Partial<DawClip>) => {
     setProjectData(prev => {
       if (!prev) return null;
       return { ...prev, tracks: prev.tracks.map(t => t.id === trackId ? { ...t, clips: t.clips.map(c => c.id === clipId ? { ...c, ...updates } : c) } : t) };
     });
-  }, []);
+    sendChange({ type: 'CLIP_UPDATE', payload: { trackId, clipId, updates } });
+  }, [sendChange]);
 
   const handleClipMouseDown = (e: React.MouseEvent, clip: DawClip, track: DawTrack) => {
     e.stopPropagation();
@@ -446,6 +497,8 @@ export default function DawPage() {
         waveform: Array.from({ length: 100 }, () => Math.random() * 2 - 1),
       };
       setProjectData(prev => prev ? { ...prev, tracks: prev.tracks.map(t => t.id === trackId ? { ...t, clips: [...t.clips, newClip], isArmed: false } : t) } : null);
+      sendChange({ type: 'CLIP_ADD', payload: { trackId, clip: newClip } });
+      sendChange({ type: 'TRACK_UPDATE', payload: { trackId, updates: { isArmed: false } } });
       setRecordingTrackId(null);
       toast.success("Recording finished");
     } else {
@@ -474,29 +527,33 @@ export default function DawPage() {
         waveform: Array.from({ length: 100 }, () => Math.random() * 2 - 1),
       };
       setProjectData(prev => prev ? { ...prev, tracks: prev.tracks.map(t => t.id === trackId ? { ...t, clips: [...t.clips, newClip] } : t) } : null);
+      sendChange({ type: 'CLIP_ADD', payload: { trackId, clip: newClip } });
       toast.success(`Sample "${sample.name}" added to track.`);
     }
   };
 
   const handleToggleAutomation = (trackId: string, parameter: string) => {
+    let newAutomation: AutomationData[] | undefined;
     setProjectData(prev => {
       if (!prev) return null;
-      return {
-        ...prev,
-        tracks: prev.tracks.map(t => {
-          if (t.id === trackId) {
-            const existing = t.automation.find(a => a.parameter === parameter);
-            if (existing) {
-              return { ...t, automation: t.automation.filter(a => a.parameter !== parameter) };
-            } else {
-              const newAutomation: AutomationData = { id: `auto_${Date.now()}`, parameter: parameter as any, points: [], enabled: true };
-              return { ...t, automation: [...t.automation, newAutomation] };
-            }
+      const newTracks = prev.tracks.map(t => {
+        if (t.id === trackId) {
+          const existing = t.automation.find(a => a.parameter === parameter);
+          if (existing) {
+            newAutomation = t.automation.filter(a => a.parameter !== parameter);
+          } else {
+            const auto: AutomationData = { id: `auto_${Date.now()}`, parameter: parameter as any, points: [], enabled: true };
+            newAutomation = [...t.automation, auto];
           }
-          return t;
-        })
-      };
+          return { ...t, automation: newAutomation };
+        }
+        return t;
+      });
+      return { ...prev, tracks: newTracks };
     });
+    if (newAutomation) {
+      sendChange({ type: 'TRACK_UPDATE', payload: { trackId, updates: { automation: newAutomation } } });
+    }
   };
 
   const handleUpdateAutomation = (trackId: string, automationId: string, newPoints: AutomationPoint[]) => {
@@ -512,6 +569,7 @@ export default function DawPage() {
         })
       };
     });
+    sendChange({ type: 'AUTOMATION_UPDATE', payload: { trackId, automationId, points: newPoints } });
   };
 
   const instruments = [
@@ -568,7 +626,10 @@ export default function DawPage() {
             <Badge variant="outline">Professional DAW</Badge>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => toast.info("Collaboration features coming soon!")}><Users className="w-4 h-4 mr-2" />Collaborate</Button>
+            <Button variant="outline" size="sm" onClick={isConnected ? disconnect : connect} className={isConnected ? 'border-green-500 text-green-500' : ''}>
+              <Users className="w-4 h-4 mr-2" />
+              {isConnected ? 'Session Active' : 'Collaborate'}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setViewMode(viewMode === 'timeline' ? 'session' : 'timeline')}>
               {viewMode === 'timeline' ? <Grid className="w-4 h-4 mr-2" /> : <List className="w-4 h-4 mr-2" />}
               {viewMode === 'timeline' ? 'Session View' : 'Timeline View'}
@@ -595,9 +656,10 @@ export default function DawPage() {
         {/* Sidebar */}
         <div className={`${showAIAssistant ? 'w-80' : 'w-64'} bg-muted/10 border-r border-border overflow-y-auto transition-all duration-200`}>
           <Tabs defaultValue="instruments" className="h-full">
-            <TabsList className="grid w-full grid-cols-3 m-2 bg-muted/20">
+            <TabsList className="grid w-full grid-cols-4 m-2 bg-muted/20">
               <TabsTrigger value="instruments" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">Instruments</TabsTrigger>
               <TabsTrigger value="effects" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">Effects</TabsTrigger>
+              <TabsTrigger value="plugins" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">Plugins</TabsTrigger>
               <TabsTrigger value="ai-assistant" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">AI</TabsTrigger>
             </TabsList>
             <TabsContent value="instruments" className="p-4 space-y-4">
@@ -643,6 +705,9 @@ export default function DawPage() {
                   </div>
                 ))}
               </div>
+            </TabsContent>
+            <TabsContent value="plugins" className="h-full">
+              <PluginPanel />
             </TabsContent>
             <TabsContent value="ai-assistant" className="p-4 space-y-4">
               <div>
@@ -792,6 +857,7 @@ export default function DawPage() {
       {showPianoRoll && <PianoRollPanel selectedTrack={selectedTrack} onClose={() => setShowPianoRoll(false)} onUpdateNotes={handleUpdateNotes} audioContext={audioContext} />}
       {showEffectsPanel && <EffectsPanel selectedTrack={selectedTrack} onClose={() => setShowEffectsPanel(false)} onUpdateEffectParam={handleUpdateEffectParam} />}
       {showSampleBrowser && <SampleBrowserPanel onClose={() => setShowSampleBrowser(false)} />}
+      {showPluginPanel && <PluginPanel />}
     </div>
   );
 }
