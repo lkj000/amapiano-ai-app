@@ -2,6 +2,7 @@ import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
 import { generatedTracks } from "./storage";
 import { AIService, MusicGenerationRequest } from "./ai-service";
+import { audioProcessor } from "./audio-processor";
 import { errorHandler } from "./error-handler";
 import { generationCache, generateGenerationCacheKey } from "./cache";
 import type { Genre, Mood } from "./types";
@@ -273,7 +274,7 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
         } catch (error) {
           log.warn("Could not load source analysis", { 
             sourceAnalysisId: req.sourceAnalysisId, 
-            error: error.message 
+            error: (error as Error).message 
           });
         }
       }
@@ -286,7 +287,7 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
         keySignature: req.keySignature || sourceData?.keySignature,
         duration: req.duration,
         mood: req.mood,
-        culturalAuthenticity: req.advancedOptions?.culturalAuthenticity,
+        culturalAuthenticity: req.advancedOptions?.culturalAuthenticity === 'authentic' ? 'traditional' : req.advancedOptions?.culturalAuthenticity,
         qualityTier: req.advancedOptions?.qualityTier
       };
 
@@ -311,7 +312,7 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
       await generatedTracks.upload(audioFileName, aiResult.audioBuffer);
 
       // Generate and upload stems
-      const stemBuffers = await aiService.audioProcessor.separateStems(aiResult.audioBuffer);
+      const stemBuffers = await audioProcessor.separateStems(aiResult.audioBuffer);
       for (const [stem, stemFile] of Object.entries(stemsData)) {
         if (stemFile && stemBuffers[stem as keyof typeof stemBuffers]) {
           await generatedTracks.upload(stemFile, stemBuffers[stem as keyof typeof stemBuffers]);
@@ -403,7 +404,7 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
           )
         `;
       } catch (dbError) {
-        log.warn("Database insert failed, continuing with response", { error: dbError.message });
+        log.warn("Database insert failed, continuing with response", { error: (dbError as Error).message });
       }
 
       const processingTime = Date.now() - startTime;
@@ -522,7 +523,7 @@ export const generateLoop = api<GenerateLoopRequest, GenerateLoopResponse>(
         } catch (error) {
           log.warn("Could not load source analysis for loop", { 
             sourceAnalysisId: req.sourceAnalysisId, 
-            error: error.message 
+            error: (error as Error).message 
           });
         }
       }
@@ -739,8 +740,8 @@ function generateStyleCharacteristics(genre: Genre, mood?: Mood, culturalAuthent
     mellow: ["Gentle dynamics", "Warm tones"]
   };
 
-  if (mood && moodCharacteristics[mood]) {
-    baseCharacteristics.push(...moodCharacteristics[mood]);
+  if (mood && mood in moodCharacteristics) {
+    baseCharacteristics.push(...moodCharacteristics[mood as keyof typeof moodCharacteristics]);
   }
 
   if (culturalAuthenticity === "traditional") {
@@ -857,7 +858,11 @@ function generatePatternDescription(category: string, complexity: string, genre:
     }
   };
 
-  return patterns[category as keyof typeof patterns]?.[complexity] || "Standard pattern";
+  const categoryPatterns = patterns[category as keyof typeof patterns];
+  if (categoryPatterns && complexity in categoryPatterns) {
+    return categoryPatterns[complexity as keyof typeof categoryPatterns];
+  }
+  return "Standard pattern";
 }
 
 function generateLoopCharacteristics(category: string, genre: Genre, complexity: string, culturalAuthenticity?: string): string[] {
@@ -1004,7 +1009,7 @@ export const getGenerationHistory = api<GetGenerationHistoryRequest, GetGenerati
       const tracks = await musicDB.rawQueryAll<any>(query, ...params);
 
       // Enhanced statistics
-      const statsQuery = `
+      const stats = await musicDB.queryRow<any>`
         SELECT 
           COUNT(*) as total_generations,
           AVG(processing_time_ms) as avg_processing_time,
@@ -1014,10 +1019,9 @@ export const getGenerationHistory = api<GetGenerationHistoryRequest, GetGenerati
           AVG(danceability) as avg_danceability
         FROM generated_tracks
       `;
-      const stats = await musicDB.queryRow<any>(statsQuery);
 
       // Genre distribution
-      const genreDistQuery = `
+      const genreResults = await musicDB.queryAll<any>`
         SELECT 
           genre, 
           COUNT(*) as count,
@@ -1026,7 +1030,6 @@ export const getGenerationHistory = api<GetGenerationHistoryRequest, GetGenerati
         FROM generated_tracks 
         GROUP BY genre
       `;
-      const genreResults = await musicDB.queryAll<any>(genreDistQuery);
       const genreDistribution = genreResults.reduce((acc, row) => {
         acc[row.genre] = {
           count: row.count,

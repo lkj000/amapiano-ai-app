@@ -21,9 +21,16 @@ export const listProjects = api<void, ListProjectsResponse>(
   { expose: true, method: "GET", path: "/daw/projects" },
   async () => {
     try {
-      const projects = await musicDB.queryAll<{ id: number; name: string; updated_at: Date }>`
+      const projectsData = await musicDB.queryAll<{ id: number; name: string; updated_at: Date }>`
         SELECT id, name, updated_at FROM daw_projects ORDER BY updated_at DESC
       `;
+      
+      const projects = projectsData.map(p => ({
+        id: p.id,
+        name: p.name,
+        updatedAt: p.updated_at
+      }));
+      
       return { projects };
     } catch (error) {
       const apiError = errorHandler.handleError(error, { operation: 'listProjects' });

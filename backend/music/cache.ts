@@ -221,7 +221,7 @@ export async function warmCache(): Promise<void> {
     
     log.info("Cache warming completed");
   } catch (error) {
-    log.error("Cache warming failed", { error: error.message });
+    log.error("Cache warming failed", { error: (error as Error).message });
   }
 }
 

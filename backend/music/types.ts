@@ -172,4 +172,28 @@ export type DawChangeAction =
 export interface DawChange {
   action: DawChangeAction;
   senderId: string; // Unique ID for the client instance that sent the change
+  type?: string;
+  trackId?: number;
+  data?: any;
+}
+
+export interface ProjectState {
+  tracks?: any[];
+  patterns?: any[];
+  automation?: any[];
+  tempo?: number;
+  timeSignature?: any;
+}
+
+export interface CollaboratorInfo {
+  id: string;
+  name: string;
+  joinedAt: Date;
+  isActive: boolean;
+  cursor: {
+    x: number;
+    y: number;
+    tool: string;
+  };
+  role: 'owner' | 'collaborator' | 'viewer';
 }

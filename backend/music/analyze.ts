@@ -121,7 +121,7 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
       const audioBuffer = await downloadAudio(req.sourceUrl, req.sourceType);
       
       // Perform AI analysis
-      const analysisType = req.enhancedProcessing ? 'comprehensive' : 'stems';
+      const analysisType: 'stems' | 'patterns' | 'cultural' | 'comprehensive' = req.enhancedProcessing ? 'comprehensive' : 'stems';
       const aiAnalysisRequest = {
         audioBuffer,
         analysisType,
@@ -827,7 +827,8 @@ export const extractPatterns = api<ExtractPatternsRequest, ExtractPatternsRespon
           outro: "8 bars - fade elements with traditional closure",
           structure: "intro-verse-chorus-verse-chorus-bridge-chorus-outro",
           culturalFlow: "Follows traditional South African song structure principles"
-        }
+        },
+        culturalElements: {} as any
       };
 
       // Add cultural elements for expert analysis
@@ -975,11 +976,20 @@ export const getAnalysisHistory = api<GetAnalysisHistoryRequest, GetAnalysisHist
       const analyses = await musicDB.rawQueryAll<any>(query, ...params);
 
       // Enhanced statistics
-      const countQuery = `SELECT COUNT(*) as total FROM audio_analysis WHERE 1=1` +
-        (req.sourceType ? ` AND source_type = '${req.sourceType}'` : '') +
-        (req.genre ? ` AND analysis_data->>'genre' = '${req.genre}'` : '');
+      let countQuery = `SELECT COUNT(*) as total FROM audio_analysis WHERE 1=1`;
+      const countParams: any[] = [];
       
-      const countResult = await musicDB.queryRow<{total: number}>(countQuery);
+      if (req.sourceType) {
+        countQuery += ` AND source_type = ?`;
+        countParams.push(req.sourceType);
+      }
+      
+      if (req.genre) {
+        countQuery += ` AND analysis_data->>'genre' = ?`;
+        countParams.push(req.genre);
+      }
+      
+      const countResult = await musicDB.rawQueryRow<{total: number}>(countQuery, ...countParams);
       const totalCount = countResult?.total || 0;
 
       const avgQualityResult = await musicDB.queryRow<{avg_quality: number, avg_cultural: number}>`
