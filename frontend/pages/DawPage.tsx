@@ -95,6 +95,7 @@ export default function DawPage() {
   const [showAIAssistant, setShowAIAssistant] = useState(true);
   const [zoom, setZoom] = useState([100]);
   const [isLooping, setIsLooping] = useState(false);
+  const timelineContainerRef = useRef<HTMLDivElement>(null);
 
   // Project State
   const [projectId, setProjectId] = useState<number | undefined>();
@@ -144,8 +145,10 @@ export default function DawPage() {
 
   // Playback simulation effect
   useEffect(() => {
+    if (!projectData) return;
+
     let animationFrameId: number;
-    const totalDuration = 240; // Mock total duration in seconds
+    const totalDuration = (32 * 4 / projectData.bpm) * 60;
 
     const animatePlayhead = () => {
       setCurrentTime(prevTime => {
@@ -165,7 +168,7 @@ export default function DawPage() {
     }
 
     return () => cancelAnimationFrame(animationFrameId!);
-  }, [isPlaying, isLooping]);
+  }, [isPlaying, isLooping, projectData]);
 
   const saveMutation = useMutation({
     mutationFn: (data: { name: string; projectData: DawProjectData; projectId?: number }) => backend.music.saveProject(data),
