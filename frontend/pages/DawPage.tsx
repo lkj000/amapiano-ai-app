@@ -99,47 +99,48 @@ export default function DawPage() {
   const [projectId, setProjectId] = useState<number | undefined>();
   const [projectName, setProjectName] = useState("Untitled Project");
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
-  const [status, setStatus] = useState<'loading_list' | 'creating_project' | 'loading_project' | 'ready' | 'error'>('loading_list');
 
-  const { error: listError } = useQuery({
+  // Step 1: Fetch the list of projects
+  const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
     queryKey: ['dawProjectsList'],
     queryFn: () => backend.music.listProjects(),
-    onSuccess: (data) => {
-      if (data.projects.length > 0) {
-        setProjectId(data.projects[0].id);
-        setStatus('loading_project');
-      } else {
-        setStatus('creating_project');
-        createDefaultProjectMutation.mutate();
-      }
-    },
-    onError: () => setStatus('error'),
   });
 
+  // Step 2: If no projects exist, create a default one
   const createDefaultProjectMutation = useMutation({
     mutationFn: () => backend.music.saveProject({
       name: "My First Amapiano Project",
       projectData: defaultProjectData,
     }),
-    onSuccess: (data) => {
-      setProjectId(data.projectId);
-      setStatus('loading_project');
+    onSuccess: () => {
+      // After creating, invalidate the list to refetch it
+      queryClient.invalidateQueries({ queryKey: ['dawProjectsList'] });
+      toast.info("Creating your first project...");
     },
-    onError: () => setStatus('error'),
   });
 
-  const { error: projectError } = useQuery({
-    queryKey: ['dawProject', projectId],
-    queryFn: () => backend.music.loadProject({ projectId: projectId! }),
-    enabled: !!projectId && status === 'loading_project',
-    onSuccess: (data) => {
-      setProjectName(data.name);
-      setProjectData(data.projectData);
-      setStatus('ready');
-      toast.success(`Project "${data.name}" loaded.`);
-    },
-    onError: () => setStatus('error'),
+  // Step 3: Load the first project from the list
+  const projectIdToLoad = projectsList?.projects[0]?.id;
+  const { data: loadedProject, isLoading: isLoadingProject, isError: isProjectError, error: projectError } = useQuery({
+    queryKey: ['dawProject', projectIdToLoad],
+    queryFn: () => backend.music.loadProject({ projectId: projectIdToLoad! }),
+    enabled: !!projectIdToLoad, // Only run this query if we have a project ID
   });
+
+  // Effect to handle the logic flow
+  useEffect(() => {
+    // If the list is loaded and empty, create a default project
+    if (projectsList && projectsList.projects.length === 0 && !createDefaultProjectMutation.isPending) {
+      createDefaultProjectMutation.mutate();
+    }
+    
+    // If a project is successfully loaded, update the component state
+    if (loadedProject) {
+      setProjectId(loadedProject.id);
+      setProjectName(loadedProject.name);
+      setProjectData(loadedProject.projectData);
+    }
+  }, [projectsList, loadedProject, createDefaultProjectMutation]);
 
   const saveMutation = useMutation({
     mutationFn: (data: { name: string; projectData: DawProjectData; projectId?: number }) => backend.music.saveProject(data),
@@ -239,21 +240,42 @@ export default function DawPage() {
     "Generate saxophone melody for the bridge section"
   ];
 
-  if (status !== 'ready') {
-    const isLoading = status === 'loading_list' || status === 'creating_project' || status === 'loading_project';
-    const error = listError || createDefaultProjectMutation.error || projectError;
-    
+  // Determine the current status for UI feedback
+  const isLoading = isLoadingList || createDefaultProjectMutation.isPending || (!!projectIdToLoad && isLoadingProject);
+  const isError = isListError || createDefaultProjectMutation.isError || isProjectError;
+  const error = listError || createDefaultProjectMutation.error || projectError;
+
+  if (isLoading) {
+    let statusMessage = "Loading projects...";
+    if (createDefaultProjectMutation.isPending) {
+      statusMessage = "Creating your first project...";
+    } else if (isLoadingProject) {
+      statusMessage = "Loading project...";
+    }
     return (
       <div className="flex flex-col items-center justify-center h-screen text-white">
-        {isLoading && <LoadingSpinner />}
-        {isLoading && <p className="mt-4 text-lg">{status.replace('_', ' ')}...</p>}
-        {error && <ErrorMessage error={error as Error} />}
+        <LoadingSpinner />
+        <p className="mt-4 text-lg">{statusMessage}</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-white">
+        <ErrorMessage error={error as Error} />
       </div>
     );
   }
 
   if (!projectData) {
-    return <div className="flex items-center justify-center h-screen"><ErrorMessage error={new Error("Failed to load project data.")} /></div>;
+    // This state can happen briefly between queries or if something unexpected occurs
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-white">
+        <LoadingSpinner />
+        <p className="mt-4 text-lg">Initializing DAW...</p>
+      </div>
+    );
   }
 
   return (
