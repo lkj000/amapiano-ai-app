@@ -63,10 +63,45 @@ export const loadProject = api<LoadProjectRequest, DawProject>(
         throw APIError.notFound("Project not found.");
       }
 
+      const projectDataRaw = typeof result.project_data === 'string' ? JSON.parse(result.project_data) : result.project_data;
+
+      // Validate and provide defaults for project data to prevent crashes from old/malformed data
+      const validatedProjectData: DawProjectData = {
+        bpm: projectDataRaw.bpm || 120,
+        keySignature: projectDataRaw.keySignature || 'F#m',
+        masterVolume: projectDataRaw.masterVolume ?? 0.8,
+        tracks: (projectDataRaw.tracks || []).map((track: any) => ({
+          id: track.id || `track_${Date.now()}`,
+          type: track.type || 'midi',
+          name: track.name || 'Untitled Track',
+          instrument: track.instrument,
+          clips: (track.clips || []).map((clip: any) => ({
+            id: clip.id || `clip_${Date.now()}`,
+            name: clip.name || 'Untitled Clip',
+            startTime: clip.startTime ?? 0,
+            duration: clip.duration ?? 4,
+            notes: clip.notes || [],
+            audioUrl: clip.audioUrl,
+            waveform: clip.waveform,
+            isReversed: clip.isReversed ?? false,
+          })),
+          mixer: {
+            volume: track.mixer?.volume ?? 0.8,
+            pan: track.mixer?.pan ?? 0,
+            isMuted: track.mixer?.isMuted ?? false,
+            isSolo: track.mixer?.isSolo ?? false,
+            effects: track.mixer?.effects || [],
+          },
+          isArmed: track.isArmed ?? false,
+          color: track.color || 'bg-gray-500',
+          automation: track.automation || [],
+        })),
+      };
+
       const project: DawProject = {
         id: result.id,
         name: result.name,
-        projectData: typeof result.project_data === 'string' ? JSON.parse(result.project_data) : result.project_data,
+        projectData: validatedProjectData,
         version: result.version,
         createdAt: result.created_at,
         updatedAt: result.updated_at,
@@ -230,6 +265,7 @@ export const generateDawElement = api<GenerateDawElementRequest, GenerateDawElem
         },
         isArmed: false,
         color,
+        automation: [],
       };
 
       return { newTrack };

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '~backend/client';
-import type { DawProjectData, DawTrack, DawClip, MidiNote, Effect, AutomationData } from '~backend/music/types';
+import type { DawProjectData, DawTrack, DawClip, MidiNote, Effect, AutomationData, Sample } from '~backend/music/types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import OpenProjectModal from '../components/daw/OpenProjectModal';
@@ -115,8 +115,8 @@ export default function DawPage() {
 
   // Project State
   const [activeProjectId, setActiveProjectId] = useState<number | undefined>();
-  const [projectName, setProjectName] = useState("Untitled Project");
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
+  const [projectName, setProjectName] = useState("Untitled Project");
 
   // Audio Engine
   const { isPlaying, currentTime, seek, isLooping, setIsLooping, play, pause, stop, setBpm, setTrackVolume, setMasterVolume, audioContext, volumeLevels, masterVolumeLevel, startRecording, stopRecording, playClip } = useAudioEngine(projectData);
@@ -125,13 +125,13 @@ export default function DawPage() {
   const [draggingClip, setDraggingClip] = useState<{ clipId: string; trackId: string; initialX: number; initialStartTime: number; } | null>(null);
   const [resizingClip, setResizingClip] = useState<{ clipId: string; trackId: string; edge: 'start' | 'end'; initialX: number; initialStartTime: number; initialDuration: number; } | null>(null);
 
-  // Step 1: Fetch project list
-  const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
+  // --- Data Fetching and State Management ---
+
+  const { data: projectsList, isLoading: isListLoading, isError: isListError, error: listError } = useQuery({
     queryKey: ['dawProjectsList'],
     queryFn: () => backend.music.listProjects(),
   });
 
-  // Step 2: Mutation to create a default project if none exist
   const createDefaultProjectMutation = useMutation({
     mutationFn: () => backend.music.saveProject({
       name: "My First Amapiano Project",
@@ -139,31 +139,28 @@ export default function DawPage() {
     }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['dawProjectsList'] });
-      setActiveProjectId(data.projectId);
       toast.info("Creating your first project...");
     },
   });
 
-  // Step 3: Effect to decide which project to load or create
   useEffect(() => {
-    if (isLoadingList || createDefaultProjectMutation.isPending) return;
-    if (projectsList) {
-      if (projectsList.projects.length > 0) {
-        if (!activeProjectId) setActiveProjectId(projectsList.projects[0].id);
-      } else {
-        createDefaultProjectMutation.mutate();
+    if (!isListLoading && projectsList) {
+      if (projectsList.projects.length === 0) {
+        if (!createDefaultProjectMutation.isPending) {
+          createDefaultProjectMutation.mutate();
+        }
+      } else if (!activeProjectId) {
+        setActiveProjectId(projectsList.projects[0].id);
       }
     }
-  }, [projectsList, isLoadingList, activeProjectId, createDefaultProjectMutation]);
+  }, [isListLoading, projectsList, activeProjectId, createDefaultProjectMutation]);
 
-  // Step 4: Query to load the active project's data
-  const { data: loadedProject, isLoading: isLoadingProject, isError: isProjectError, error: projectError } = useQuery({
+  const { data: loadedProject, isLoading: isProjectLoading, isError: isProjectError, error: projectError } = useQuery({
     queryKey: ['dawProject', activeProjectId],
     queryFn: () => backend.music.loadProject({ projectId: activeProjectId! }),
     enabled: !!activeProjectId,
   });
 
-  // Step 5: Sync loaded data into local state for editing
   useEffect(() => {
     if (loadedProject) {
       setProjectData(loadedProject.projectData);
@@ -172,7 +169,7 @@ export default function DawPage() {
         setSelectedTrackId(loadedProject.projectData.tracks[0].id);
       }
     }
-  }, [loadedProject]);
+  }, [loadedProject, selectedTrackId]);
 
   const saveMutation = useMutation({
     mutationFn: (data: { name: string; projectData: DawProjectData; projectId?: number }) => backend.music.saveProject(data),
@@ -192,6 +189,8 @@ export default function DawPage() {
     },
     onError: (error: any) => toast.error("AI Generation Failed", { description: error.message }),
   });
+
+  // --- Handlers ---
 
   const handleSave = () => {
     if (!projectData || !activeProjectId) {
@@ -424,7 +423,7 @@ export default function DawPage() {
     e.preventDefault();
     const sampleData = e.dataTransfer.getData('application/json');
     if (sampleData) {
-      const sample = JSON.parse(sampleData);
+      const sample: Sample = JSON.parse(sampleData);
       const timelineRect = timelineContainerRef.current!.getBoundingClientRect();
       const pixelsPerBeat = (timelineRect.width * (zoom[0] / 100)) / 32;
       const startTime = (e.clientX - timelineRect.left) / pixelsPerBeat;
@@ -508,11 +507,11 @@ export default function DawPage() {
   ];
 
   // RENDER LOGIC
-  if (isLoadingList) return <div className="flex flex-col items-center justify-center h-full"><LoadingSpinner message="Loading projects..." /></div>;
+  if (isListLoading) return <div className="flex flex-col items-center justify-center h-full"><LoadingSpinner message="Loading projects..." /></div>;
   if (isListError) return <div className="flex flex-col items-center justify-center h-full"><ErrorMessage error={listError as Error} /></div>;
   if (projectsList && projectsList.projects.length === 0) return <div className="flex flex-col items-center justify-center h-full"><LoadingSpinner message="Creating your first project..." /></div>;
   if (createDefaultProjectMutation.isError) return <div className="flex flex-col items-center justify-center h-full"><ErrorMessage error={createDefaultProjectMutation.error as Error} /></div>;
-  if (!activeProjectId || isLoadingProject) return <div className="flex flex-col items-center justify-center h-full"><LoadingSpinner message="Loading project..." /></div>;
+  if (!activeProjectId || isProjectLoading) return <div className="flex flex-col items-center justify-center h-full"><LoadingSpinner message="Loading project..." /></div>;
   if (isProjectError) return <div className="flex flex-col items-center justify-center h-full"><ErrorMessage error={projectError as Error} /></div>;
   if (!projectData) return <div className="flex flex-col items-center justify-center h-full"><LoadingSpinner message="Initializing DAW..." /></div>;
 
