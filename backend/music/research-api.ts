@@ -528,3 +528,316 @@ export const getResearchSummary = api(
     }
   }
 );
+
+// ============================================================================
+// DistriGen (Distributed Generation) Endpoints
+// ============================================================================
+
+import { DistriGen } from "./research/distrigen";
+
+export interface RunDistriGenRequest {
+  prompt: string;
+  genre: Genre;
+  numWorkers?: number;
+  bpm?: number;
+  keySignature?: string;
+  duration?: number;
+  culturalAuthenticity?: string;
+}
+
+export interface RunDistriGenResponse {
+  generationId: string;
+  stems: Record<string, string>;
+  totalLatency: number;
+  averageWorkerLatency: number;
+  parallelizationGain: number;
+  qualityMetrics: {
+    overallQuality: number;
+    culturalAuthenticity: number;
+    stemQualityScores: Record<string, number>;
+  };
+  workerStats: Array<{
+    workerId: number;
+    tasksCompleted: number;
+    averageLatency: number;
+    successRate: number;
+  }>;
+}
+
+export const runDistriGenExperiment = api<RunDistriGenRequest, RunDistriGenResponse>(
+  { expose: true, method: "POST", path: "/research/distrigen/run" },
+  async (req) => {
+    try {
+      log.info("Starting DistriGen experiment", {
+        prompt: req.prompt.substring(0, 50),
+        genre: req.genre,
+        numWorkers: req.numWorkers
+      });
+
+      const distriGen = new DistriGen({ numWorkers: req.numWorkers });
+
+      const result = await distriGen.generateDistributed(
+        req.prompt,
+        req.genre,
+        {
+          bpm: req.bpm,
+          keySignature: req.keySignature,
+          duration: req.duration,
+          culturalAuthenticity: req.culturalAuthenticity
+        }
+      );
+
+      await musicDB.exec`
+        INSERT INTO distrigen_stats (
+          generation_id,
+          num_workers,
+          total_latency_ms,
+          average_worker_latency_ms,
+          parallelization_gain,
+          overall_quality,
+          cultural_authenticity,
+          stem_quality_scores,
+          worker_stats,
+          created_at
+        ) VALUES (
+          ${result.generationId},
+          ${req.numWorkers || 4},
+          ${result.totalLatency},
+          ${result.averageWorkerLatency},
+          ${result.parallelizationGain},
+          ${result.qualityMetrics.overallQuality},
+          ${result.qualityMetrics.culturalAuthenticity},
+          ${JSON.stringify(result.qualityMetrics.stemQualityScores)},
+          ${JSON.stringify(result.workerStats)},
+          NOW()
+        )
+      `;
+
+      const stems: Record<string, string> = {};
+      for (const [stemType, buffer] of Object.entries(result.stems)) {
+        stems[stemType] = buffer.toString('base64');
+      }
+
+      return {
+        generationId: result.generationId,
+        stems,
+        totalLatency: result.totalLatency,
+        averageWorkerLatency: result.averageWorkerLatency,
+        parallelizationGain: result.parallelizationGain,
+        qualityMetrics: result.qualityMetrics,
+        workerStats: result.workerStats
+      };
+
+    } catch (error) {
+      log.error("DistriGen experiment failed", { error: (error as Error).message });
+      throw APIError.internal("Failed to run DistriGen experiment");
+    }
+  }
+);
+
+export const getDistriGenScalingAnalysis = api(
+  { expose: true, method: "POST", path: "/research/distrigen/scaling" },
+  async ({ gpuCounts }: { gpuCounts: number[] }) => {
+    try {
+      const distriGen = new DistriGen();
+      const analysis = await distriGen.getScalingAnalysis(gpuCounts || [1, 2, 4, 8]);
+
+      return analysis;
+
+    } catch (error) {
+      log.error("Scaling analysis failed", { error: (error as Error).message });
+      throw APIError.internal("Failed to perform scaling analysis");
+    }
+  }
+);
+
+// ============================================================================
+// Continuous Learning Endpoints
+// ============================================================================
+
+import { continuousLearning } from "./research/continuous-learning";
+
+export interface CollectLearningExampleRequest {
+  generationId: string;
+  audioData: string;
+  metadata: {
+    genre: Genre;
+    qualityScore: number;
+    culturalScore: number;
+    bpm?: number;
+    keySignature?: string;
+    complexity?: string;
+    culturalElements?: string[];
+  };
+}
+
+export const collectLearningExample = api<CollectLearningExampleRequest>(
+  { expose: true, method: "POST", path: "/research/learning/collect" },
+  async (req) => {
+    try {
+      const audioBuffer = Buffer.from(req.audioData, 'base64');
+      
+      const example = await continuousLearning.collectLearningExample(
+        req.generationId,
+        audioBuffer,
+        req.metadata
+      );
+
+      return {
+        exampleId: example.exampleId,
+        collected: true,
+        totalExamples: continuousLearning.getStatistics().totalLearningExamples
+      };
+
+    } catch (error) {
+      log.error("Failed to collect learning example", { error: (error as Error).message });
+      throw APIError.internal("Failed to collect learning example");
+    }
+  }
+);
+
+export interface CollectFeedbackRequest {
+  generationId: string;
+  signalType: 'user_rating' | 'expert_validation' | 'objective_metric' | 'cultural_assessment';
+  signalValue: number;
+  signalData?: any;
+}
+
+export const collectFeedback = api<CollectFeedbackRequest>(
+  { expose: true, method: "POST", path: "/research/learning/feedback" },
+  async (req) => {
+    try {
+      const signal = await continuousLearning.collectFeedbackSignal(
+        req.generationId,
+        req.signalType,
+        req.signalValue,
+        req.signalData
+      );
+
+      return {
+        signalId: signal.signalId,
+        collected: true,
+        weight: signal.weight
+      };
+
+    } catch (error) {
+      log.error("Failed to collect feedback", { error: (error as Error).message });
+      throw APIError.internal("Failed to collect feedback signal");
+    }
+  }
+);
+
+export const triggerModelAdaptation = api(
+  { expose: true, method: "POST", path: "/research/learning/adapt" },
+  async ({ modelType, adaptationType }: {
+    modelType?: 'generation' | 'cultural_validation' | 'quality_assessment';
+    adaptationType?: 'fine_tuning' | 'reinforcement' | 'expert_guided';
+  }) => {
+    try {
+      const session = await continuousLearning.triggerAdaptation(
+        modelType || 'generation',
+        adaptationType || 'fine_tuning'
+      );
+
+      return {
+        sessionId: session.sessionId,
+        modelVersion: session.modelVersion,
+        status: session.status,
+        examplesUsed: session.examplesUsed,
+        performanceImprovement: session.performanceImprovement,
+        trainingDuration: session.trainingDuration
+      };
+
+    } catch (error) {
+      log.error("Model adaptation failed", { error: (error as Error).message });
+      throw APIError.internal("Failed to trigger model adaptation");
+    }
+  }
+);
+
+export const getAdaptationRecommendations = api(
+  { expose: true, method: "GET", path: "/research/learning/recommendations" },
+  async () => {
+    try {
+      const recommendations = await continuousLearning.getAdaptationRecommendations();
+      return recommendations;
+
+    } catch (error) {
+      log.error("Failed to get recommendations", { error: (error as Error).message });
+      throw APIError.internal("Failed to get adaptation recommendations");
+    }
+  }
+);
+
+export const getLearningStatistics = api(
+  { expose: true, method: "GET", path: "/research/learning/stats" },
+  async () => {
+    try {
+      const stats = continuousLearning.getStatistics();
+      return stats;
+
+    } catch (error) {
+      log.error("Failed to get learning statistics", { error: (error as Error).message });
+      throw APIError.internal("Failed to get learning statistics");
+    }
+  }
+);
+
+// ============================================================================
+// Pattern Recommendation Endpoints
+// ============================================================================
+
+import { patternRecommender } from "./research/pattern-recommender";
+import type { PatternContext } from "./research/pattern-recommender";
+
+export interface GetPatternRecommendationsRequest {
+  context: PatternContext;
+  limit?: number;
+}
+
+export const getPatternRecommendations = api<GetPatternRecommendationsRequest>(
+  { expose: true, method: "POST", path: "/research/patterns/recommend" },
+  async (req) => {
+    try {
+      const recommendations = await patternRecommender.getRecommendations(
+        req.context,
+        req.limit || 10
+      );
+
+      return recommendations;
+
+    } catch (error) {
+      log.error("Failed to get pattern recommendations", { error: (error as Error).message });
+      throw APIError.internal("Failed to get pattern recommendations");
+    }
+  }
+);
+
+export const trackPatternUsage = api(
+  { expose: true, method: "POST", path: "/research/patterns/track" },
+  async ({ patternId, success }: { patternId: string; success: boolean }) => {
+    try {
+      await patternRecommender.trackPatternUsage(patternId, success);
+
+      return { tracked: true };
+
+    } catch (error) {
+      log.error("Failed to track pattern usage", { error: (error as Error).message });
+      throw APIError.internal("Failed to track pattern usage");
+    }
+  }
+);
+
+export const getRecommenderStatistics = api(
+  { expose: true, method: "GET", path: "/research/patterns/stats" },
+  async () => {
+    try {
+      const stats = patternRecommender.getRecommenderStatistics();
+      return stats;
+
+    } catch (error) {
+      log.error("Failed to get recommender statistics", { error: (error as Error).message });
+      throw APIError.internal("Failed to get recommender statistics");
+    }
+  }
+);

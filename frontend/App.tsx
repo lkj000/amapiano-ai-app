@@ -9,6 +9,7 @@ import AnalyzePage from './pages/AnalyzePage';
 import SamplesPage from './pages/SamplesPage';
 import PatternsPage from './pages/PatternsPage';
 import DawPage from './pages/DawPage';
+import ResearchDashboardPage from './pages/ResearchDashboardPage';
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ function AppContent() {
           <Route path="/samples" element={<SamplesPage />} />
           <Route path="/patterns" element={<PatternsPage />} />
           <Route path="/daw" element={<DawPage />} />
+          <Route path="/research" element={<ResearchDashboardPage />} />
         </Routes>
       </main>
     </div>

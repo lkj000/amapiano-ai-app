@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Music, Radio, Search, Library, Layers, SlidersHorizontal } from 'lucide-react';
+import { Music, Radio, Search, Library, Layers, SlidersHorizontal, BarChart3 } from 'lucide-react';
 
 export default function Header() {
   const location = useLocation();
@@ -12,6 +12,7 @@ export default function Header() {
     { path: '/samples', label: 'Samples', icon: Library },
     { path: '/patterns', label: 'Patterns', icon: Layers },
     { path: '/daw', label: 'DAW', icon: SlidersHorizontal },
+    { path: '/research', label: 'Research', icon: BarChart3 },
   ];
 
   return (
