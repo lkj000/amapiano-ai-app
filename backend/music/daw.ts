@@ -1,14 +1,85 @@
 import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
-import type { DawProjectData } from "./types";
+import type { DawProject, DawProjectData, DawTrack } from "./types";
 import { dawCache, generateDawProjectCacheKey } from "./cache";
 import { errorHandler } from "./error-handler";
 import log from "encore.dev/log";
 
+export interface ListProjectsResponse {
+  projects: {
+    id: number;
+    name: string;
+    updatedAt: Date;
+  }[];
+}
+
+// Lists all saved DAW projects.
+export const listProjects = api<void, ListProjectsResponse>(
+  { expose: true, method: "GET", path: "/daw/projects" },
+  async () => {
+    try {
+      const projects = await musicDB.queryAll<{ id: number; name: string; updated_at: Date }>`
+        SELECT id, name, updated_at FROM daw_projects ORDER BY updated_at DESC
+      `;
+      return { projects };
+    } catch (error) {
+      const apiError = errorHandler.handleError(error, { operation: 'listProjects' });
+      throw apiError;
+    }
+  }
+);
+
+export interface LoadProjectRequest {
+  projectId: number;
+}
+
+// Loads a DAW project.
+export const loadProject = api<LoadProjectRequest, DawProject>(
+  { expose: true, method: "GET", path: "/daw/projects/:projectId" },
+  async ({ projectId }) => {
+    try {
+      const cacheKey = generateDawProjectCacheKey(projectId);
+      const cachedProject = await dawCache.get(cacheKey);
+      if (cachedProject) {
+        log.info("Returning cached DAW project", { projectId, cacheKey });
+        return cachedProject;
+      }
+
+      const result = await musicDB.queryRow<DawProject>`
+        SELECT id, name, project_data, version, created_at, updated_at FROM daw_projects WHERE id = ${projectId}
+      `;
+
+      if (!result) {
+        throw APIError.notFound("Project not found.");
+      }
+
+      const project: DawProject = {
+        id: result.id,
+        name: result.name,
+        projectData: result.project_data,
+        version: result.version,
+        createdAt: result.created_at,
+        updatedAt: result.updated_at,
+      };
+
+      await dawCache.set(cacheKey, project);
+      log.info("DAW project loaded and cached", { projectId, cacheKey });
+
+      return project;
+    } catch (error) {
+      const apiError = errorHandler.handleError(error, {
+        operation: 'loadProject',
+        metadata: { projectId }
+      });
+      throw apiError;
+    }
+  }
+);
+
 export interface SaveProjectRequest {
   name: string;
   projectData: DawProjectData;
-  projectId?: number; // Optional: for updating existing project
+  projectId?: number;
 }
 
 export interface SaveProjectResponse {
@@ -81,54 +152,85 @@ export const saveProject = api<SaveProjectRequest, SaveProjectResponse>(
   }
 );
 
-export interface LoadProjectRequest {
-  projectId: number;
+export interface GenerateDawElementRequest {
+  projectId?: number;
+  prompt: string;
+  trackType: 'midi' | 'audio';
+  instrument?: string;
 }
 
-export interface LoadProjectResponse {
-  projectId: number;
-  name: string;
-  projectData: DawProjectData;
-  lastSaved: Date;
-  version: number;
+export interface GenerateDawElementResponse {
+  newTrack: DawTrack;
 }
 
-// Loads a DAW project.
-export const loadProject = api<LoadProjectRequest, LoadProjectResponse>(
-  { expose: true, method: "GET", path: "/daw/projects/:projectId" },
-  async ({ projectId }) => {
+// Generates a new track or clip for the DAW using AI.
+export const generateDawElement = api<GenerateDawElementRequest, GenerateDawElementResponse>(
+  { expose: true, method: "POST", path: "/daw/ai-generate" },
+  async (req) => {
     try {
-      const cacheKey = generateDawProjectCacheKey(projectId);
-      const cachedProject = await dawCache.get(cacheKey);
-      if (cachedProject) {
-        log.info("Returning cached DAW project", { projectId, cacheKey });
-        return cachedProject;
+      if (!req.prompt) {
+        throw APIError.invalidArgument("A prompt is required to generate a DAW element.");
       }
 
-      const result = await musicDB.queryRow<{ id: number; name: string; project_data: DawProjectData; updated_at: Date; version: number }>`
-        SELECT id, name, project_data, updated_at, version FROM daw_projects WHERE id = ${projectId}
-      `;
+      // Mock AI generation based on prompt
+      const lowerPrompt = req.prompt.toLowerCase();
+      let name = "AI Generated Track";
+      let instrument = "Amapiano Piano";
+      let color = "bg-purple-500";
+      let type: 'midi' | 'audio' = req.trackType;
 
-      if (!result) {
-        throw APIError.notFound("Project not found.");
+      if (lowerPrompt.includes("log drum")) {
+        name = "AI Log Drum";
+        instrument = "Signature Log Drum";
+        color = "bg-red-500";
+        type = 'midi';
+      } else if (lowerPrompt.includes("piano") || lowerPrompt.includes("chords")) {
+        name = "AI Piano Chords";
+        instrument = "Amapiano Piano";
+        color = "bg-blue-500";
+        type = 'midi';
+      } else if (lowerPrompt.includes("percussion") || lowerPrompt.includes("shaker")) {
+        name = "AI Percussion";
+        instrument = "Shaker Groove Engine";
+        color = "bg-green-500";
+        type = 'audio';
+      } else if (lowerPrompt.includes("sax")) {
+        name = "AI Saxophone";
+        instrument = "Saxophone VST";
+        color = "bg-yellow-500";
+        type = 'midi';
       }
 
-      const response = {
-        projectId: result.id,
-        name: result.name,
-        projectData: result.project_data,
-        lastSaved: result.updated_at,
-        version: result.version,
+      const newTrack: DawTrack = {
+        id: `track_${Date.now()}`,
+        type,
+        name,
+        instrument,
+        clips: [{
+          id: `clip_${Date.now()}`,
+          name: "Generated Clip",
+          startTime: 0,
+          duration: 8,
+          notes: type === 'midi' ? [{ pitch: 60, velocity: 100, startTime: 0, duration: 1 }] : undefined,
+          audioUrl: type === 'audio' ? 'samples/ai_generated_loop.wav' : undefined,
+        }],
+        mixer: {
+          volume: 0.8,
+          pan: 0,
+          isMuted: false,
+          isSolo: false,
+          effects: [],
+        },
+        isArmed: false,
+        color,
       };
 
-      await dawCache.set(cacheKey, response);
-      log.info("DAW project loaded and cached", { projectId, cacheKey });
+      return { newTrack };
 
-      return response;
     } catch (error) {
       const apiError = errorHandler.handleError(error, {
-        operation: 'loadProject',
-        metadata: { projectId }
+        operation: 'generateDawElement',
+        metadata: { prompt: req.prompt }
       });
       throw apiError;
     }

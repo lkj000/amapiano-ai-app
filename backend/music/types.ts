@@ -89,40 +89,49 @@ export interface MidiNote {
   duration: number; // in beats or seconds
 }
 
-export interface DawTrack {
-  type: 'midi' | 'audio';
-  name: string;
-  instrument?: string; // for midi
-  sampleId?: number; // for audio
-  startTime: number;
-  duration: number;
-  notes?: MidiNote[]; // MIDI notes
-  audioUrl?: string;
-}
-
 export interface DawMixerChannel {
   volume: number; // 0-1
   pan: number; // -1 to 1
   isMuted: boolean;
   isSolo: boolean;
+  effects: string[]; // names of effects
+}
+
+export interface DawClip {
+  id: string;
+  name: string;
+  startTime: number; // in beats
+  duration: number; // in beats
+  // For audio clips
+  sampleId?: number;
+  audioUrl?: string;
+  // For MIDI clips
+  notes?: MidiNote[];
+}
+
+export interface DawTrack {
+  id: string; // Use a unique ID for each track
+  type: 'midi' | 'audio';
+  name: string;
+  instrument?: string; // for midi tracks
+  clips: DawClip[];
+  mixer: DawMixerChannel;
+  isArmed: boolean;
+  color: string;
 }
 
 export interface DawProjectData {
   bpm: number;
   keySignature: string;
   tracks: DawTrack[];
-  mixer: {
-    masterVolume: number;
-    channels: DawMixerChannel[];
-  };
+  masterVolume: number;
 }
 
-export interface DawProject extends DawProjectData {
+export interface DawProject {
   id: number;
   name: string;
-  userId?: string;
+  projectData: DawProjectData;
   version: number;
-  isPublic: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
