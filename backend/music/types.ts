@@ -1,6 +1,6 @@
 export type Genre = "amapiano" | "private_school_amapiano";
-export type SampleCategory = "log_drum" | "piano" | "percussion" | "bass" | "vocal" | "saxophone" | "guitar" | "synth";
-export type PatternCategory = "drum_pattern" | "bass_pattern" | "chord_progression" | "melody";
+export type SampleCategory = "log_drum" | "piano" | "percussion" | "bass" | "vocal" | "vocals" | "saxophone" | "guitar" | "synth";
+export type PatternCategory = "drum_pattern" | "bass_pattern" | "chord_progression" | "melody" | "percussion_pattern" | "arpeggio";
 export type Mood = "chill" | "energetic" | "soulful" | "groovy" | "mellow" | "uplifting" | "deep" | "jazzy";
 
 export interface Track {
@@ -26,6 +26,8 @@ export interface Sample {
   keySignature?: string;
   durationSeconds?: number;
   tags?: string[];
+  description?: string;
+  culturalSignificance?: string;
   createdAt: Date;
 }
 
@@ -38,6 +40,9 @@ export interface Pattern {
   bpm?: number;
   keySignature?: string;
   bars?: number;
+  complexity?: string;
+  culturalSignificance?: string;
+  description?: string;
   createdAt: Date;
 }
 

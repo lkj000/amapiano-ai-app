@@ -1,469 +1,612 @@
 import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
-import { audioFiles } from "./storage";
+import { objectStorage, sampleLibrary } from "./storage";
+import { audioFormatConverter } from "./audio-formats";
 import type { Genre, SampleCategory, Sample } from "./types";
+import log from "encore.dev/log";
 
 export interface ListSamplesRequest {
   genre?: Genre;
   category?: SampleCategory;
   tags?: string[];
+  bpm?: number;
+  keySignature?: string;
   limit?: number;
+  offset?: number;
 }
 
 export interface ListSamplesResponse {
   samples: Sample[];
   total: number;
+  categories: Record<SampleCategory, number>;
 }
 
-// Lists available amapiano samples and loops
-export const listSamples = api<ListSamplesRequest, ListSamplesResponse>(
-  { expose: true, method: "GET", path: "/samples" },
-  async (req) => {
-    let query = `SELECT * FROM samples WHERE 1=1`;
-    const params: any[] = [];
-    let paramIndex = 1;
-
-    if (req.genre) {
-      query += ` AND genre = $${paramIndex}`;
-      params.push(req.genre);
-      paramIndex++;
-    }
-
-    if (req.category) {
-      query += ` AND category = $${paramIndex}`;
-      params.push(req.category);
-      paramIndex++;
-    }
-
-    if (req.tags && req.tags.length > 0) {
-      query += ` AND tags && $${paramIndex}`;
-      params.push(req.tags);
-      paramIndex++;
-    }
-
-    query += ` ORDER BY created_at DESC`;
-
-    if (req.limit) {
-      query += ` LIMIT $${paramIndex}`;
-      params.push(req.limit);
-    }
-
-    const samples = await musicDB.rawQueryAll<Sample>(query, ...params);
-    
-    // If no samples in database, return mock data for demo
-    if (samples.length === 0) {
-      const mockSamples: Sample[] = [
-        {
-          id: 1,
-          name: "Classic Log Drum Loop",
-          category: "log_drum",
-          genre: "amapiano",
-          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
-          bpm: 115,
-          keySignature: "Cm",
-          durationSeconds: 8,
-          tags: ["authentic", "foundational"],
-          createdAt: new Date()
-        },
-        {
-          id: 2,
-          name: "Soulful Piano Chords",
-          category: "piano",
-          genre: "amapiano", 
-          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
-          bpm: 112,
-          keySignature: "F",
-          durationSeconds: 16,
-          tags: ["gospel", "emotional"],
-          createdAt: new Date()
-        },
-        {
-          id: 3,
-          name: "Jazz Saxophone Melody",
-          category: "saxophone",
-          genre: "private_school_amapiano",
-          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav", 
-          bpm: 110,
-          keySignature: "Bb",
-          durationSeconds: 12,
-          tags: ["sophisticated", "smooth"],
-          createdAt: new Date()
-        },
-        {
-          id: 4,
-          name: "Deep Bass Foundation",
-          category: "bass",
-          genre: "amapiano",
-          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
-          bpm: 115,
-          keySignature: "Cm", 
-          durationSeconds: 8,
-          tags: ["deep", "foundation"],
-          createdAt: new Date()
-        },
-        {
-          id: 5,
-          name: "Vocal Chops & Harmonies",
-          category: "vocal",
-          genre: "amapiano",
-          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
-          bpm: 113,
-          keySignature: "G",
-          durationSeconds: 6,
-          tags: ["vocal", "chops", "harmony"],
-          createdAt: new Date()
-        },
-        {
-          id: 6,
-          name: "Percussive Shaker Loop",
-          category: "percussion",
-          genre: "amapiano",
-          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
-          bpm: 115,
-          keySignature: "Cm",
-          durationSeconds: 4,
-          tags: ["percussion", "shaker", "groove"],
-          createdAt: new Date()
-        },
-        {
-          id: 7,
-          name: "Synth Lead Melody",
-          category: "synth",
-          genre: "private_school_amapiano",
-          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
-          bpm: 110,
-          keySignature: "F",
-          durationSeconds: 8,
-          tags: ["synth", "lead", "melody"],
-          createdAt: new Date()
-        },
-        {
-          id: 8,
-          name: "Guitar Plucks",
-          category: "guitar",
-          genre: "amapiano",
-          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
-          bpm: 112,
-          keySignature: "Am",
-          durationSeconds: 8,
-          tags: ["guitar", "plucks", "rhythmic"],
-          createdAt: new Date()
-        }
-      ];
-      
-      const filteredSamples = mockSamples.filter(s => 
-        (!req.genre || s.genre === req.genre) &&
-        (!req.category || s.category === req.category)
-      );
-      
-      return {
-        samples: filteredSamples,
-        total: filteredSamples.length
-      };
-    }
-    
-    // For existing samples, ensure they have demo URLs
-    const samplesWithUrls = samples.map(s => ({ 
-      ...s, 
-      fileUrl: s.fileUrl || 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
-    }));
-
-    return {
-      samples: samplesWithUrls,
-      total: samples.length
-    };
-  }
-);
-
-export interface SearchSamplesRequest {
-  query: string;
-  genre?: Genre;
-  category?: SampleCategory;
-}
-
-export interface SearchSamplesResponse {
-  samples: Sample[];
-  suggestions: string[];
-}
-
-// Searches samples by name, tags, or characteristics
-export const searchSamples = api<SearchSamplesRequest, SearchSamplesResponse>(
-  { expose: true, method: "GET", path: "/samples/search" },
-  async (req) => {
-    const searchQuery = `
-      SELECT * FROM samples 
-      WHERE (name ILIKE $1 OR $1 = ANY(tags))
-      ${req.genre ? 'AND genre = $2' : ''}
-      ${req.category ? `AND category = $${req.genre ? '3' : '2'}` : ''}
-      ORDER BY 
-        CASE 
-          WHEN name ILIKE $1 THEN 1
-          WHEN $1 = ANY(tags) THEN 2
-          ELSE 3
-        END,
-        created_at DESC
-      LIMIT 50
-    `;
-
-    const params = [`%${req.query}%`];
-    if (req.genre) params.push(req.genre);
-    if (req.category) params.push(req.category);
-
-    const samples = await musicDB.rawQueryAll<Sample>(searchQuery, ...params);
-    
-    // If no samples found and database seems empty, provide mock search results
-    if (samples.length === 0) {
-      const mockSamples: Sample[] = [
-        {
-          id: 1,
-          name: "Classic Log Drum Loop",
-          category: "log_drum",
-          genre: "amapiano",
-          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
-          bpm: 115,
-          keySignature: "Cm",
-          durationSeconds: 8,
-          tags: ["authentic", "foundational", "classic"],
-          createdAt: new Date()
-        },
-        {
-          id: 2,
-          name: "Soulful Piano Chords",
-          category: "piano",
-          genre: "amapiano", 
-          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
-          bpm: 112,
-          keySignature: "F",
-          durationSeconds: 16,
-          tags: ["gospel", "emotional", "soulful"],
-          createdAt: new Date()
-        }
-      ];
-      
-      // Filter mock samples based on search query
-      const filteredSamples = mockSamples.filter(s => 
-        s.name.toLowerCase().includes(req.query.toLowerCase()) ||
-        s.tags?.some(tag => tag.toLowerCase().includes(req.query.toLowerCase())) ||
-        (!req.genre || s.genre === req.genre) &&
-        (!req.category || s.category === req.category)
-      );
-      
-      return {
-        samples: filteredSamples,
-        suggestions: ["classic", "soulful", "authentic", "gospel", "foundational"]
-      };
-    }
-    
-    // For existing samples, ensure they have demo URLs
-    const samplesWithUrls = samples.map(s => ({ 
-      ...s, 
-      fileUrl: s.fileUrl || 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
-    }));
-
-    // Generate suggestions based on search and existing tags
-    const allTagsQuery = `
-      SELECT DISTINCT unnest(tags) as tag 
-      FROM samples 
-      WHERE unnest(tags) ILIKE $1
-      LIMIT 10
-    `;
-    
-    let suggestions: string[] = [];
-    try {
-      const tagResults = await musicDB.rawQueryAll<{tag: string}>(allTagsQuery, `%${req.query}%`);
-      suggestions = tagResults.map(r => r.tag);
-    } catch (error) {
-      // If tags query fails, provide default suggestions
-      suggestions = ["amapiano", "log drum", "piano", "saxophone", "deep"];
-    }
-
-    return {
-      samples: samplesWithUrls,
-      suggestions
-    };
-  }
-);
-
-export interface GetSampleRequest {
-  id: number;
-}
-
-// Retrieves a specific sample by ID
-export const getSample = api<GetSampleRequest, Sample>(
-  { expose: true, method: "GET", path: "/samples/:id" },
-  async (req) => {
-    const sample = await musicDB.queryRow<Sample>`
-      SELECT * FROM samples WHERE id = ${req.id}
-    `;
-
-    if (!sample) {
-      throw APIError.notFound("Sample not found");
-    }
-
-    return {
-      ...sample,
-      fileUrl: sample.fileUrl ? `https://www.soundjay.com/misc/sounds-1/beep-07a.wav` : 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
-    };
-  }
-);
-
-export interface GetSamplesByArtistRequest {
-  artist: string;
-}
-
-export interface GetSamplesByArtistResponse {
-  samples: Sample[];
-  artistInfo: {
-    name: string;
-    style: string;
-    description: string;
-  };
-}
-
-// Gets samples in the style of specific amapiano artists
-export const getSamplesByArtist = api<GetSamplesByArtistRequest, GetSamplesByArtistResponse>(
-  { expose: true, method: "GET", path: "/samples/artist/:artist" },
-  async (req) => {
-    const artistStyles: Record<string, any> = {
-      kabza_da_small: {
-        name: "Kabza De Small",
-        style: "Classic Amapiano",
-        description: "Known for pioneering the amapiano sound with signature log drums and soulful piano melodies",
-        tags: ["kabza", "classic", "energetic", "soulful"]
-      },
-      kelvin_momo: {
-        name: "Kelvin Momo",
-        style: "Private School Amapiano",
-        description: "Master of the sophisticated, jazz-influenced private school amapiano sound",
-        tags: ["kelvin_momo", "private_school", "jazzy", "sophisticated", "mellow"]
-      },
-      babalwa_m: {
-        name: "Babalwa M",
-        style: "Melodic Amapiano",
-        description: "Known for melodic and vocal-driven amapiano productions",
-        tags: ["melodic", "vocal", "smooth", "groovy"]
-      }
-    };
-
-    const artistInfo = artistStyles[req.artist];
-    
-    if (!artistInfo) {
-      throw APIError.notFound("Artist not found");
-    }
-    
-    // Get samples that match the artist's style tags
-    const samples = await musicDB.queryAll<Sample>`
-      SELECT * FROM samples 
-      WHERE tags && ${artistInfo.tags}
-      ORDER BY created_at DESC
-      LIMIT 20
-    `;
-    
-    // For demo purposes, create mock audio URLs
-    const samplesWithUrls = samples.map(s => ({ 
-      ...s, 
-      fileUrl: s.fileUrl ? `https://www.soundjay.com/misc/sounds-1/beep-07a.wav` : 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
-    }));
-
-    return {
-      samples: samplesWithUrls,
-      artistInfo
-    };
-  }
-);
-
-export interface CreateSampleRequest {
+export interface UploadSampleRequest {
   name: string;
   category: SampleCategory;
   genre: Genre;
-  fileUrl: string;
+  audioData: string; // Base64 encoded
   bpm?: number;
   keySignature?: string;
-  durationSeconds?: number;
   tags?: string[];
+  culturalSignificance?: string;
+  description?: string;
 }
 
-export interface CreateSampleResponse {
+export interface UploadSampleResponse {
   id: number;
   name: string;
   fileUrl: string;
+  category: SampleCategory;
 }
 
-// Creates a new sample (for admin/content management)
-export const createSample = api<CreateSampleRequest, CreateSampleResponse>(
-  { expose: true, method: "POST", path: "/samples" },
-  async (req) => {
-    const result = await musicDB.queryRow<{id: number, name: string, file_url: string}>`
-      INSERT INTO samples (name, category, genre, file_url, bpm, key_signature, duration_seconds, tags)
-      VALUES (${req.name}, ${req.category}, ${req.genre}, ${req.fileUrl}, ${req.bpm || null}, ${req.keySignature || null}, ${req.durationSeconds || null}, ${req.tags || []})
-      RETURNING id, name, file_url
+export interface ProcessSampleRequest {
+  sampleId: number;
+  operations: {
+    normalize?: boolean;
+    trimSilence?: boolean;
+    convertFormat?: 'wav' | 'mp3' | 'flac';
+    resample?: number;
+  };
+}
+
+// Comprehensive amapiano sample library
+const BUILTIN_SAMPLES: Partial<Sample>[] = [
+  // Log Drum Samples
+  {
+    name: "Traditional Log Drum 1",
+    category: "log_drum",
+    genre: "amapiano",
+    bpm: 115,
+    keySignature: "Cm",
+    durationSeconds: 2,
+    tags: ["authentic", "traditional", "deep"],
+    description: "Traditional South African log drum sound with deep resonance",
+    culturalSignificance: "Signature amapiano sound rooted in traditional African percussion"
+  },
+  {
+    name: "Modern Log Drum Punch",
+    category: "log_drum",
+    genre: "amapiano",
+    bpm: 118,
+    keySignature: "Fm",
+    durationSeconds: 1.5,
+    tags: ["modern", "punchy", "tight"],
+    description: "Contemporary log drum with enhanced low-end and punch"
+  },
+  {
+    name: "Log Drum with Release",
+    category: "log_drum",
+    genre: "amapiano",
+    bpm: 112,
+    keySignature: "Dm",
+    durationSeconds: 3,
+    tags: ["atmospheric", "long-tail"],
+    description: "Log drum with extended release for atmospheric productions"
+  },
+
+  // Piano Samples
+  {
+    name: "Gospel Piano Cmaj7",
+    category: "piano",
+    genre: "amapiano",
+    bpm: 110,
+    keySignature: "C",
+    durationSeconds: 4,
+    tags: ["gospel", "soulful", "authentic"],
+    description: "Warm Cmaj7 chord with gospel-influenced voicing",
+    culturalSignificance: "Reflects South African church music traditions"
+  },
+  {
+    name: "Jazz Piano Dm9",
+    category: "piano",
+    genre: "private_school_amapiano",
+    bpm: 112,
+    keySignature: "D",
+    durationSeconds: 4,
+    tags: ["jazz", "sophisticated", "complex"],
+    description: "Jazz-influenced Dm9 chord for sophisticated productions"
+  },
+  {
+    name: "Soulful Piano Am7",
+    category: "piano",
+    genre: "amapiano",
+    bpm: 115,
+    keySignature: "A",
+    durationSeconds: 5,
+    tags: ["emotional", "soulful", "deep"],
+    description: "Emotional Am7 chord with rich harmonics"
+  },
+
+  // Bass Samples
+  {
+    name: "Deep Sub Bass C",
+    category: "bass",
+    genre: "amapiano",
+    bpm: 115,
+    keySignature: "C",
+    durationSeconds: 2,
+    tags: ["deep", "sub", "foundation"],
+    description: "Deep sub-bass note for low-end foundation"
+  },
+  {
+    name: "Walking Bass Line",
+    category: "bass",
+    genre: "amapiano",
+    bpm: 118,
+    keySignature: "F",
+    durationSeconds: 8,
+    tags: ["melodic", "walking", "jazzy"],
+    description: "Jazz-influenced walking bass pattern",
+    culturalSignificance: "Shows jazz influence in amapiano"
+  },
+
+  // Percussion Samples
+  {
+    name: "Shaker Loop Subtle",
+    category: "percussion",
+    genre: "amapiano",
+    bpm: 115,
+    keySignature: "Cm",
+    durationSeconds: 4,
+    tags: ["subtle", "texture", "rhythm"],
+    description: "Subtle shaker pattern for rhythmic texture"
+  },
+  {
+    name: "Clap Traditional",
+    category: "percussion",
+    genre: "amapiano",
+    bpm: 118,
+    keySignature: "Fm",
+    durationSeconds: 1,
+    tags: ["traditional", "accent"],
+    description: "Traditional hand clap for rhythmic accents"
+  },
+
+  // Saxophone Samples (Private School Amapiano)
+  {
+    name: "Smooth Sax Melody Bb",
+    category: "saxophone",
+    genre: "private_school_amapiano",
+    bpm: 110,
+    keySignature: "Bb",
+    durationSeconds: 8,
+    tags: ["smooth", "melodic", "sophisticated"],
+    description: "Smooth saxophone melody for sophisticated productions",
+    culturalSignificance: "Reflects jazz sophistication in private school amapiano"
+  },
+  {
+    name: "Sax Riff Jazzy",
+    category: "saxophone",
+    genre: "private_school_amapiano",
+    bpm: 112,
+    keySignature: "Eb",
+    durationSeconds: 4,
+    tags: ["jazzy", "riff", "expressive"],
+    description: "Expressive jazz-influenced saxophone riff"
+  },
+
+  // Vocal Samples
+  {
+    name: "Vocal Chant Traditional",
+    category: "vocals",
+    genre: "amapiano",
+    bpm: 115,
+    keySignature: "Cm",
+    durationSeconds: 8,
+    tags: ["traditional", "cultural", "authentic"],
+    description: "Traditional South African vocal chant",
+    culturalSignificance: "Preserves traditional South African vocal traditions"
+  },
+  {
+    name: "Gospel Vocal Phrase",
+    category: "vocals",
+    genre: "amapiano",
+    bpm: 110,
+    keySignature: "C",
+    durationSeconds: 12,
+    tags: ["gospel", "soulful", "emotional"],
+    description: "Gospel-influenced vocal phrase with emotional depth",
+    culturalSignificance: "Reflects gospel roots of amapiano"
+  }
+];
+
+// Initialize built-in samples on first run
+async function initializeBuiltinSamples() {
+  try {
+    const count = await musicDB.queryRow<{ count: number }>`
+      SELECT COUNT(*) as count FROM samples
     `;
 
-    if (!result) {
-      throw APIError.internal("Failed to create sample");
-    }
+    if (!count || count.count === 0) {
+      log.info("Initializing built-in amapiano sample library");
 
-    return {
-      id: result.id,
-      name: result.name,
-      fileUrl: `https://www.soundjay.com/misc/sounds-1/beep-07a.wav`
-    };
+      for (const sample of BUILTIN_SAMPLES) {
+        // In production, you would generate or load actual audio files
+        // For now, we'll create database entries with placeholder URLs
+        const fileName = `${sample.category}/${sample.name?.replace(/\s+/g, '_').toLowerCase()}.wav`;
+        
+        await musicDB.exec`
+          INSERT INTO samples (
+            name,
+            category,
+            genre,
+            file_url,
+            bpm,
+            key_signature,
+            duration_seconds,
+            tags,
+            description,
+            cultural_significance,
+            created_at
+          ) VALUES (
+            ${sample.name},
+            ${sample.category},
+            ${sample.genre},
+            ${fileName},
+            ${sample.bpm},
+            ${sample.keySignature},
+            ${sample.durationSeconds},
+            ${JSON.stringify(sample.tags || [])},
+            ${sample.description || ''},
+            ${sample.culturalSignificance || ''},
+            NOW()
+          )
+        `;
+      }
+
+      log.info("Built-in samples initialized", { count: BUILTIN_SAMPLES.length });
+    }
+  } catch (error) {
+    log.warn("Failed to initialize built-in samples", { error: (error as Error).message });
+  }
+}
+
+// Initialize on module load
+initializeBuiltinSamples();
+
+// List available amapiano samples
+export const listSamples = api<ListSamplesRequest, ListSamplesResponse>(
+  { expose: true, method: "GET", path: "/samples" },
+  async (req) => {
+    try {
+      let query = `SELECT * FROM samples WHERE 1=1`;
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (req.genre) {
+        query += ` AND genre = $${paramIndex}`;
+        params.push(req.genre);
+        paramIndex++;
+      }
+
+      if (req.category) {
+        query += ` AND category = $${paramIndex}`;
+        params.push(req.category);
+        paramIndex++;
+      }
+
+      if (req.tags && req.tags.length > 0) {
+        query += ` AND tags && $${paramIndex}::jsonb`;
+        params.push(JSON.stringify(req.tags));
+        paramIndex++;
+      }
+
+      if (req.bpm !== undefined) {
+        query += ` AND bpm BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+        params.push(req.bpm - 5, req.bpm + 5);
+        paramIndex += 2;
+      }
+
+      if (req.keySignature) {
+        query += ` AND key_signature = $${paramIndex}`;
+        params.push(req.keySignature);
+        paramIndex++;
+      }
+
+      // Get total count
+      const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as count');
+      const countResult = await musicDB.rawQueryRow<{ count: number }>(countQuery, ...params);
+      const total = countResult?.count || 0;
+
+      // Add pagination
+      query += ` ORDER BY created_at DESC`;
+      
+      if (req.limit) {
+        query += ` LIMIT $${paramIndex}`;
+        params.push(req.limit);
+        paramIndex++;
+      } else {
+        query += ` LIMIT 50`;
+      }
+
+      if (req.offset) {
+        query += ` OFFSET $${paramIndex}`;
+        params.push(req.offset);
+      }
+
+      const samples = await musicDB.rawQueryAll<Sample>(query, ...params);
+
+      // Get category distribution
+      const categoryCounts = await musicDB.queryAll<{ category: SampleCategory; count: number }>`
+        SELECT category, COUNT(*) as count
+        FROM samples
+        GROUP BY category
+      `;
+
+      const categories = categoryCounts.reduce((acc, row) => {
+        acc[row.category] = row.count;
+        return acc;
+      }, {} as Record<SampleCategory, number>);
+
+      log.info("Samples listed", { 
+        count: samples.length, 
+        total,
+        filters: { genre: req.genre, category: req.category }
+      });
+
+      return {
+        samples: samples.map(s => ({
+          ...s,
+          fileUrl: sampleLibrary.publicUrl(s.fileUrl)
+        })),
+        total,
+        categories
+      };
+
+    } catch (error) {
+      log.error("Failed to list samples", { error: (error as Error).message });
+      throw APIError.internal("Failed to list samples");
+    }
   }
 );
 
-export interface GetSampleStatsResponse {
-  totalSamples: number;
-  samplesByCategory: Record<SampleCategory, number>;
-  samplesByGenre: Record<Genre, number>;
-  popularTags: Array<{tag: string, count: number}>;
-}
+// Upload custom sample
+export const uploadSample = api<UploadSampleRequest, UploadSampleResponse>(
+  { expose: true, method: "POST", path: "/samples/upload" },
+  async (req) => {
+    try {
+      // Validate audio data
+      if (!req.audioData) {
+        throw APIError.invalidArgument("Audio data is required");
+      }
 
-// Gets statistics about the sample library
-export const getSampleStats = api<void, GetSampleStatsResponse>(
-  { expose: true, method: "GET", path: "/samples/stats" },
-  async () => {
-    // Get total count
-    const totalResult = await musicDB.queryRow<{count: number}>`
-      SELECT COUNT(*) as count FROM samples
-    `;
-    const totalSamples = totalResult?.count || 0;
+      // Convert base64 to buffer
+      const audioBuffer = Buffer.from(req.audioData, 'base64');
 
-    // Get counts by category
-    const categoryResults = await musicDB.queryAll<{category: SampleCategory, count: number}>`
-      SELECT category, COUNT(*) as count 
-      FROM samples 
-      GROUP BY category
-    `;
-    const samplesByCategory = categoryResults.reduce((acc, row) => {
-      acc[row.category] = row.count;
-      return acc;
-    }, {} as Record<SampleCategory, number>);
+      // Validate buffer size (max 50MB)
+      if (audioBuffer.length > 50 * 1024 * 1024) {
+        throw APIError.invalidArgument("Sample file too large (max 50MB)");
+      }
 
-    // Get counts by genre
-    const genreResults = await musicDB.queryAll<{genre: Genre, count: number}>`
-      SELECT genre, COUNT(*) as count 
-      FROM samples 
-      GROUP BY genre
-    `;
-    const samplesByGenre = genreResults.reduce((acc, row) => {
-      acc[row.genre] = row.count;
-      return acc;
-    }, {} as Record<Genre, number>);
+      // Process and upload sample
+      const fileName = `${req.category}/${req.name.replace(/\s+/g, '_').toLowerCase()}_${Date.now()}.wav`;
+      
+      const { url } = await objectStorage.uploadSample(audioBuffer, fileName, req.category, {
+        normalize: true,
+        trimSilence: true,
+        metadata: {
+          bpm: req.bpm?.toString() || '',
+          keySignature: req.keySignature || '',
+          culturalSignificance: req.culturalSignificance || ''
+        }
+      });
 
-    // Get popular tags
-    const tagResults = await musicDB.queryAll<{tag: string, count: number}>`
-      SELECT unnest(tags) as tag, COUNT(*) as count
-      FROM samples
-      GROUP BY unnest(tags)
-      ORDER BY count DESC
-      LIMIT 20
-    `;
+      // Get audio metadata
+      const metadata = await audioFormatConverter.extractMetadata(audioBuffer);
 
-    return {
-      totalSamples,
-      samplesByCategory,
-      samplesByGenre,
-      popularTags: tagResults
-    };
+      // Store in database
+      const result = await musicDB.queryRow<{ id: number }>`
+        INSERT INTO samples (
+          name,
+          category,
+          genre,
+          file_url,
+          bpm,
+          key_signature,
+          duration_seconds,
+          tags,
+          description,
+          cultural_significance,
+          created_at
+        ) VALUES (
+          ${req.name},
+          ${req.category},
+          ${req.genre},
+          ${fileName},
+          ${req.bpm || null},
+          ${req.keySignature || null},
+          ${metadata.duration},
+          ${JSON.stringify(req.tags || [])},
+          ${req.description || ''},
+          ${req.culturalSignificance || ''},
+          NOW()
+        )
+        RETURNING id
+      `;
+
+      if (!result) {
+        throw new Error("Failed to store sample in database");
+      }
+
+      log.info("Sample uploaded successfully", { 
+        id: result.id, 
+        name: req.name,
+        category: req.category,
+        size: audioBuffer.length
+      });
+
+      return {
+        id: result.id,
+        name: req.name,
+        fileUrl: url,
+        category: req.category
+      };
+
+    } catch (error) {
+      log.error("Sample upload failed", { error: (error as Error).message });
+      throw APIError.internal("Failed to upload sample");
+    }
+  }
+);
+
+// Get sample details
+export const getSample = api(
+  { expose: true, method: "GET", path: "/samples/:id" },
+  async ({ id }: { id: number }): Promise<Sample> => {
+    try {
+      const sample = await musicDB.queryRow<Sample>`
+        SELECT * FROM samples WHERE id = ${id}
+      `;
+
+      if (!sample) {
+        throw APIError.notFound("Sample not found");
+      }
+
+      return {
+        ...sample,
+        fileUrl: sampleLibrary.publicUrl(sample.fileUrl)
+      };
+
+    } catch (error) {
+      log.error("Failed to get sample", { error: (error as Error).message, id });
+      throw error instanceof APIError ? error : APIError.internal("Failed to get sample");
+    }
+  }
+);
+
+// Process sample (normalize, convert, etc.)
+export const processSample = api<ProcessSampleRequest, { success: boolean; newUrl: string }>(
+  { expose: true, method: "POST", path: "/samples/:sampleId/process" },
+  async (req) => {
+    try {
+      const sample = await musicDB.queryRow<Sample>`
+        SELECT * FROM samples WHERE id = ${req.sampleId}
+      `;
+
+      if (!sample) {
+        throw APIError.notFound("Sample not found");
+      }
+
+      // Download current sample
+      const buffer = await objectStorage.downloadSample(sample.category, sample.fileUrl);
+
+      let processedBuffer = buffer;
+
+      // Apply operations
+      if (req.operations.normalize) {
+        log.info("Normalizing sample", { sampleId: req.sampleId });
+        processedBuffer = await audioFormatConverter.normalizeAudio(processedBuffer, -18);
+      }
+
+      if (req.operations.trimSilence) {
+        log.info("Trimming silence from sample", { sampleId: req.sampleId });
+        processedBuffer = await audioFormatConverter.trimSilence(processedBuffer);
+      }
+
+      if (req.operations.resample) {
+        log.info("Resampling sample", { sampleId: req.sampleId, targetRate: req.operations.resample });
+        processedBuffer = await audioFormatConverter.resample(processedBuffer, req.operations.resample);
+      }
+
+      if (req.operations.convertFormat) {
+        log.info("Converting sample format", { sampleId: req.sampleId, format: req.operations.convertFormat });
+        processedBuffer = await audioFormatConverter.convert(processedBuffer, {
+          targetFormat: req.operations.convertFormat,
+          quality: 'lossless'
+        });
+      }
+
+      // Upload processed version
+      const newFileName = `${sample.category}/processed_${Date.now()}_${sample.fileUrl}`;
+      const { url } = await objectStorage.uploadSample(processedBuffer, newFileName, sample.category);
+
+      // Update database
+      await musicDB.exec`
+        UPDATE samples 
+        SET file_url = ${newFileName},
+            updated_at = NOW()
+        WHERE id = ${req.sampleId}
+      `;
+
+      log.info("Sample processed successfully", { sampleId: req.sampleId, newUrl: url });
+
+      return {
+        success: true,
+        newUrl: url
+      };
+
+    } catch (error) {
+      log.error("Sample processing failed", { error: (error as Error).message, sampleId: req.sampleId });
+      throw APIError.internal("Failed to process sample");
+    }
+  }
+);
+
+// Delete sample
+export const deleteSample = api(
+  { expose: true, method: "DELETE", path: "/samples/:id" },
+  async ({ id }: { id: number }): Promise<{ success: boolean }> => {
+    try {
+      const sample = await musicDB.queryRow<Sample>`
+        SELECT * FROM samples WHERE id = ${id}
+      `;
+
+      if (!sample) {
+        throw APIError.notFound("Sample not found");
+      }
+
+      // Delete from storage
+      await objectStorage.deleteSample(sample.category, sample.fileUrl);
+
+      // Delete from database
+      await musicDB.exec`
+        DELETE FROM samples WHERE id = ${id}
+      `;
+
+      log.info("Sample deleted", { id, name: sample.name });
+
+      return { success: true };
+
+    } catch (error) {
+      log.error("Sample deletion failed", { error: (error as Error).message, id });
+      throw error instanceof APIError ? error : APIError.internal("Failed to delete sample");
+    }
+  }
+);
+
+// Search samples by cultural significance
+export const searchSamplesByCulture = api(
+  { expose: true, method: "GET", path: "/samples/search/cultural" },
+  async ({ query, genre }: { query: string; genre?: Genre }): Promise<{ samples: Sample[] }> => {
+    try {
+      let sqlQuery = `
+        SELECT * FROM samples 
+        WHERE cultural_significance ILIKE $1
+          OR description ILIKE $1
+          OR name ILIKE $1
+      `;
+      const params: any[] = [`%${query}%`];
+
+      if (genre) {
+        sqlQuery += ` AND genre = $2`;
+        params.push(genre);
+      }
+
+      sqlQuery += ` ORDER BY created_at DESC LIMIT 20`;
+
+      const samples = await musicDB.rawQueryAll<Sample>(sqlQuery, ...params);
+
+      return {
+        samples: samples.map(s => ({
+          ...s,
+          fileUrl: sampleLibrary.publicUrl(s.fileUrl)
+        }))
+      };
+
+    } catch (error) {
+      log.error("Cultural search failed", { error: (error as Error).message, query });
+      throw APIError.internal("Failed to search samples");
+    }
   }
 );
