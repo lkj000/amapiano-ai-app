@@ -3,7 +3,7 @@ import { musicDB } from "./db";
 import { errorHandler } from "./error-handler";
 import { collaborationCache, generateCollaborationFeedCacheKey } from "./cache";
 import log from "encore.dev/log";
-import { StreamInOut } from "encore.dev/api";
+import { StreamInOut, Query } from "encore.dev/api";
 import type { DawChange } from "./types";
 
 // In-memory store for active collaboration sessions.
@@ -126,12 +126,12 @@ export interface SubmitRemixResponse {
 }
 
 interface CollaborationSessionHandshake {
-  projectId: number;
+  projectId: Query<number>;
 }
 
 // Real-time collaboration session for a DAW project.
 export const collaborationSession = api.streamInOut<CollaborationSessionHandshake, DawChange, DawChange>(
-  { expose: true, path: "/daw/projects/:projectId/session" },
+  { expose: true, path: "/daw/collaboration/session" },
   async (handshake, stream) => {
     log.info("Collaboration session handshake received", { handshake });
 
