@@ -71,33 +71,51 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     if (!audioContextRef.current) return;
     const trackNode = trackNodesRef.current.get(trackId);
     if (!trackNode) return;
-
+  
     // Disconnect old effects chain
     trackNode.gain.disconnect();
     let lastNode: AudioNode = trackNode.gain;
-
+  
     // Create and connect new effects chain
     const newEffectsChain: AudioNode[] = [];
     effects.forEach(effect => {
       if (!effect.enabled) return;
       let effectNode: AudioNode | null = null;
-      if (effect.name === 'EQ') {
-        const eq = audioContextRef.current!.createBiquadFilter();
-        eq.type = effect.params.type || 'peaking';
-        eq.frequency.setValueAtTime(effect.params.frequency || 800, audioContextRef.current!.currentTime);
-        eq.gain.setValueAtTime(effect.params.gain || 0, audioContextRef.current!.currentTime);
-        eq.Q.setValueAtTime(effect.params.q || 1, audioContextRef.current!.currentTime);
-        effectNode = eq;
+      
+      try {
+        switch (effect.name) {
+          case 'EQ': {
+            const eq = audioContextRef.current!.createBiquadFilter();
+            eq.type = (effect.params.type as BiquadFilterType) || 'peaking';
+            eq.frequency.setValueAtTime(effect.params.frequency || 800, audioContextRef.current!.currentTime);
+            eq.gain.setValueAtTime(effect.params.gain || 0, audioContextRef.current!.currentTime);
+            eq.Q.setValueAtTime(effect.params.q || 1, audioContextRef.current!.currentTime);
+            effectNode = eq;
+            break;
+          }
+          case 'Compressor': {
+            const compressor = audioContextRef.current!.createDynamicsCompressor();
+            compressor.threshold.setValueAtTime(effect.params.threshold || -24, audioContextRef.current!.currentTime);
+            compressor.knee.setValueAtTime(effect.params.knee || 30, audioContextRef.current!.currentTime);
+            compressor.ratio.setValueAtTime(effect.params.ratio || 12, audioContextRef.current!.currentTime);
+            compressor.attack.setValueAtTime(effect.params.attack || 0.003, audioContextRef.current!.currentTime);
+            compressor.release.setValueAtTime(effect.params.release || 0.25, audioContextRef.current!.currentTime);
+            effectNode = compressor;
+            break;
+          }
+          // Add other effects here...
+        }
+      } catch (e) {
+        console.error(`Error creating effect node for ${effect.name}:`, e);
       }
-      // Add other effects here...
-
+  
       if (effectNode) {
         lastNode.connect(effectNode);
         lastNode = effectNode;
         newEffectsChain.push(effectNode);
       }
     });
-
+  
     // Connect the end of the effects chain to the analyser
     lastNode.connect(trackNode.analyser);
     trackNode.effectsChain = newEffectsChain;

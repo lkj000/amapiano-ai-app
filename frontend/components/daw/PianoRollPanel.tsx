@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { X, Piano, Plus, Trash2 } from 'lucide-react';
+import { X, Piano, Trash2 } from 'lucide-react';
 import type { DawTrack, MidiNote } from '~backend/music/types';
 
 interface PianoRollPanelProps {
@@ -11,8 +11,13 @@ interface PianoRollPanelProps {
   audioContext: AudioContext | null;
 }
 
+const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const numOctaves = 7;
+const pitchesPerOctave = 12;
+const totalPitches = numOctaves * pitchesPerOctave;
+const highestPitch = 83; // B5
+
 export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, audioContext }: PianoRollPanelProps) {
-  const notes = ['C', 'B', 'A#', 'A', 'G#', 'G', 'F#', 'F', 'E', 'D#', 'D', 'C#'];
   const clip = selectedTrack?.clips[0]; // For simplicity, we edit the first clip
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -90,16 +95,16 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
     if (!gridRef.current || !selectedTrack || !clip) return;
     const gridRect = gridRef.current.getBoundingClientRect();
     const beatWidth = gridRect.width / 16;
-    const pitchHeight = gridRect.height / 12;
+    const pitchHeight = gridRect.height / totalPitches;
 
     if (draggingNote) {
       const deltaX = e.clientX - draggingNote.initialX;
       const deltaY = e.clientY - draggingNote.initialY;
-      const deltaBeats = Math.round(deltaX / beatWidth);
+      const deltaBeats = Math.round(deltaX / beatWidth * 4) / 4; // Snap to 1/16
       const deltaPitches = Math.round(deltaY / pitchHeight);
 
       const newStartTime = Math.max(0, draggingNote.initialStartTime + deltaBeats);
-      const newPitch = draggingNote.initialPitch - deltaPitches;
+      const newPitch = Math.max(0, Math.min(127, draggingNote.initialPitch - deltaPitches));
 
       const newNotes = clip.notes!.map((note, index) => {
         if (index === draggingNote.noteIndex) {
@@ -126,7 +131,7 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
   }, [draggingNote, resizingNote, selectedTrack, clip, onUpdateNotes]);
 
   const handleMouseUp = useCallback(() => {
-    if (draggingNote) playNotePreview(clip!.notes![draggingNote.noteIndex].pitch);
+    if (draggingNote && clip?.notes) playNotePreview(clip.notes[draggingNote.noteIndex].pitch);
     setDraggingNote(null);
     setResizingNote(null);
   }, [draggingNote, clip]);
@@ -161,44 +166,57 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
         <CardContent className="h-full pb-12 overflow-auto">
           <div className="flex h-full">
             {/* Keyboard */}
-            <div className="w-24 bg-background">
-              {notes.map((note, i) => (
-                <div key={note} className={`h-8 border-b border-border/50 flex items-center justify-center text-xs ${note.includes('#') ? 'bg-black text-white' : 'bg-white/80 text-black'}`}>
-                  {note}5
-                </div>
-              ))}
+            <div className="w-24 bg-background border-r border-border">
+              {Array.from({ length: totalPitches }).map((_, i) => {
+                const pitch = highestPitch - i;
+                const noteName = noteNames[pitch % 12];
+                const isBlackKey = noteName.includes('#');
+                const octave = Math.floor(pitch / 12) - 1;
+                return (
+                  <div
+                    key={pitch}
+                    className={`h-4 flex items-center justify-end pr-2 text-xs border-b border-border/30 ${
+                      isBlackKey ? 'bg-gray-800 text-white/70' : 'bg-gray-200 text-black/70'
+                    }`}
+                  >
+                    {noteName}{octave}
+                  </div>
+                );
+              })}
             </div>
             {/* Grid */}
             <div className="flex-grow bg-muted/20 relative" ref={gridRef}>
-              {/* Grid cells for interaction */}
-              {Array.from({ length: 16 * 12 }).map((_, i) => {
+              {/* Grid lines */}
+              {Array.from({ length: 16 * totalPitches }).map((_, i) => {
                 const beat = i % 16;
                 const pitchIndex = Math.floor(i / 16);
-                const pitch = 71 - pitchIndex; // C5 is 72, so this maps to the visual keyboard
+                const isBeatLine = beat % 4 === 0;
                 return (
                   <div
                     key={i}
-                    className="absolute border-r border-b border-border/20 hover:bg-primary/20 cursor-pointer"
+                    className={`absolute border-r border-b ${
+                      isBeatLine ? 'border-border/40' : 'border-border/20'
+                    } hover:bg-primary/20 cursor-pointer`}
                     style={{
                       left: `${(beat / 16) * 100}%`,
-                      top: `${(pitchIndex / 12) * 100}%`,
+                      top: `${(pitchIndex / totalPitches) * 100}%`,
                       width: `${100 / 16}%`,
-                      height: `${100 / 12}%`,
+                      height: `${100 / totalPitches}%`,
                     }}
-                    onClick={() => handleGridClick(beat, pitch)}
+                    onClick={() => handleGridClick(beat, highestPitch - pitchIndex)}
                   />
                 );
               })}
               {/* Notes */}
               {clip?.notes?.map((note, i) => (
                 <div
-                  key={i}
+                  key={`${clip.id}-${i}`}
                   className="absolute bg-primary/80 rounded border border-primary group flex items-center justify-between px-1 cursor-grab active:cursor-grabbing"
                   style={{
                     left: `${(note.startTime / 16) * 100}%`,
                     width: `${(note.duration / 16) * 100}%`,
-                    top: `${((71 - note.pitch) / 12) * 100}%`,
-                    height: `${100 / 12}%`
+                    top: `${((highestPitch - note.pitch) / totalPitches) * 100}%`,
+                    height: `${100 / totalPitches}%`
                   }}
                   onMouseDown={(e) => handleNoteMouseDown(e, i)}
                 >
@@ -206,7 +224,7 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                     <Trash2 className="h-3 w-3 text-red-500" />
                   </Button>
                   <div 
-                    className="w-2 h-full cursor-ew-resize"
+                    className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize"
                     onMouseDown={(e) => handleResizeHandleMouseDown(e, i)}
                   />
                 </div>

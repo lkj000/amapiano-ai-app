@@ -19,6 +19,7 @@ import OpenProjectModal from '../components/daw/OpenProjectModal';
 import ProjectSettingsModal from '../components/daw/ProjectSettingsModal';
 import MixerPanel from '../components/daw/MixerPanel';
 import PianoRollPanel from '../components/daw/PianoRollPanel';
+import EffectsPanel from '../components/daw/EffectsPanel';
 import { useAudioEngine } from '../hooks/useAudioEngine';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
@@ -94,6 +95,7 @@ export default function DawPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [showPianoRoll, setShowPianoRoll] = useState(false);
   const [showMixer, setShowMixer] = useState(false);
+  const [showEffectsPanel, setShowEffectsPanel] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAIAssistant, setShowAIAssistant] = useState(true);
   const [zoom, setZoom] = useState([100]);
@@ -333,6 +335,29 @@ export default function DawPage() {
       };
     });
   };
+
+  const handleUpdateEffectParam = useCallback((trackId: string, effectId: string, param: string, value: any) => {
+    setProjectData(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        tracks: prev.tracks.map(t => {
+          if (t.id === trackId) {
+            return {
+              ...t,
+              mixer: {
+                ...t.mixer,
+                effects: t.mixer.effects.map(e => 
+                  e.id === effectId ? { ...e, params: { ...e.params, [param]: value } } : e
+                )
+              }
+            };
+          }
+          return t;
+        })
+      };
+    });
+  }, []);
 
   const handleExport = () => {
     if (!projectData) {
@@ -779,7 +804,8 @@ export default function DawPage() {
                         <Button size="sm" variant="ghost" className={`w-6 h-6 p-0 ${track.isArmed ? 'text-destructive' : ''}`} onClick={(e) => { e.stopPropagation(); updateTrack(track.id, { isArmed: !track.isArmed }); }}>
                           <div className={`w-2 h-2 rounded-full ${track.isArmed ? 'bg-destructive animate-pulse' : 'bg-muted-foreground'}`} />
                         </Button>
-                        <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowPianoRoll(!showPianoRoll)}><Piano className="w-3 h-3" /></Button>
+                        <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowEffectsPanel(true)}><Sliders className="w-3 h-3" /></Button>
+                        <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowPianoRoll(true)}><Piano className="w-3 h-3" /></Button>
                       </div>
                       <div className="flex items-center gap-2 text-xs mb-2">
                         <Button size="sm" variant={track.mixer.isMuted ? "destructive" : "outline"} className="w-8 h-6 text-xs" onClick={() => updateMixer(track.id, { isMuted: !track.mixer.isMuted })}>M</Button>
@@ -842,11 +868,15 @@ export default function DawPage() {
       {/* Modals and Panels */}
       <OpenProjectModal isOpen={isOpenProjectOpen} onClose={() => setIsOpenProjectOpen(false)} onLoadProject={setActiveProjectId} />
       {projectData && <ProjectSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} projectData={projectData} onSave={handleUpdateProjectSettings} />}
+      
       {showMixer && projectData && <MixerPanel tracks={projectData.tracks} masterVolume={projectData.masterVolume} volumeLevels={volumeLevels} masterVolumeLevel={masterVolumeLevel} onClose={() => setShowMixer(false)} onTrackVolumeChange={(trackId, volume) => updateMixer(trackId, { volume })} onMasterVolumeChange={(volume) => {
         setProjectData({ ...projectData, masterVolume: volume });
         setMasterVolume(volume);
       }} />}
+      
       {showPianoRoll && <PianoRollPanel selectedTrack={selectedTrack} onClose={() => setShowPianoRoll(false)} onUpdateNotes={handleUpdateNotes} audioContext={audioContext} />}
+      
+      {showEffectsPanel && <EffectsPanel selectedTrack={selectedTrack} onClose={() => setShowEffectsPanel(false)} onUpdateEffectParam={handleUpdateEffectParam} />}
     </div>
   );
 }
