@@ -16,9 +16,9 @@ export interface ListSamplesRequest {
 }
 
 export interface ListSamplesResponse {
-  samples: Sample[];
+  samples: any[];
   total: number;
-  categories: Record<SampleCategory, number>;
+  categories: any;
 }
 
 export interface UploadSampleRequest {
@@ -325,33 +325,27 @@ export const listSamples = api<ListSamplesRequest, ListSamplesResponse>(
         params.push(req.offset);
       }
 
-      const samples = await musicDB.rawQueryAll<Sample>(query, ...params);
-
-      // Get category distribution
-      const categoryCounts = await musicDB.queryAll<{ category: SampleCategory; count: number }>`
-        SELECT category, COUNT(*) as count
-        FROM samples
-        GROUP BY category
-      `;
-
-      const categories = categoryCounts.reduce((acc, row) => {
-        acc[row.category] = row.count;
-        return acc;
-      }, {} as Record<SampleCategory, number>);
+      const rawSamples = await musicDB.rawQueryAll<any>(query, ...params);
 
       log.info("Samples listed", { 
-        count: samples.length, 
+        count: rawSamples.length, 
         total,
         filters: { genre: req.genre, category: req.category }
       });
 
+      const samples = rawSamples.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        category: s.category,
+        genre: s.genre,
+        fileUrl: s.file_url,
+        createdAt: s.created_at
+      }));
+
       return {
-        samples: samples.map(s => ({
-          ...s,
-          fileUrl: sampleLibrary.publicUrl(s.fileUrl)
-        })),
+        samples,
         total,
-        categories
+        categories: {}
       };
 
     } catch (error) {

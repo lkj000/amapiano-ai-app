@@ -18,20 +18,10 @@ export default function PluginPanel() {
       
       <div className="flex-grow flex flex-col items-center justify-center text-center bg-muted/20 rounded-lg p-6">
         <Puzzle className="w-16 h-16 text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Coming Soon: A Modular Plugin Ecosystem</h3>
+        <h3 className="text-lg font-semibold mb-2">Plugin System</h3>
         <p className="text-muted-foreground max-w-md">
-          Our vision is to create an open platform where developers can build and share their own VST-like instruments and audio effects using JavaScript or WebAssembly.
+          No plugins loaded. Load plugins to extend your DAW with custom instruments and effects.
         </p>
-        <div className="mt-6 space-y-2">
-          <Button variant="outline">
-            <Code className="w-4 h-4 mr-2" />
-            Read the Future API Docs
-          </Button>
-          <Button variant="outline">
-            <UploadCloud className="w-4 h-4 mr-2" />
-            Submit Your Plugin Idea
-          </Button>
-        </div>
       </div>
     </div>
   );

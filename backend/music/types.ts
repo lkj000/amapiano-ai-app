@@ -21,7 +21,7 @@ export interface Sample {
   name: string;
   category: SampleCategory;
   genre: Genre;
-  fileUrl: string;
+  fileUrl?: string;
   bpm?: number;
   keySignature?: string;
   durationSeconds?: number;
