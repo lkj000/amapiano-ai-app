@@ -48,25 +48,23 @@ export default function SampleBrowserPanel({ onClose }: SampleBrowserPanelProps)
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-1/3 bg-white border-t-4 border-yellow-400 z-50 shadow-2xl">
-      <Card className="bg-white h-full border-none">
-        <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b-2 border-gray-200 bg-yellow-400">
-          <CardTitle className="flex items-center gap-2 text-black text-lg font-bold">
-            🎵 Sample Browser
-          </CardTitle>
-          <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-black/10 text-black">
-            <X className="h-5 w-5" />
+    <div className="fixed bottom-0 left-0 right-0 h-1/3 bg-background/80 backdrop-blur-sm border-t border-border z-40 p-4">
+      <Card className="bg-muted/50 h-full text-foreground">
+        <CardHeader className="flex flex-row items-center justify-between py-2 px-4 border-b border-border">
+          <CardTitle className="flex items-center gap-2">Sample Browser</CardTitle>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="h-full pb-12 overflow-y-auto bg-gray-50">
-          <div className="p-4 sticky top-0 bg-white z-10 border-b border-gray-200 shadow-sm">
+        <CardContent className="h-full pb-12 overflow-y-auto">
+          <div className="p-4 sticky top-0 bg-muted/80 z-10">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Search samples..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-white border-2 border-gray-300 text-black placeholder:text-gray-500 focus:border-yellow-400"
+                className="pl-10 bg-background"
               />
             </div>
           </div>
@@ -77,26 +75,14 @@ export default function SampleBrowserPanel({ onClose }: SampleBrowserPanelProps)
               {data?.samples?.map((sample: any) => (
                 <div
                   key={sample.id}
-                  className="p-4 bg-white hover:bg-yellow-50 border-2 border-gray-300 hover:border-yellow-400 rounded-lg cursor-grab transition-all shadow-sm hover:shadow-md"
+                  className="p-3 bg-background/50 rounded-lg cursor-grab"
                   draggable
                   onDragStart={(e) => handleDragStart(e, sample)}
                 >
-                  <p className="font-bold truncate text-black text-sm">{sample.name}</p>
-                  <p className="text-xs text-gray-600 mt-1">{sample.category} • {sample.genre}</p>
-                  <Button 
-                    size="sm" 
-                    onClick={() => handlePlay(sample)} 
-                    className="mt-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold w-full"
-                  >
-                    {playingSampleId === sample.id ? (
-                      <>
-                        <Pause className="w-4 h-4 mr-1" /> Stop
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4 mr-1" /> Play
-                      </>
-                    )}
+                  <p className="font-medium truncate">{sample.name}</p>
+                  <p className="text-xs text-muted-foreground">{sample.category} - {sample.genre}</p>
+                  <Button size="sm" variant="ghost" onClick={() => handlePlay(sample)}>
+                    {playingSampleId === sample.id ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                   </Button>
                 </div>
               ))}
