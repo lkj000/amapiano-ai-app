@@ -459,7 +459,7 @@ export const getSample = api(
 
       return {
         ...sample,
-        fileUrl: sampleLibrary.publicUrl(sample.fileUrl)
+        fileUrl: sample.fileUrl ? sampleLibrary.publicUrl(sample.fileUrl) : undefined
       };
 
     } catch (error) {
@@ -480,6 +480,10 @@ export const processSample = api<ProcessSampleRequest, { success: boolean; newUr
 
       if (!sample) {
         throw APIError.notFound("Sample not found");
+      }
+
+      if (!sample.fileUrl) {
+        throw APIError.invalidArgument("Sample has no file URL");
       }
 
       // Download current sample
@@ -550,6 +554,10 @@ export const deleteSample = api(
         throw APIError.notFound("Sample not found");
       }
 
+      if (!sample.fileUrl) {
+        throw APIError.invalidArgument("Sample has no file URL");
+      }
+
       // Delete from storage
       await objectStorage.deleteSample(sample.category, sample.fileUrl);
 
@@ -594,7 +602,7 @@ export const searchSamplesByCulture = api(
       return {
         samples: samples.map(s => ({
           ...s,
-          fileUrl: sampleLibrary.publicUrl(s.fileUrl)
+          fileUrl: s.fileUrl ? sampleLibrary.publicUrl(s.fileUrl) : undefined
         }))
       };
 
