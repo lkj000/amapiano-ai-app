@@ -89,7 +89,7 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
   }, [projectData?.bpm]);
 
   const scheduleNote = (note: MidiNote, clipStartTime: number, track: DawTrack) => {
-    if (!audioContextRef.current) return;
+    if (!audioContextRef.current || track.mixer.isMuted) return;
 
     const secondsPerBeat = 60.0 / bpm;
     const noteStartTime = startTimeRef.current + (clipStartTime + note.startTime) * secondsPerBeat;
@@ -139,6 +139,11 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
       const currentBeat = (nextNoteTime.current - startTimeRef.current) / secondsPerBeat;
 
       projectData.tracks.forEach(track => {
+        if (projectData.tracks.some(t => t.mixer.isSolo) && !track.mixer.isSolo) {
+          // If other tracks are solo'd, but this one isn't, skip it
+          return;
+        }
+
         track.clips.forEach(clip => {
           if (track.type === 'midi' && clip.notes) {
             clip.notes.forEach(note => {

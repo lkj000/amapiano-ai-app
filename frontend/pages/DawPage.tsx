@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '~backend/client';
-import type { DawProjectData, DawTrack, MidiNote } from '~backend/music/types';
+import type { DawProjectData, DawTrack, DawClip, MidiNote } from '~backend/music/types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import OpenProjectModal from '../components/daw/OpenProjectModal';
@@ -109,7 +109,15 @@ export default function DawPage() {
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
 
   // Audio Engine
-  const { isPlaying, currentTime, setCurrentTime, isLooping, setIsLooping, play, pause, stop, setBpm, setTrackVolume, setMasterVolume } = useAudioEngine(projectData);
+  const { isPlaying, currentTime, setCurrentTime, isLooping, setIsLooping, play, pause, stop, setBpm, setTrackVolume, setMasterVolume, audioContext } = useAudioEngine(projectData);
+
+  // Dragging state
+  const [draggingClip, setDraggingClip] = useState<{
+    clipId: string;
+    trackId: string;
+    initialX: number;
+    initialStartTime: number;
+  } | null>(null);
 
   // Step 1: Fetch project list
   const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
@@ -226,7 +234,6 @@ export default function DawPage() {
       if (!prev) return null;
       const newTracks = prev.tracks.map(t => t.id === trackId ? { ...t, mixer: { ...t.mixer, ...updates } } : t);
       
-      // Update audio engine volume in real-time
       if (updates.volume !== undefined) {
         setTrackVolume(trackId, updates.volume);
       }
@@ -361,6 +368,68 @@ export default function DawPage() {
     });
   }, []);
 
+  const handleUpdateClip = useCallback((trackId: string, clipId: string, updates: Partial<DawClip>) => {
+    setProjectData(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        tracks: prev.tracks.map(t => {
+          if (t.id === trackId) {
+            return {
+              ...t,
+              clips: t.clips.map(c => c.id === clipId ? { ...c, ...updates } : c)
+            };
+          }
+          return t;
+        })
+      };
+    });
+  }, []);
+
+  const handleClipMouseDown = (e: React.MouseEvent, clip: DawClip, track: DawTrack) => {
+    e.stopPropagation();
+    setDraggingClip({
+      clipId: clip.id,
+      trackId: track.id,
+      initialX: e.clientX,
+      initialStartTime: clip.startTime,
+    });
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!draggingClip || !timelineContainerRef.current || !projectData) return;
+
+    const timelineRect = timelineContainerRef.current.getBoundingClientRect();
+    const pixelsPerBeat = (timelineRect.width * (zoom[0] / 100)) / 32;
+    
+    const deltaX = e.clientX - draggingClip.initialX;
+    const deltaBeats = deltaX / pixelsPerBeat;
+
+    let newStartTime = draggingClip.initialStartTime + deltaBeats;
+    newStartTime = Math.round(newStartTime * 4) / 4; // Snap to 1/16th notes
+    newStartTime = Math.max(0, newStartTime);
+
+    handleUpdateClip(draggingClip.trackId, draggingClip.clipId, { startTime: newStartTime });
+  }, [draggingClip, projectData, zoom, handleUpdateClip]);
+
+  const handleMouseUp = useCallback(() => {
+    setDraggingClip(null);
+  }, []);
+
+  useEffect(() => {
+    if (draggingClip) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    } else {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [draggingClip, handleMouseMove, handleMouseUp]);
+
   const instruments = [
     { name: "Signature Log Drum", type: "drums", icon: Drum, description: "Authentic amapiano log drum synthesizer", color: "bg-red-500" },
     { name: "Amapiano Piano", type: "piano", icon: Piano, description: "Classic M1-style piano with gospel voicings", color: "bg-blue-500" },
@@ -383,12 +452,11 @@ export default function DawPage() {
   ];
 
   const aiSuggestions = [
-    "Generate log drum pattern in F# minor for bars 1-8",
-    "Suggest chord progression for Private School style",
-    "Add percussion layer to enhance the groove",
-    "Analyze track structure and suggest arrangement",
-    "Create bass line that complements the log drums", 
-    "Generate saxophone melody for the bridge section"
+    "Generate a 4 bar log drum pattern",
+    "Suggest a jazzy piano chord progression for 8 bars",
+    "Add a complex percussion layer",
+    "Create a simple bass line that complements the log drums", 
+    "Generate a soulful saxophone melody for the bridge section"
   ];
 
   // RENDER LOGIC
@@ -688,7 +756,12 @@ export default function DawPage() {
                     {projectData.tracks.map((track, trackIndex) => (
                       <div key={track.id} className="h-24 border-b border-border/30 relative flex items-center">
                         {track.clips.map(clip => (
-                          <div key={clip.id} className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center`} style={{ left: `${(clip.startTime / 32) * 100}%`, width: `${(clip.duration / 32) * 100}%` }}>
+                          <div 
+                            key={clip.id} 
+                            className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center cursor-grab active:cursor-grabbing`} 
+                            style={{ left: `${(clip.startTime / 32) * 100}%`, width: `${(clip.duration / 32) * 100}%` }}
+                            onMouseDown={(e) => handleClipMouseDown(e, clip, track)}
+                          >
                             <span className="text-xs text-white font-medium">{clip.name}</span>
                           </div>
                         ))}
@@ -713,7 +786,7 @@ export default function DawPage() {
         setProjectData({ ...projectData, masterVolume: volume });
         setMasterVolume(volume);
       }} />}
-      {showPianoRoll && <PianoRollPanel selectedTrack={selectedTrack} onClose={() => setShowPianoRoll(false)} onUpdateNotes={handleUpdateNotes} />}
+      {showPianoRoll && <PianoRollPanel selectedTrack={selectedTrack} onClose={() => setShowPianoRoll(false)} onUpdateNotes={handleUpdateNotes} audioContext={audioContext} />}
     </div>
   );
 }
