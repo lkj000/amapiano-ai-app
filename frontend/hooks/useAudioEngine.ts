@@ -30,13 +30,17 @@ const useScheduler = (callback: () => void, isRunning: boolean) => {
 
 export const useAudioEngine = (projectData: DawProjectData | null) => {
   const audioContextRef = useRef<AudioContext | null>(null);
-  const trackNodesRef = useRef<Map<string, GainNode>>(new Map());
+  const trackNodesRef = useRef<Map<string, { gain: GainNode, analyser: AnalyserNode }>>(new Map());
   const masterGainRef = useRef<GainNode | null>(null);
+  const masterAnalyserRef = useRef<AnalyserNode | null>(null);
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [bpm, setBpm] = useState(projectData?.bpm || 120);
   const [isLooping, setIsLooping] = useState(false);
+
+  const [volumeLevels, setVolumeLevels] = useState<Map<string, number>>(new Map());
+  const [masterVolumeLevel, setMasterVolumeLevel] = useState(0);
 
   const lookahead = 25.0; // ms
   const scheduleAheadTime = 0.1; // seconds
@@ -50,7 +54,9 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
       try {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
         masterGainRef.current = audioContextRef.current.createGain();
-        masterGainRef.current.connect(audioContextRef.current.destination);
+        masterAnalyserRef.current = audioContextRef.current.createAnalyser();
+        masterGainRef.current.connect(masterAnalyserRef.current);
+        masterAnalyserRef.current.connect(audioContextRef.current.destination);
       } catch (e) {
         console.error("Web Audio API is not supported in this browser");
       }
@@ -65,17 +71,19 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
   useEffect(() => {
     if (!audioContextRef.current || !masterGainRef.current || !projectData) return;
 
-    const newTrackNodes = new Map<string, GainNode>();
+    const newTrackNodes = new Map<string, { gain: GainNode, analyser: AnalyserNode }>();
     projectData.tracks.forEach(track => {
       const existingNode = trackNodesRef.current.get(track.id);
       if (existingNode) {
-        existingNode.gain.setValueAtTime(track.mixer.volume, audioContextRef.current!.currentTime);
+        existingNode.gain.gain.setValueAtTime(track.mixer.volume, audioContextRef.current!.currentTime);
         newTrackNodes.set(track.id, existingNode);
       } else {
         const gainNode = audioContextRef.current!.createGain();
         gainNode.gain.value = track.mixer.volume;
-        gainNode.connect(masterGainRef.current!);
-        newTrackNodes.set(track.id, gainNode);
+        const analyserNode = audioContextRef.current!.createAnalyser();
+        gainNode.connect(analyserNode);
+        analyserNode.connect(masterGainRef.current!);
+        newTrackNodes.set(track.id, { gain: gainNode, analyser: analyserNode });
       }
     });
     trackNodesRef.current = newTrackNodes;
@@ -100,7 +108,7 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     const gainNode = audioContextRef.current.createGain();
     osc.connect(gainNode);
     
-    const trackGainNode = trackNodesRef.current.get(track.id);
+    const trackGainNode = trackNodesRef.current.get(track.id)?.gain;
     if (trackGainNode) {
       gainNode.connect(trackGainNode);
     } else {
@@ -164,7 +172,39 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     }
   }, [bpm, projectData, isPlaying, isLooping, stop, scheduleNote]);
 
+  const meterUpdater = useCallback(() => {
+    if (!isPlaying) {
+      setVolumeLevels(new Map());
+      setMasterVolumeLevel(0);
+      return;
+    }
+    const newLevels = new Map<string, number>();
+    trackNodesRef.current.forEach((nodes, trackId) => {
+      const dataArray = new Uint8Array(nodes.analyser.frequencyBinCount);
+      nodes.analyser.getByteTimeDomainData(dataArray);
+      let sum = 0;
+      for (const amplitude of dataArray) {
+        sum += Math.pow((amplitude / 128.0) - 1, 2);
+      }
+      const rms = Math.sqrt(sum / dataArray.length);
+      newLevels.set(trackId, rms);
+    });
+    setVolumeLevels(newLevels);
+
+    if (masterAnalyserRef.current) {
+      const dataArray = new Uint8Array(masterAnalyserRef.current.frequencyBinCount);
+      masterAnalyserRef.current.getByteTimeDomainData(dataArray);
+      let sum = 0;
+      for (const amplitude of dataArray) {
+        sum += Math.pow((amplitude / 128.0) - 1, 2);
+      }
+      const rms = Math.sqrt(sum / dataArray.length);
+      setMasterVolumeLevel(rms);
+    }
+  }, [isPlaying]);
+
   useScheduler(scheduler, isPlaying);
+  useScheduler(meterUpdater, isPlaying);
 
   const play = useCallback(() => {
     if (!audioContextRef.current) return;
@@ -196,7 +236,7 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
   }, [isPlaying, projectData]);
 
   const setTrackVolume = useCallback((trackId: string, volume: number) => {
-    const node = trackNodesRef.current.get(trackId);
+    const node = trackNodesRef.current.get(trackId)?.gain;
     if (node && audioContextRef.current) {
       node.gain.setValueAtTime(volume, audioContextRef.current.currentTime);
     }
@@ -221,5 +261,7 @@ export const useAudioEngine = (projectData: DawProjectData | null) => {
     setTrackVolume,
     setMasterVolume,
     audioContext: audioContextRef.current,
+    volumeLevels,
+    masterVolumeLevel,
   };
 };

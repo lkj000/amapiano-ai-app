@@ -109,7 +109,7 @@ export default function DawPage() {
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
 
   // Audio Engine
-  const { isPlaying, currentTime, seek, isLooping, setIsLooping, play, pause, stop, setBpm, setTrackVolume, setMasterVolume, audioContext } = useAudioEngine(projectData);
+  const { isPlaying, currentTime, seek, isLooping, setIsLooping, play, pause, stop, setBpm, setTrackVolume, setMasterVolume, audioContext, volumeLevels, masterVolumeLevel } = useAudioEngine(projectData);
 
   // Dragging state
   const [draggingClip, setDraggingClip] = useState<{
@@ -117,6 +117,15 @@ export default function DawPage() {
     trackId: string;
     initialX: number;
     initialStartTime: number;
+  } | null>(null);
+
+  const [resizingClip, setResizingClip] = useState<{
+    clipId: string;
+    trackId: string;
+    edge: 'start' | 'end';
+    initialX: number;
+    initialStartTime: number;
+    initialDuration: number;
   } | null>(null);
 
   // Step 1: Fetch project list
@@ -388,36 +397,76 @@ export default function DawPage() {
 
   const handleClipMouseDown = (e: React.MouseEvent, clip: DawClip, track: DawTrack) => {
     e.stopPropagation();
-    setDraggingClip({
-      clipId: clip.id,
-      trackId: track.id,
-      initialX: e.clientX,
-      initialStartTime: clip.startTime,
-    });
+    const target = e.target as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const edgeThreshold = 8; // pixels
+
+    if (e.clientX > rect.right - edgeThreshold) {
+      setResizingClip({
+        clipId: clip.id,
+        trackId: track.id,
+        edge: 'end',
+        initialX: e.clientX,
+        initialStartTime: clip.startTime,
+        initialDuration: clip.duration,
+      });
+    } else if (e.clientX < rect.left + edgeThreshold) {
+      setResizingClip({
+        clipId: clip.id,
+        trackId: track.id,
+        edge: 'start',
+        initialX: e.clientX,
+        initialStartTime: clip.startTime,
+        initialDuration: clip.duration,
+      });
+    } else {
+      setDraggingClip({
+        clipId: clip.id,
+        trackId: track.id,
+        initialX: e.clientX,
+        initialStartTime: clip.startTime,
+      });
+    }
   };
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!draggingClip || !timelineContainerRef.current || !projectData) return;
+    if (!timelineContainerRef.current || !projectData) return;
 
     const timelineRect = timelineContainerRef.current.getBoundingClientRect();
     const pixelsPerBeat = (timelineRect.width * (zoom[0] / 100)) / 32;
     
-    const deltaX = e.clientX - draggingClip.initialX;
-    const deltaBeats = deltaX / pixelsPerBeat;
+    if (draggingClip) {
+      const deltaX = e.clientX - draggingClip.initialX;
+      const deltaBeats = deltaX / pixelsPerBeat;
+      let newStartTime = draggingClip.initialStartTime + deltaBeats;
+      newStartTime = Math.round(newStartTime * 4) / 4; // Snap to 1/16th notes
+      newStartTime = Math.max(0, newStartTime);
+      handleUpdateClip(draggingClip.trackId, draggingClip.clipId, { startTime: newStartTime });
+    }
 
-    let newStartTime = draggingClip.initialStartTime + deltaBeats;
-    newStartTime = Math.round(newStartTime * 4) / 4; // Snap to 1/16th notes
-    newStartTime = Math.max(0, newStartTime);
-
-    handleUpdateClip(draggingClip.trackId, draggingClip.clipId, { startTime: newStartTime });
-  }, [draggingClip, projectData, zoom, handleUpdateClip]);
+    if (resizingClip) {
+      const deltaX = e.clientX - resizingClip.initialX;
+      const deltaBeats = deltaX / pixelsPerBeat;
+      if (resizingClip.edge === 'end') {
+        const newDuration = resizingClip.initialDuration + deltaBeats;
+        handleUpdateClip(resizingClip.trackId, resizingClip.clipId, { duration: Math.max(0.25, newDuration) });
+      } else { // 'start'
+        const newStartTime = resizingClip.initialStartTime + deltaBeats;
+        const newDuration = resizingClip.initialDuration - deltaBeats;
+        if (newDuration >= 0.25) {
+          handleUpdateClip(resizingClip.trackId, resizingClip.clipId, { startTime: Math.max(0, newStartTime), duration: newDuration });
+        }
+      }
+    }
+  }, [draggingClip, resizingClip, projectData, zoom, handleUpdateClip]);
 
   const handleMouseUp = useCallback(() => {
     setDraggingClip(null);
+    setResizingClip(null);
   }, []);
 
   useEffect(() => {
-    if (draggingClip) {
+    if (draggingClip || resizingClip) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     } else {
@@ -428,7 +477,7 @@ export default function DawPage() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [draggingClip, handleMouseMove, handleMouseUp]);
+  }, [draggingClip, resizingClip, handleMouseMove, handleMouseUp]);
 
   const instruments = [
     { name: "Signature Log Drum", type: "drums", icon: Drum, description: "Authentic amapiano log drum synthesizer", color: "bg-red-500" },
@@ -758,11 +807,13 @@ export default function DawPage() {
                         {track.clips.map(clip => (
                           <div 
                             key={clip.id} 
-                            className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center cursor-grab active:cursor-grabbing`} 
+                            className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center cursor-grab active:cursor-grabbing group`} 
                             style={{ left: `${(clip.startTime / 32) * 100}%`, width: `${(clip.duration / 32) * 100}%` }}
                             onMouseDown={(e) => handleClipMouseDown(e, clip, track)}
                           >
+                            <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize" />
                             <span className="text-xs text-white font-medium">{clip.name}</span>
+                            <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize" />
                           </div>
                         ))}
                         {Array.from({ length: 32 * 4 }, (_, i) => (
@@ -782,7 +833,7 @@ export default function DawPage() {
       {/* Modals and Panels */}
       <OpenProjectModal isOpen={isOpenProjectOpen} onClose={() => setIsOpenProjectOpen(false)} onLoadProject={setActiveProjectId} />
       {projectData && <ProjectSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} projectData={projectData} onSave={handleUpdateProjectSettings} />}
-      {showMixer && projectData && <MixerPanel tracks={projectData.tracks} masterVolume={projectData.masterVolume} onClose={() => setShowMixer(false)} onTrackVolumeChange={(trackId, volume) => updateMixer(trackId, { volume })} onMasterVolumeChange={(volume) => {
+      {showMixer && projectData && <MixerPanel tracks={projectData.tracks} masterVolume={projectData.masterVolume} volumeLevels={volumeLevels} masterVolumeLevel={masterVolumeLevel} onClose={() => setShowMixer(false)} onTrackVolumeChange={(trackId, volume) => updateMixer(trackId, { volume })} onMasterVolumeChange={(volume) => {
         setProjectData({ ...projectData, masterVolume: volume });
         setMasterVolume(volume);
       }} />}

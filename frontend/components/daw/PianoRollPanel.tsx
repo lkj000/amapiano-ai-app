@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Piano, Plus, Trash2 } from 'lucide-react';
@@ -14,6 +14,21 @@ interface PianoRollPanelProps {
 export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, audioContext }: PianoRollPanelProps) {
   const notes = ['C', 'B', 'A#', 'A', 'G#', 'G', 'F#', 'F', 'E', 'D#', 'D', 'C#'];
   const clip = selectedTrack?.clips[0]; // For simplicity, we edit the first clip
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  const [draggingNote, setDraggingNote] = useState<{
+    noteIndex: number;
+    initialX: number;
+    initialY: number;
+    initialStartTime: number;
+    initialPitch: number;
+  } | null>(null);
+
+  const [resizingNote, setResizingNote] = useState<{
+    noteIndex: number;
+    initialX: number;
+    initialDuration: number;
+  } | null>(null);
 
   const playNotePreview = (pitch: number) => {
     if (!audioContext) return;
@@ -47,6 +62,89 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
     onUpdateNotes(selectedTrack.id, clip.id, newNotes);
   };
 
+  const handleNoteMouseDown = (e: React.MouseEvent, noteIndex: number) => {
+    e.stopPropagation();
+    if (!clip?.notes) return;
+    const note = clip.notes[noteIndex];
+    setDraggingNote({
+      noteIndex,
+      initialX: e.clientX,
+      initialY: e.clientY,
+      initialStartTime: note.startTime,
+      initialPitch: note.pitch,
+    });
+  };
+
+  const handleResizeHandleMouseDown = (e: React.MouseEvent, noteIndex: number) => {
+    e.stopPropagation();
+    if (!clip?.notes) return;
+    const note = clip.notes[noteIndex];
+    setResizingNote({
+      noteIndex,
+      initialX: e.clientX,
+      initialDuration: note.duration,
+    });
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!gridRef.current || !selectedTrack || !clip) return;
+    const gridRect = gridRef.current.getBoundingClientRect();
+    const beatWidth = gridRect.width / 16;
+    const pitchHeight = gridRect.height / 12;
+
+    if (draggingNote) {
+      const deltaX = e.clientX - draggingNote.initialX;
+      const deltaY = e.clientY - draggingNote.initialY;
+      const deltaBeats = Math.round(deltaX / beatWidth);
+      const deltaPitches = Math.round(deltaY / pitchHeight);
+
+      const newStartTime = Math.max(0, draggingNote.initialStartTime + deltaBeats);
+      const newPitch = draggingNote.initialPitch - deltaPitches;
+
+      const newNotes = clip.notes!.map((note, index) => {
+        if (index === draggingNote.noteIndex) {
+          return { ...note, startTime: newStartTime, pitch: newPitch };
+        }
+        return note;
+      });
+      onUpdateNotes(selectedTrack.id, clip.id, newNotes);
+    }
+
+    if (resizingNote) {
+      const deltaX = e.clientX - resizingNote.initialX;
+      const deltaBeats = deltaX / beatWidth;
+      const newDuration = Math.max(0.25, resizingNote.initialDuration + deltaBeats);
+      
+      const newNotes = clip.notes!.map((note, index) => {
+        if (index === resizingNote.noteIndex) {
+          return { ...note, duration: newDuration };
+        }
+        return note;
+      });
+      onUpdateNotes(selectedTrack.id, clip.id, newNotes);
+    }
+  }, [draggingNote, resizingNote, selectedTrack, clip, onUpdateNotes]);
+
+  const handleMouseUp = useCallback(() => {
+    if (draggingNote) playNotePreview(clip!.notes![draggingNote.noteIndex].pitch);
+    setDraggingNote(null);
+    setResizingNote(null);
+  }, [draggingNote, clip]);
+
+  useEffect(() => {
+    if (draggingNote || resizingNote) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    } else {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [draggingNote, resizingNote, handleMouseMove, handleMouseUp]);
+
   return (
     <div className="fixed bottom-0 left-0 right-0 h-1/2 bg-background/80 backdrop-blur-sm border-t border-border z-40 p-4">
       <Card className="bg-muted/50 h-full text-foreground">
@@ -71,7 +169,7 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               ))}
             </div>
             {/* Grid */}
-            <div className="flex-grow bg-muted/20 relative">
+            <div className="flex-grow bg-muted/20 relative" ref={gridRef}>
               {/* Grid cells for interaction */}
               {Array.from({ length: 16 * 12 }).map((_, i) => {
                 const beat = i % 16;
@@ -95,18 +193,22 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               {clip?.notes?.map((note, i) => (
                 <div
                   key={i}
-                  className="absolute bg-primary/80 rounded border border-primary group flex items-center justify-end pr-1 cursor-pointer"
+                  className="absolute bg-primary/80 rounded border border-primary group flex items-center justify-between px-1 cursor-grab active:cursor-grabbing"
                   style={{
                     left: `${(note.startTime / 16) * 100}%`,
                     width: `${(note.duration / 16) * 100}%`,
                     top: `${((71 - note.pitch) / 12) * 100}%`,
                     height: `${100 / 12}%`
                   }}
-                  onClick={(e) => { e.stopPropagation(); handleDeleteNote(i); }}
+                  onMouseDown={(e) => handleNoteMouseDown(e, i)}
                 >
                   <Button variant="ghost" size="icon" className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); handleDeleteNote(i); }}>
                     <Trash2 className="h-3 w-3 text-red-500" />
                   </Button>
+                  <div 
+                    className="w-2 h-full cursor-ew-resize"
+                    onMouseDown={(e) => handleResizeHandleMouseDown(e, i)}
+                  />
                 </div>
               ))}
             </div>

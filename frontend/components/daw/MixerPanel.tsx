@@ -8,12 +8,35 @@ import type { DawTrack } from '~backend/music/types';
 interface MixerPanelProps {
   tracks: DawTrack[];
   masterVolume: number;
+  volumeLevels: Map<string, number>;
+  masterVolumeLevel: number;
   onClose: () => void;
   onTrackVolumeChange: (trackId: string, volume: number) => void;
   onMasterVolumeChange: (volume: number) => void;
 }
 
-export default function MixerPanel({ tracks, masterVolume, onClose, onTrackVolumeChange, onMasterVolumeChange }: MixerPanelProps) {
+const VolumeMeter = ({ level }: { level: number }) => {
+  const height = Math.min(100, Math.max(0, level * 100));
+  const color = height > 95 ? 'bg-red-500' : height > 80 ? 'bg-yellow-500' : 'bg-green-500';
+  return (
+    <div className="w-full h-full bg-muted rounded-full overflow-hidden relative">
+      <div 
+        className={`absolute bottom-0 left-0 right-0 ${color} transition-all duration-75`} 
+        style={{ height: `${height}%` }}
+      ></div>
+    </div>
+  );
+};
+
+export default function MixerPanel({ 
+  tracks, 
+  masterVolume, 
+  volumeLevels,
+  masterVolumeLevel,
+  onClose, 
+  onTrackVolumeChange, 
+  onMasterVolumeChange 
+}: MixerPanelProps) {
   return (
     <div className="fixed bottom-0 left-0 right-0 h-1/3 bg-background/80 backdrop-blur-sm border-t border-border z-40 p-4">
       <Card className="bg-muted/50 h-full text-foreground">
@@ -27,33 +50,39 @@ export default function MixerPanel({ tracks, masterVolume, onClose, onTrackVolum
           <div className="flex gap-8 h-full items-center justify-center">
             {/* Track Channels */}
             {tracks.map(track => (
-              <div key={track.id} className="flex flex-col items-center space-y-2 h-full pt-4">
-                <div className="flex-grow w-2 bg-muted rounded-full overflow-hidden relative">
-                  <div className="absolute bottom-0 left-0 right-0 bg-green-500" style={{ height: `${track.mixer.volume * 100}%` }}></div>
+              <div key={track.id} className="flex items-center space-x-2 h-full pt-4">
+                <div className="h-full w-2">
+                  <VolumeMeter level={volumeLevels.get(track.id) || 0} />
                 </div>
-                <Slider
-                  value={[track.mixer.volume * 100]}
-                  onValueChange={([v]) => onTrackVolumeChange(track.id, v / 100)}
-                  max={100}
-                  step={1}
-                  className="w-24"
-                />
-                <span className="text-xs truncate w-20 text-center">{track.name}</span>
+                <div className="flex flex-col items-center space-y-2">
+                  <Slider
+                    orientation="vertical"
+                    value={[track.mixer.volume * 100]}
+                    onValueChange={([v]) => onTrackVolumeChange(track.id, v / 100)}
+                    max={100}
+                    step={1}
+                    className="h-32"
+                  />
+                  <span className="text-xs truncate w-20 text-center">{track.name}</span>
+                </div>
               </div>
             ))}
             {/* Master Channel */}
-            <div className="flex flex-col items-center space-y-2 h-full pt-4 border-l pl-8 border-border">
-              <div className="flex-grow w-2 bg-muted rounded-full overflow-hidden relative">
-                <div className="absolute bottom-0 left-0 right-0 bg-primary" style={{ height: `${masterVolume * 100}%` }}></div>
+            <div className="flex items-center space-x-2 h-full pt-4 border-l pl-8 border-border">
+              <div className="h-full w-2">
+                <VolumeMeter level={masterVolumeLevel} />
               </div>
-              <Slider
-                value={[masterVolume * 100]}
-                onValueChange={([v]) => onMasterVolumeChange(v / 100)}
-                max={100}
-                step={1}
-                className="w-24"
-              />
-              <span className="text-xs font-bold">Master</span>
+              <div className="flex flex-col items-center space-y-2">
+                <Slider
+                  orientation="vertical"
+                  value={[masterVolume * 100]}
+                  onValueChange={([v]) => onMasterVolumeChange(v / 100)}
+                  max={100}
+                  step={1}
+                  className="h-32"
+                />
+                <span className="text-xs font-bold">Master</span>
+              </div>
             </div>
           </div>
         </CardContent>
