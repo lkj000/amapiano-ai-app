@@ -3,6 +3,8 @@ import { APIError } from "encore.dev/api";
 import log from "encore.dev/log";
 import { OpenAI } from "openai";
 import type { MidiNote } from "./types";
+import { audioProcessor } from './audio-processor';
+import { culturalValidator } from './cultural-validator';
 
 // AI Service Configuration
 const openAIKey = secret("OpenAIKey");
@@ -42,8 +44,8 @@ export interface CulturalValidationResult {
 
 export class AIService {
   private config: AIGenerationConfig;
-  private culturalValidator: CulturalValidator;
-  private audioProcessor: AudioProcessor;
+  private culturalValidator: any;
+  private audioProcessor: any;
   private openai: OpenAI;
 
   constructor() {
@@ -54,8 +56,8 @@ export class AIService {
       temperature: 0.7,
       culturalWeight: 0.8
     };
-    this.culturalValidator = new CulturalValidator();
-    this.audioProcessor = new AudioProcessor();
+    this.culturalValidator = culturalValidator;
+    this.audioProcessor = audioProcessor;
     this.openai = new OpenAI({ apiKey: openAIKey() });
   }
 
@@ -234,11 +236,11 @@ export class AIService {
 
       // Cultural analysis
       if (request.analysisType === 'cultural' || request.analysisType === 'comprehensive' || request.culturalValidation) {
-        results.culturalAnalysis = await this.culturalValidator.analyzeAudio(request.audioBuffer);
+        results.culturalAnalysis = await this.culturalValidator.analyzeAudio(request.audioBuffer, 'amapiano');
       }
 
       // Quality metrics
-      results.qualityMetrics = await this.audioProcessor.assessQuality(request.audioBuffer);
+      results.qualityMetrics = await this.audioProcessor.assessAudioQuality(request.audioBuffer);
 
       log.info("AI audio analysis completed", {
         stemsCount: results.stems ? Object.keys(results.stems).length : 0,
@@ -347,270 +349,6 @@ export class AIService {
   }
 }
 
-export class CulturalValidator {
-  private expertRules: Map<string, any>;
-  private authenticityThresholds: Map<string, number>;
+export { culturalValidator as CulturalValidator } from './cultural-validator';
 
-  constructor() {
-    this.expertRules = new Map();
-    this.authenticityThresholds = new Map([
-      ['amapiano', 0.75],
-      ['private_school_amapiano', 0.70]
-    ]);
-    this.initializeExpertRules();
-  }
-
-  async validate(audioBuffer: Buffer, genre: string): Promise<CulturalValidationResult> {
-    try {
-      log.info("Starting cultural validation", { genre });
-
-      const analysis = await this.analyzeAudio(audioBuffer);
-      const score = this.calculateAuthenticityScore(analysis, genre);
-      const elements = this.identifyCulturalElements(analysis, genre);
-      const recommendations = this.generateRecommendations(analysis, genre, score);
-
-      return {
-        authenticityScore: score,
-        culturalElements: elements,
-        recommendations,
-        expertNotes: this.getExpertNotes(genre, score)
-      };
-
-    } catch (error) {
-      log.error("Cultural validation failed", { error: (error as Error).message });
-      throw APIError.internal("Cultural validation failed");
-    }
-  }
-
-  async analyzeAudio(audioBuffer: Buffer): Promise<any> {
-    // Analyze audio for cultural elements
-    return {
-      rhythmicPatterns: this.analyzeRhythmicPatterns(audioBuffer),
-      harmonicStructure: this.analyzeHarmonicStructure(audioBuffer),
-      instrumentalTexture: this.analyzeInstrumentalTexture(audioBuffer),
-      culturalMarkers: this.identifyCulturalMarkers(audioBuffer)
-    };
-  }
-
-  private calculateAuthenticityScore(analysis: any, genre: string): number {
-    let score = 0;
-    const weights = {
-      rhythmicPatterns: 0.3,
-      harmonicStructure: 0.25,
-      instrumentalTexture: 0.25,
-      culturalMarkers: 0.2
-    };
-
-    // Calculate weighted score based on analysis
-    score += analysis.rhythmicPatterns.authenticity * weights.rhythmicPatterns;
-    score += analysis.harmonicStructure.authenticity * weights.harmonicStructure;
-    score += analysis.instrumentalTexture.authenticity * weights.instrumentalTexture;
-    score += analysis.culturalMarkers.authenticity * weights.culturalMarkers;
-
-    // Apply genre-specific adjustments
-    if (genre === 'private_school_amapiano') {
-      // Boost score for jazz elements
-      if (analysis.harmonicStructure.jazzInfluence > 0.7) {
-        score += 0.1;
-      }
-    } else {
-      // Boost score for traditional elements
-      if (analysis.culturalMarkers.traditionalElements > 0.8) {
-        score += 0.1;
-      }
-    }
-
-    return Math.min(1.0, Math.max(0.0, score));
-  }
-
-  private identifyCulturalElements(analysis: any, genre: string): string[] {
-    const elements = [];
-
-    if (analysis.rhythmicPatterns.logDrumPresence > 0.8) {
-      elements.push('Authentic log drum patterns');
-    }
-    if (analysis.harmonicStructure.gospelInfluence > 0.6) {
-      elements.push('Gospel-influenced harmonies');
-    }
-    if (analysis.instrumentalTexture.southAfricanCharacter > 0.7) {
-      elements.push('South African musical character');
-    }
-    if (genre === 'private_school_amapiano' && analysis.harmonicStructure.jazzInfluence > 0.6) {
-      elements.push('Jazz sophistication');
-    }
-
-    return elements;
-  }
-
-  private generateRecommendations(analysis: any, genre: string, score: number): string[] {
-    const recommendations = [];
-    const threshold = this.authenticityThresholds.get(genre) || 0.75;
-
-    if (score < threshold) {
-      if (analysis.rhythmicPatterns.logDrumPresence < 0.6) {
-        recommendations.push('Enhance log drum presence and authenticity');
-      }
-      if (analysis.harmonicStructure.gospelInfluence < 0.4) {
-        recommendations.push('Incorporate more gospel-influenced chord progressions');
-      }
-      if (genre === 'private_school_amapiano' && analysis.harmonicStructure.jazzInfluence < 0.5) {
-        recommendations.push('Add more sophisticated jazz harmonies');
-      }
-    }
-
-    return recommendations;
-  }
-
-  private getExpertNotes(genre: string, score: number): string {
-    if (score >= 0.9) {
-      return `Exceptional ${genre} authenticity. This track demonstrates deep understanding of the genre's cultural roots.`;
-    } else if (score >= 0.75) {
-      return `Good ${genre} authenticity with room for cultural refinement.`;
-    } else {
-      return `Needs significant improvement to achieve authentic ${genre} character.`;
-    }
-  }
-
-  private initializeExpertRules(): void {
-    // Initialize expert validation rules
-    this.expertRules.set('amapiano_log_drum', {
-      frequency_range: [40, 120],
-      attack_time: [0.01, 0.05],
-      decay_pattern: 'exponential',
-      cultural_significance: 'foundational'
-    });
-
-    this.expertRules.set('private_school_jazz_harmony', {
-      chord_extensions: ['maj7', '9', '11', '13'],
-      voice_leading: 'smooth',
-      cultural_significance: 'sophisticated'
-    });
-  }
-
-  private analyzeRhythmicPatterns(audioBuffer: Buffer): any {
-    // Simulate rhythmic pattern analysis
-    return {
-      authenticity: 0.85,
-      logDrumPresence: 0.9,
-      swingFactor: 0.15,
-      polyrhythmicComplexity: 0.7
-    };
-  }
-
-  private analyzeHarmonicStructure(audioBuffer: Buffer): any {
-    // Simulate harmonic analysis
-    return {
-      authenticity: 0.8,
-      gospelInfluence: 0.75,
-      jazzInfluence: 0.6,
-      modalCharacter: 0.7
-    };
-  }
-
-  private analyzeInstrumentalTexture(audioBuffer: Buffer): any {
-    // Simulate instrumental texture analysis
-    return {
-      authenticity: 0.82,
-      southAfricanCharacter: 0.85,
-      instrumentalBalance: 0.8,
-      productionStyle: 0.75
-    };
-  }
-
-  private identifyCulturalMarkers(audioBuffer: Buffer): any {
-    // Simulate cultural marker identification
-    return {
-      authenticity: 0.88,
-      traditionalElements: 0.85,
-      modernAdaptations: 0.7,
-      culturalRespect: 0.9
-    };
-  }
-}
-
-export class AudioProcessor {
-  async separateStems(audioBuffer: Buffer): Promise<{ [key: string]: Buffer }> {
-    try {
-      log.info("Starting AI stem separation");
-
-      // Simulate advanced stem separation
-      const stems = {
-        drums: Buffer.from("SEPARATED_DRUMS_DATA"),
-        bass: Buffer.from("SEPARATED_BASS_DATA"),
-        piano: Buffer.from("SEPARATED_PIANO_DATA"),
-        vocals: Buffer.from("SEPARATED_VOCALS_DATA"),
-        other: Buffer.from("SEPARATED_OTHER_DATA")
-      };
-
-      log.info("Stem separation completed", { stemsCount: Object.keys(stems).length });
-      return stems;
-
-    } catch (error) {
-      log.error("Stem separation failed", { error: (error as Error).message });
-      throw APIError.internal("Stem separation failed");
-    }
-  }
-
-  async detectPatterns(audioBuffer: Buffer): Promise<any[]> {
-    try {
-      log.info("Starting pattern detection");
-
-      // Simulate advanced pattern detection
-      const patterns = [
-        {
-          type: 'chord_progression',
-          confidence: 0.95,
-          data: {
-            chords: ['Cmaj9', 'Am7', 'Fmaj7', 'G7sus4'],
-            progression: 'I-vi-IV-V',
-            culturalSignificance: 'Jazz-influenced amapiano progression'
-          },
-          timeRange: { start: 0, end: 8 }
-        },
-        {
-          type: 'drum_pattern',
-          confidence: 0.92,
-          data: {
-            pattern: 'x-x-.-x-x-.-x-.-',
-            logDrumCharacter: 'authentic',
-            culturalSignificance: 'Traditional amapiano log drum pattern'
-          },
-          timeRange: { start: 0, end: 4 }
-        }
-      ];
-
-      log.info("Pattern detection completed", { patternsCount: patterns.length });
-      return patterns;
-
-    } catch (error) {
-      log.error("Pattern detection failed", { error: (error as Error).message });
-      throw APIError.internal("Pattern detection failed");
-    }
-  }
-
-  async assessQuality(audioBuffer: Buffer): Promise<any> {
-    try {
-      log.info("Starting quality assessment");
-
-      const metrics = {
-        stemSeparationAccuracy: 0.95,
-        patternRecognitionConfidence: 0.92,
-        audioQualityScore: 0.88,
-        culturalAccuracyScore: 0.85,
-        technicalQuality: {
-          dynamicRange: 85,
-          frequencyResponse: 0.92,
-          stereoImaging: 0.88,
-          noiseFloor: -65
-        }
-      };
-
-      log.info("Quality assessment completed", metrics);
-      return metrics;
-
-    } catch (error) {
-      log.error("Quality assessment failed", { error: (error as Error).message });
-      throw APIError.internal("Quality assessment failed");
-    }
-  }
-}
+export { audioProcessor as AudioProcessor } from './audio-processor';
