@@ -55,6 +55,34 @@ const AIPromptParser = ({ prompt, className }: { prompt: string, className?: str
   );
 };
 
+const defaultProjectData: DawProjectData = {
+  bpm: 118,
+  keySignature: 'F#m',
+  tracks: [
+    {
+      id: `track_${Date.now()}_1`,
+      type: 'midi',
+      name: 'Log Drums',
+      instrument: 'Signature Log Drum',
+      clips: [],
+      mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+      isArmed: true,
+      color: 'bg-red-500',
+    },
+    {
+      id: `track_${Date.now()}_2`,
+      type: 'midi',
+      name: 'Piano Chords',
+      instrument: 'Amapiano Piano',
+      clips: [],
+      mixer: { volume: 0.7, pan: 0, isMuted: false, isSolo: false, effects: [] },
+      isArmed: false,
+      color: 'bg-blue-500',
+    },
+  ],
+  masterVolume: 0.8,
+};
+
 export default function DawPage() {
   const queryClient = useQueryClient();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -68,19 +96,49 @@ export default function DawPage() {
   const [zoom, setZoom] = useState([100]);
 
   // Project State
-  const [projectId, setProjectId] = useState<number | undefined>(1); // Default to project 1 for demo
+  const [projectId, setProjectId] = useState<number | undefined>();
   const [projectName, setProjectName] = useState("Untitled Project");
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
+  const [status, setStatus] = useState<'loading_list' | 'creating_project' | 'loading_project' | 'ready' | 'error'>('loading_list');
 
-  const { data: loadedProject, isLoading: isLoadingProject, error: projectError } = useQuery({
+  const { error: listError } = useQuery({
+    queryKey: ['dawProjectsList'],
+    queryFn: () => backend.music.listProjects(),
+    onSuccess: (data) => {
+      if (data.projects.length > 0) {
+        setProjectId(data.projects[0].id);
+        setStatus('loading_project');
+      } else {
+        setStatus('creating_project');
+        createDefaultProjectMutation.mutate();
+      }
+    },
+    onError: () => setStatus('error'),
+  });
+
+  const createDefaultProjectMutation = useMutation({
+    mutationFn: () => backend.music.saveProject({
+      name: "My First Amapiano Project",
+      projectData: defaultProjectData,
+    }),
+    onSuccess: (data) => {
+      setProjectId(data.projectId);
+      setStatus('loading_project');
+    },
+    onError: () => setStatus('error'),
+  });
+
+  const { error: projectError } = useQuery({
     queryKey: ['dawProject', projectId],
     queryFn: () => backend.music.loadProject({ projectId: projectId! }),
-    enabled: !!projectId,
+    enabled: !!projectId && status === 'loading_project',
     onSuccess: (data) => {
       setProjectName(data.name);
       setProjectData(data.projectData);
+      setStatus('ready');
       toast.success(`Project "${data.name}" loaded.`);
-    }
+    },
+    onError: () => setStatus('error'),
   });
 
   const saveMutation = useMutation({
@@ -89,6 +147,7 @@ export default function DawPage() {
       setProjectId(data.projectId);
       toast.success(`Project "${data.name}" (v${data.version}) saved successfully.`);
       queryClient.invalidateQueries({ queryKey: ['dawProject', data.projectId] });
+      queryClient.invalidateQueries({ queryKey: ['dawProjectsList'] });
     },
     onError: (error: any) => {
       toast.error("Save Failed", { description: error.message });
@@ -122,6 +181,10 @@ export default function DawPage() {
   };
 
   const handleAIGenerate = (prompt: string) => {
+    if (!prompt.trim()) {
+      toast.error("Please enter a prompt for the AI assistant.");
+      return;
+    }
     toast.info(`🤖 AI Assistant: Generating content for "${prompt}"`);
     aiGenerateMutation.mutate({ prompt, trackType: 'midi' });
   };
@@ -176,8 +239,22 @@ export default function DawPage() {
     "Generate saxophone melody for the bridge section"
   ];
 
-  if (isLoadingProject) return <div className="flex items-center justify-center h-screen"><LoadingSpinner /></div>;
-  if (projectError) return <div className="flex items-center justify-center h-screen"><ErrorMessage error={projectError as Error} /></div>;
+  if (status !== 'ready') {
+    const isLoading = status === 'loading_list' || status === 'creating_project' || status === 'loading_project';
+    const error = listError || createDefaultProjectMutation.error || projectError;
+    
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-white">
+        {isLoading && <LoadingSpinner />}
+        {isLoading && <p className="mt-4 text-lg">{status.replace('_', ' ')}...</p>}
+        {error && <ErrorMessage error={error as Error} />}
+      </div>
+    );
+  }
+
+  if (!projectData) {
+    return <div className="flex items-center justify-center h-screen"><ErrorMessage error={new Error("Failed to load project data.")} /></div>;
+  }
 
   return (
     <div className="min-h-screen bg-background text-white">
@@ -359,16 +436,16 @@ export default function DawPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">BPM:</span>
                       <div className="w-20">
-                        <Slider value={[projectData?.bpm || 118]} onValueChange={([v]) => setProjectData(p => p ? {...p, bpm: v} : null)} min={80} max={160} step={1} />
+                        <Slider value={[projectData.bpm]} onValueChange={([v]) => setProjectData({ ...projectData, bpm: v })} min={80} max={160} step={1} />
                       </div>
-                      <span className="text-sm text-muted-foreground w-8">{projectData?.bpm || 118}</span>
+                      <span className="text-sm text-muted-foreground w-8">{projectData.bpm}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Volume2 className="w-4 h-4" />
                       <div className="w-20">
-                        <Slider value={[ (projectData?.masterVolume || 0.8) * 100]} onValueChange={([v]) => setProjectData(p => p ? {...p, masterVolume: v / 100} : null)} />
+                        <Slider value={[projectData.masterVolume * 100]} onValueChange={([v]) => setProjectData({ ...projectData, masterVolume: v / 100 })} />
                       </div>
-                      <span className="text-sm text-muted-foreground w-8">{Math.round((projectData?.masterVolume || 0.8) * 100)}</span>
+                      <span className="text-sm text-muted-foreground w-8">{Math.round(projectData.masterVolume * 100)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">Zoom:</span>
@@ -395,7 +472,7 @@ export default function DawPage() {
                     </div>
                   </div>
                   <div className="space-y-1">
-                    {projectData?.tracks.map((track) => (
+                    {projectData.tracks.map((track) => (
                       <div key={track.id} className={`p-3 border-b border-border/50 hover:bg-muted/50 transition-colors cursor-pointer ${selectedTrackId === track.id ? 'bg-primary/10' : ''}`} onClick={() => setSelectedTrackId(track.id)}>
                         <div className="flex items-center gap-2 mb-2">
                           <div className={`w-3 h-3 rounded-full ${track.color}`} />
@@ -428,7 +505,7 @@ export default function DawPage() {
                       {Array.from({ length: 32 }, (_, i) => (<div key={i} className="flex-1 text-xs text-center border-r border-border/30 py-1">{i + 1}</div>))}
                     </div>
                     <div className="space-y-1">
-                      {projectData?.tracks.map((track) => (
+                      {projectData.tracks.map((track) => (
                         <div key={track.id} className="h-16 border-b border-border/30 relative flex items-center">
                           {track.clips.map(clip => (
                             <div key={clip.id} className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center`} style={{ left: `${(clip.startTime / 32) * 100}%`, width: `${(clip.duration / 32) * 100}%` }}>

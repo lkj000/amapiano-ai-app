@@ -45,7 +45,14 @@ export const loadProject = api<LoadProjectRequest, DawProject>(
         return cachedProject;
       }
 
-      const result = await musicDB.queryRow<DawProject>`
+      const result = await musicDB.queryRow<{
+        id: number;
+        name: string;
+        project_data: any;
+        version: number;
+        created_at: Date;
+        updated_at: Date;
+      }>`
         SELECT id, name, project_data, version, created_at, updated_at FROM daw_projects WHERE id = ${projectId}
       `;
 
@@ -56,7 +63,7 @@ export const loadProject = api<LoadProjectRequest, DawProject>(
       const project: DawProject = {
         id: result.id,
         name: result.name,
-        projectData: result.project_data,
+        projectData: typeof result.project_data === 'string' ? JSON.parse(result.project_data) : result.project_data,
         version: result.version,
         createdAt: result.created_at,
         updatedAt: result.updated_at,
