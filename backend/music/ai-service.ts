@@ -92,11 +92,28 @@ export class AIService {
         throw new Error("AI returned empty content.");
       }
 
-      const result = JSON.parse(content);
+      // Robust JSON parsing
+      let jsonString = content;
+      if (!content.trim().startsWith('{')) {
+        const jsonStartIndex = content.indexOf('{');
+        const jsonEndIndex = content.lastIndexOf('}');
+        if (jsonStartIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+          jsonString = content.substring(jsonStartIndex, jsonEndIndex + 1);
+        }
+      }
+      
+      let result;
+      try {
+        result = JSON.parse(jsonString);
+      } catch (e) {
+        log.error("Failed to parse JSON from AI response", { rawContent: content, attemptedJson: jsonString, error: (e as Error).message });
+        throw new Error("AI returned a response that could not be parsed as JSON.");
+      }
       
       // Basic validation
       if (!result.notes || !Array.isArray(result.notes) || typeof result.duration !== 'number') {
-        throw new Error("Invalid JSON format from AI");
+        log.error("Invalid JSON structure from AI", { parsedJson: result });
+        throw new Error("AI returned valid JSON but with an incorrect or incomplete structure.");
       }
   
       return {
@@ -105,8 +122,13 @@ export class AIService {
       };
   
     } catch (error) {
-      log.error("Error generating MIDI pattern with OpenAI", { error });
-      throw APIError.internal("Failed to generate musical pattern with AI.");
+      log.error("Error generating MIDI pattern with OpenAI", { 
+        errorMessage: (error as Error).message, 
+        stack: (error as Error).stack 
+      });
+      
+      // Let the generic error handler create a more detailed message
+      throw error;
     }
   }
 

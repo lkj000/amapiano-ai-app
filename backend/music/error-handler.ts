@@ -157,9 +157,20 @@ export class EnhancedErrorHandler {
       };
     }
 
+    if (error.message?.includes('JSON')) {
+      return {
+        code: 'ai_invalid_response',
+        message: 'The AI returned an invalid response format.',
+        details: { originalError: error.message },
+        suggestions: ['Try rephrasing your prompt', 'Try again in a moment'],
+        retryable: true,
+        severity: 'medium'
+      };
+    }
+
     return {
       code: 'ai_service_error',
-      message: 'AI service encountered an error',
+      message: 'AI service encountered an error: ' + error.message,
       suggestions: ['Try again with different parameters', 'Contact support if the issue persists'],
       retryable: true,
       severity: 'high'
@@ -303,7 +314,7 @@ export class EnhancedErrorHandler {
   private handleGenericError(error: any, context: ErrorContext): ErrorDetails {
     return {
       code: 'internal_error',
-      message: 'An unexpected error occurred',
+      message: 'An unexpected error occurred: ' + (error.message || 'Unknown error'),
       suggestions: ['Try again', 'Contact support if the issue persists'],
       retryable: true,
       severity: 'high'
@@ -319,6 +330,7 @@ export class EnhancedErrorHandler {
       'ai_rate_limit': APIError.resourceExhausted,
       'ai_timeout': APIError.deadlineExceeded,
       'invalid_prompt': APIError.invalidArgument,
+      'ai_invalid_response': APIError.internal,
       'ai_service_error': APIError.internal,
       'file_too_large': APIError.invalidArgument,
       'unsupported_format': APIError.invalidArgument,
@@ -406,7 +418,8 @@ export class EnhancedErrorHandler {
       error.message.includes('model') ||
       error.message.includes('generation') ||
       error.message.includes('OpenAI') ||
-      error.message.includes('HuggingFace')
+      error.message.includes('HuggingFace') ||
+      error.message.includes('JSON')
     );
   }
 
