@@ -629,7 +629,7 @@ export const useAudioEngine = () => {
       }
 
       // Rebuild chain: gainNode -> effects -> panNode -> compressor
-      const chain = [track.gainNode];
+      const chain: AudioNode[] = [track.gainNode];
       
       track.effects.forEach(effect => {
         if (effect.enabled && effect.node) {

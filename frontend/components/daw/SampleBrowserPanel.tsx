@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import backend from '~backend/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,9 +20,13 @@ export default function SampleBrowserPanel({ onClose }: SampleBrowserPanelProps)
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['samples', searchQuery],
-    queryFn: () => searchQuery 
-      ? backend.music.searchSamples({ query: searchQuery }) 
-      : backend.music.listSamples({ limit: 100 }),
+    queryFn: async () => {
+      if (searchQuery) {
+        return await backend.music.searchSamples({ query: searchQuery });
+      } else {
+        return await backend.music.listSamples({ limit: 100 });
+      }
+    },
   });
 
   const handlePlay = (sample: Sample) => {
@@ -72,7 +76,7 @@ export default function SampleBrowserPanel({ onClose }: SampleBrowserPanelProps)
             {isLoading && <LoadingSpinner />}
             {isError && <ErrorMessage error={error as Error} />}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {data?.samples.map(sample => (
+              {data?.samples?.map((sample: any) => (
                 <div
                   key={sample.id}
                   className="p-3 bg-background/50 rounded-lg cursor-grab"

@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X, Pause, Volume2, ExternalLink, Clock, Zap, Star, TrendingUp, Award, Brain, Gauge, Target, Mic } from 'lucide-react';
+import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X, Pause, Volume2, ExternalLink, Clock, Zap, Star, TrendingUp, Award, Brain, Gauge, Target, Mic, Circle } from 'lucide-react';
 import backend from '~backend/client';
 import type { AnalyzeAudioRequest } from '~backend/music/analyze';
 

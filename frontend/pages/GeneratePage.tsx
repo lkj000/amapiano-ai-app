@@ -605,7 +605,7 @@ export default function GeneratePage() {
 
               <div className="space-y-2">
                 <Label className="text-white">Mood</Label>
-                <Select value={trackForm.mood} onValueChange={(value) => setTrackForm({ ...trackForm, mood: value })}>
+                <Select value={trackForm.mood} onValueChange={(value) => setTrackForm({ ...trackForm, mood: value as any })}>
                   <SelectTrigger className="bg-white/10 border-white/20 text-white">
                     <SelectValue placeholder="Select mood" />
                   </SelectTrigger>
