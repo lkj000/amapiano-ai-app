@@ -15,9 +15,9 @@ interface MixerPanelProps {
 
 export default function MixerPanel({ tracks, masterVolume, onClose, onTrackVolumeChange, onMasterVolumeChange }: MixerPanelProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-1/3 bg-black/50 backdrop-blur-sm border-t border-white/10 z-40 p-4">
-      <Card className="bg-black/20 h-full text-white">
-        <CardHeader className="flex flex-row items-center justify-between py-2 px-4 border-b border-white/10">
+    <div className="fixed bottom-0 left-0 right-0 h-1/3 bg-background/80 backdrop-blur-sm border-t border-border z-40 p-4">
+      <Card className="bg-muted/50 h-full text-foreground">
+        <CardHeader className="flex flex-row items-center justify-between py-2 px-4 border-b border-border">
           <CardTitle className="flex items-center gap-2"><Volume2 className="w-5 h-5" /> Mixer</CardTitle>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -28,7 +28,7 @@ export default function MixerPanel({ tracks, masterVolume, onClose, onTrackVolum
             {/* Track Channels */}
             {tracks.map(track => (
               <div key={track.id} className="flex flex-col items-center space-y-2 h-full pt-4">
-                <div className="flex-grow w-2 bg-black/30 rounded-full overflow-hidden relative">
+                <div className="flex-grow w-2 bg-muted rounded-full overflow-hidden relative">
                   <div className="absolute bottom-0 left-0 right-0 bg-green-500" style={{ height: `${track.mixer.volume * 100}%` }}></div>
                 </div>
                 <Slider
@@ -42,9 +42,9 @@ export default function MixerPanel({ tracks, masterVolume, onClose, onTrackVolum
               </div>
             ))}
             {/* Master Channel */}
-            <div className="flex flex-col items-center space-y-2 h-full pt-4 border-l pl-8 border-white/10">
-              <div className="flex-grow w-2 bg-black/30 rounded-full overflow-hidden relative">
-                <div className="absolute bottom-0 left-0 right-0 bg-yellow-400" style={{ height: `${masterVolume * 100}%` }}></div>
+            <div className="flex flex-col items-center space-y-2 h-full pt-4 border-l pl-8 border-border">
+              <div className="flex-grow w-2 bg-muted rounded-full overflow-hidden relative">
+                <div className="absolute bottom-0 left-0 right-0 bg-primary" style={{ height: `${masterVolume * 100}%` }}></div>
               </div>
               <Slider
                 value={[masterVolume * 100]}
