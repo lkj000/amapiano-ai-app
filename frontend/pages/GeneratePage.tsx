@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/components/ui/use-toast';
-import { Radio, Play, Download, Layers, Sparkles } from 'lucide-react';
+import { Radio, Play, Download, Layers, Sparkles, AlertCircle, CheckCircle } from 'lucide-react';
 import backend from '~backend/client';
 import type { GenerateTrackRequest, GenerateLoopRequest } from '~backend/music/generate';
 
@@ -17,6 +17,7 @@ export default function GeneratePage() {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'track' | 'loop'>('track');
+  const [isRemixMode, setIsRemixMode] = useState(false);
   
   // Track generation state
   const [trackForm, setTrackForm] = useState<GenerateTrackRequest>({
@@ -45,17 +46,24 @@ export default function GeneratePage() {
     const prompt = searchParams.get('prompt');
 
     if (sourceId) {
-      setTrackForm(prev => ({
-        ...prev,
-        sourceAnalysisId: parseInt(sourceId, 10),
-        bpm: bpm ? parseInt(bpm, 10) : prev.bpm,
-        keySignature: key || prev.keySignature,
-        prompt: `A Private School Amapiano track (114-120 bpm) inspired by the TikTok video: ${prompt || ''}`
-      }));
-      toast({
-        title: "Remix Mode Activated!",
-        description: "Generating a new track based on the analyzed audio.",
-      });
+      const analysisId = parseInt(sourceId, 10);
+      if (!isNaN(analysisId)) {
+        setIsRemixMode(true);
+        setTrackForm(prev => ({
+          ...prev,
+          sourceAnalysisId: analysisId,
+          bpm: bpm ? parseInt(bpm, 10) : 115,
+          keySignature: key || 'F#m',
+          prompt: prompt ? 
+            `A Private School Amapiano track (114-120 bpm) inspired by: ${decodeURIComponent(prompt)}` :
+            'A Private School Amapiano track (114-120 bpm) inspired by the analyzed audio'
+        }));
+        
+        toast({
+          title: "Remix Mode Activated!",
+          description: "Generating a new track based on the analyzed audio.",
+        });
+      }
     }
   }, [searchParams, toast]);
 
@@ -71,7 +79,7 @@ export default function GeneratePage() {
       console.error('Track generation error:', error);
       toast({
         title: "Generation Failed",
-        description: "Failed to generate track. Please try again.",
+        description: "Failed to generate track. Please check your inputs and try again.",
         variant: "destructive",
       });
     },
@@ -104,11 +112,73 @@ export default function GeneratePage() {
       });
       return;
     }
+
+    // Validate BPM range
+    if (trackForm.bpm && (trackForm.bpm < 80 || trackForm.bpm > 160)) {
+      toast({
+        title: "Invalid BPM",
+        description: "BPM must be between 80 and 160.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate duration
+    if (trackForm.duration && (trackForm.duration < 30 || trackForm.duration > 600)) {
+      toast({
+        title: "Invalid Duration",
+        description: "Duration must be between 30 seconds and 10 minutes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('Generating track with data:', trackForm);
     generateTrackMutation.mutate(trackForm);
   };
 
   const handleGenerateLoop = () => {
+    // Validate BPM range
+    if (loopForm.bpm && (loopForm.bpm < 80 || loopForm.bpm > 160)) {
+      toast({
+        title: "Invalid BPM",
+        description: "BPM must be between 80 and 160.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate bars
+    if (loopForm.bars && (loopForm.bars < 1 || loopForm.bars > 16)) {
+      toast({
+        title: "Invalid Bars",
+        description: "Bars must be between 1 and 16.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('Generating loop with data:', loopForm);
     generateLoopMutation.mutate(loopForm);
+  };
+
+  const clearRemixMode = () => {
+    setIsRemixMode(false);
+    setTrackForm(prev => ({
+      ...prev,
+      sourceAnalysisId: undefined,
+      prompt: '',
+      bpm: 115,
+      keySignature: 'F#m'
+    }));
+    
+    // Clear URL parameters
+    window.history.replaceState({}, '', '/generate');
+    
+    toast({
+      title: "Remix Mode Cleared",
+      description: "You can now create a track from scratch.",
+    });
   };
 
   const moods = [
@@ -162,16 +232,29 @@ export default function GeneratePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {trackForm.sourceAnalysisId && (
-              <Card className="bg-green-400/10 border-green-400/20">
+            {/* Remix Mode Indicator */}
+            {isRemixMode && trackForm.sourceAnalysisId && (
+              <Card className="bg-gradient-to-r from-green-400/10 to-blue-400/10 border-green-400/20">
                 <CardContent className="p-4">
-                  <div className="flex items-center space-x-2">
-                    <Sparkles className="h-5 w-5 text-green-400" />
-                    <div className="text-green-400 font-medium">Remix Mode</div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <Sparkles className="h-6 w-6 text-green-400" />
+                      <div>
+                        <div className="text-green-400 font-semibold">Remix Mode Active</div>
+                        <p className="text-white/80 text-sm">
+                          Generating a new track inspired by analyzed audio (ID: {trackForm.sourceAnalysisId})
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearRemixMode}
+                      className="border-white/20 text-white hover:bg-white/10"
+                    >
+                      Clear Remix
+                    </Button>
                   </div>
-                  <p className="text-white/80 text-sm mt-2">
-                    Generating a new track inspired by the analyzed audio. Parameters have been pre-filled.
-                  </p>
                 </CardContent>
               </Card>
             )}
@@ -186,6 +269,11 @@ export default function GeneratePage() {
                 className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                 rows={4}
               />
+              {isRemixMode && (
+                <p className="text-white/60 text-sm">
+                  💡 Tip: The AI will use the analyzed audio as inspiration while following your description.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -226,6 +314,10 @@ export default function GeneratePage() {
                   step={1}
                   className="w-full"
                 />
+                <div className="flex justify-between text-xs text-white/60">
+                  <span>100</span>
+                  <span>140</span>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -252,42 +344,84 @@ export default function GeneratePage() {
                   step={15}
                   className="w-full"
                 />
+                <div className="flex justify-between text-xs text-white/60">
+                  <span>1:00</span>
+                  <span>5:00</span>
+                </div>
               </div>
             </div>
 
             <Button
               onClick={handleGenerateTrack}
               disabled={generateTrackMutation.isPending}
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
+              className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
             >
-              {generateTrackMutation.isPending ? 'Generating...' : 'Generate Track'}
+              {generateTrackMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2"></div>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  {isRemixMode ? 'Generate Remix' : 'Generate Track'}
+                </>
+              )}
             </Button>
 
             {generateTrackMutation.data && (
-              <div className="space-y-4 p-4 bg-white/10 rounded-lg">
-                <h3 className="text-white font-semibold">Generated Track</h3>
-                <div className="flex items-center space-x-4">
-                  <Button size="sm" className="bg-green-500 hover:bg-green-600">
-                    <Play className="h-4 w-4 mr-2" />
-                    Play
-                  </Button>
-                  <Button size="sm" variant="outline" className="border-white/20 text-white">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                  <div className="text-white/70">
-                    <span className="font-medium">BPM:</span> {generateTrackMutation.data.metadata.bpm}
+              <Card className="bg-gradient-to-r from-green-400/10 to-blue-400/10 border-green-400/20">
+                <CardHeader>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    <CardTitle className="text-white text-lg">Track Generated Successfully!</CardTitle>
                   </div>
-                  <div className="text-white/70">
-                    <span className="font-medium">Key:</span> {generateTrackMutation.data.metadata.keySignature}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center space-x-4">
+                    <Button size="sm" className="bg-green-500 hover:bg-green-600">
+                      <Play className="h-4 w-4 mr-2" />
+                      Play Track
+                    </Button>
+                    <Button size="sm" variant="outline" className="border-white/20 text-white">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
                   </div>
-                  <div className="text-white/70">
-                    <span className="font-medium">Duration:</span> {Math.floor(generateTrackMutation.data.metadata.duration / 60)}:{(generateTrackMutation.data.metadata.duration % 60).toString().padStart(2, '0')}
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div className="text-white/70">
+                      <span className="font-medium">BPM:</span> {generateTrackMutation.data.metadata.bpm}
+                    </div>
+                    <div className="text-white/70">
+                      <span className="font-medium">Key:</span> {generateTrackMutation.data.metadata.keySignature}
+                    </div>
+                    <div className="text-white/70">
+                      <span className="font-medium">Duration:</span> {Math.floor(generateTrackMutation.data.metadata.duration / 60)}:{(generateTrackMutation.data.metadata.duration % 60).toString().padStart(2, '0')}
+                    </div>
                   </div>
-                </div>
-              </div>
+
+                  {/* Stems */}
+                  <div className="space-y-2">
+                    <h4 className="text-white font-medium">Individual Stems:</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {Object.entries(generateTrackMutation.data.stems).map(([stem, url]) => (
+                        <div key={stem} className="flex items-center justify-between p-2 bg-white/5 rounded">
+                          <span className="text-white/70 capitalize text-sm">{stem}</span>
+                          <div className="flex space-x-1">
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                              <Play className="h-3 w-3" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                              <Download className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </CardContent>
         </Card>
@@ -341,6 +475,10 @@ export default function GeneratePage() {
                   step={1}
                   className="w-full"
                 />
+                <div className="flex justify-between text-xs text-white/60">
+                  <span>100</span>
+                  <span>140</span>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -353,6 +491,10 @@ export default function GeneratePage() {
                   step={1}
                   className="w-full"
                 />
+                <div className="flex justify-between text-xs text-white/60">
+                  <span>1</span>
+                  <span>8</span>
+                </div>
               </div>
 
               <div className="space-y-2 md:col-span-2">
@@ -373,43 +515,90 @@ export default function GeneratePage() {
             <Button
               onClick={handleGenerateLoop}
               disabled={generateLoopMutation.isPending}
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
+              className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
             >
-              {generateLoopMutation.isPending ? 'Generating...' : 'Generate Loop'}
+              {generateLoopMutation.isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black mr-2"></div>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Layers className="h-4 w-4 mr-2" />
+                  Generate Loop
+                </>
+              )}
             </Button>
 
             {generateLoopMutation.data && (
-              <div className="space-y-4 p-4 bg-white/10 rounded-lg">
-                <h3 className="text-white font-semibold">Generated Loop</h3>
-                <div className="flex items-center space-x-4">
-                  <Button size="sm" className="bg-green-500 hover:bg-green-600">
-                    <Play className="h-4 w-4 mr-2" />
-                    Play
-                  </Button>
-                  <Button size="sm" variant="outline" className="border-white/20 text-white">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                  <div className="text-white/70">
-                    <span className="font-medium">Category:</span> {generateLoopMutation.data.metadata.category}
+              <Card className="bg-gradient-to-r from-purple-400/10 to-pink-400/10 border-purple-400/20">
+                <CardHeader>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    <CardTitle className="text-white text-lg">Loop Generated Successfully!</CardTitle>
                   </div>
-                  <div className="text-white/70">
-                    <span className="font-medium">BPM:</span> {generateLoopMutation.data.metadata.bpm}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center space-x-4">
+                    <Button size="sm" className="bg-green-500 hover:bg-green-600">
+                      <Play className="h-4 w-4 mr-2" />
+                      Play Loop
+                    </Button>
+                    <Button size="sm" variant="outline" className="border-white/20 text-white">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
                   </div>
-                  <div className="text-white/70">
-                    <span className="font-medium">Bars:</span> {generateLoopMutation.data.metadata.bars}
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="text-white/70">
+                      <span className="font-medium">Category:</span> {generateLoopMutation.data.metadata.category}
+                    </div>
+                    <div className="text-white/70">
+                      <span className="font-medium">BPM:</span> {generateLoopMutation.data.metadata.bpm}
+                    </div>
+                    <div className="text-white/70">
+                      <span className="font-medium">Bars:</span> {generateLoopMutation.data.metadata.bars}
+                    </div>
+                    <div className="text-white/70">
+                      <span className="font-medium">Key:</span> {generateLoopMutation.data.metadata.keySignature}
+                    </div>
                   </div>
-                  <div className="text-white/70">
-                    <span className="font-medium">Key:</span> {generateLoopMutation.data.metadata.keySignature}
-                  </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             )}
           </CardContent>
         </Card>
       )}
+
+      {/* Help Section */}
+      <Card className="bg-white/5 border-white/10 max-w-4xl mx-auto">
+        <CardHeader>
+          <CardTitle className="text-white">💡 Generation Tips</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-white/70">
+            <div>
+              <h4 className="text-white font-medium mb-2">For Better Results:</h4>
+              <ul className="space-y-1">
+                <li>• Be specific about the mood and style you want</li>
+                <li>• Mention specific instruments (log drums, piano, saxophone)</li>
+                <li>• Include tempo descriptions (slow, groovy, energetic)</li>
+                <li>• Reference time of day or setting (late night, club, chill)</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-2">Example Prompts:</h4>
+              <ul className="space-y-1">
+                <li>• "Deep log drums with soulful piano for late night vibes"</li>
+                <li>• "Jazzy private school amapiano with saxophone melody"</li>
+                <li>• "Energetic classic amapiano with heavy percussion"</li>
+                <li>• "Mellow track with complex chords and smooth bassline"</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
