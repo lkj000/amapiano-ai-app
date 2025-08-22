@@ -2,6 +2,17 @@
 
 The ultimate AI-powered platform for creating, analyzing, and exploring amapiano music. Generate authentic South African amapiano tracks, analyze existing music, and discover the patterns that make this genre unique.
 
+## Table of Contents
+
+- [Features](#features)
+- [Amapiano Genres](#amapiano-genres)
+- [Technology Stack](#technology-stack)
+- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Features
 
 ### 🎵 AI Music Generation
@@ -85,58 +96,7 @@ encore run
 
 The application will be available at `http://localhost:4000`
 
-## API Endpoints
-
-### Music Generation
-- `POST /generate/track` - Generate a complete amapiano track
-- `POST /generate/loop` - Generate specific loops and patterns
-- `GET /generate/history` - Get generation history
-- `GET /generate/stats` - Get generation statistics
-
-### Audio Analysis
-- `POST /analyze/audio` - Analyze audio from URLs or uploads
-- `POST /analyze/patterns` - Extract amapiano-specific patterns
-- `GET /analyze/history` - Get analysis history
-
-### Sample Management
-- `GET /samples` - List available samples with filtering
-- `POST /samples` - Create a new sample
-- `GET /samples/search` - Search samples by query
-- `GET /samples/stats` - Get sample library statistics
-- `GET /samples/:id` - Get specific sample details
-- `GET /samples/artist/:artist` - Get samples by artist style
-
-### Pattern Management
-- `GET /patterns` - List musical patterns
-- `GET /patterns/chords` - Get chord progressions
-- `GET /patterns/drums` - Get drum patterns
-
-## Database Schema
-
-### Core Tables
-- **tracks** - Music track metadata
-- **samples** - Audio sample library
-- **patterns** - Musical patterns and progressions
-- **generated_tracks** - AI-generated music tracks
-- **audio_analysis** - Analysis results from processed audio
-
-### Sample Categories
-- Log Drum
-- Piano
-- Percussion
-- Bass
-- Vocal
-- Saxophone
-- Guitar
-- Synth
-
-### Pattern Categories
-- Drum Patterns
-- Bass Patterns
-- Chord Progressions
-- Melodies
-
-## File Structure
+## Project Structure
 
 ```
 amapiano-ai/
@@ -151,51 +111,30 @@ amapiano-ai/
 │       ├── samples.ts            # Sample management endpoints
 │       ├── patterns.ts           # Pattern management endpoints
 │       └── migrations/           # Database migrations
-│           └── 1_create_tables.up.sql
 ├── frontend/
 │   ├── App.tsx                   # Main application component
 │   ├── components/
-│   │   ├── Header.tsx            # Navigation header
-│   │   ├── LoadingSpinner.tsx    # Loading indicator
-│   │   └── ErrorMessage.tsx      # Error display component
 │   └── pages/
-│       ├── HomePage.tsx          # Landing page
-│       ├── GeneratePage.tsx      # Music generation interface
-│       ├── AnalyzePage.tsx       # Audio analysis interface
-│       ├── SamplesPage.tsx       # Sample library browser
-│       └── PatternsPage.tsx      # Pattern library browser
+├── docs/
+│   ├── API.md
+│   ├── ARCHITECTURE.md
+│   ├── DEVELOPMENT.md
+│   ├── APP_OVERVIEW.md
+│   ├── PRD.md
+│   └── PRP.md
 └── README.md
 ```
 
-## Usage Examples
+## Documentation
 
-### Generate a Track
-```typescript
-const track = await backend.music.generateTrack({
-  prompt: "A soulful amapiano track with jazzy piano chords and deep log drums",
-  genre: "private_school_amapiano",
-  mood: "mellow",
-  bpm: 115,
-  keySignature: "Am"
-});
-```
+Comprehensive documentation is available in the `docs/` directory:
 
-### Analyze Audio
-```typescript
-const analysis = await backend.music.analyzeAudio({
-  sourceUrl: "https://youtube.com/watch?v=...",
-  sourceType: "youtube"
-});
-```
-
-### Search Samples
-```typescript
-const samples = await backend.music.searchSamples({
-  query: "log drum",
-  genre: "amapiano",
-  category: "log_drum"
-});
-```
+- **[App Overview](./docs/APP_OVERVIEW.md)**: Detailed explanation of the app, its features, and value proposition.
+- **[Architecture](./docs/ARCHITECTURE.md)**: Overview of the system architecture and technology stack.
+- **[API Reference](./docs/API.md)**: Detailed documentation for all API endpoints.
+- **[Development Guide](./docs/DEVELOPMENT.md)**: Instructions for setting up the development environment and contributing.
+- **[Product Requirements (PRD)](./docs/PRD.md)**: Detailed product requirements and specifications.
+- **[Product Roadmap (PRP)](./docs/PRP.md)**: Strategic product roadmap and planning.
 
 ## Contributing
 
