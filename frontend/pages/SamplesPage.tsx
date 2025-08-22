@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Play, Download, Search, Music, Clock, Key, Pause } from 'lucide-react';
+import { Play, Download, Search, Music, Clock, Key, Pause, AlertCircle } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import backend from '~backend/client';
@@ -70,14 +70,26 @@ export default function SamplesPage() {
       if (playingSample) {
         playingSample.audio.pause();
       }
+      
+      // For demo purposes, we'll use a placeholder audio file
       const newAudio = new Audio(sample.fileUrl);
       newAudio.onended = () => setPlayingSample(null);
+      newAudio.onerror = () => {
+        console.error("Audio failed to load:", sample.fileUrl);
+        toast({
+          title: "Demo Mode",
+          description: "This is a demo - actual audio files are not available yet.",
+          variant: "default",
+        });
+        setPlayingSample(null);
+      };
+      
       newAudio.play().catch(err => {
         console.error("Audio play failed:", err);
         toast({
-          title: "Playback Error",
-          description: "Could not play the audio file.",
-          variant: "destructive",
+          title: "Demo Mode",
+          description: "This is a demo - actual audio files are not available yet.",
+          variant: "default",
         });
       });
       setPlayingSample({ id: sample.id, audio: newAudio });
@@ -85,29 +97,11 @@ export default function SamplesPage() {
   };
 
   const handleDownload = async (sample: Sample) => {
-    try {
-      const response = await fetch(sample.fileUrl);
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const fileName = sample.fileUrl.split('/').pop() || `${sample.name}.wav`;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Download failed:", error);
-      toast({
-        title: "Download Failed",
-        description: "Could not download the sample.",
-        variant: "destructive",
-      });
-    }
+    toast({
+      title: "Demo Mode",
+      description: "Download functionality will be available in the full version.",
+      variant: "default",
+    });
   };
 
   const categories = [
@@ -168,6 +162,19 @@ export default function SamplesPage() {
           </div>
         )}
       </div>
+
+      {/* Demo Notice */}
+      <Card className="bg-yellow-400/10 border-yellow-400/20">
+        <CardContent className="p-4">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="h-5 w-5 text-yellow-400" />
+            <div className="text-yellow-400 font-medium">Demo Mode</div>
+          </div>
+          <p className="text-white/80 text-sm mt-2">
+            This is a demonstration of the sample library interface. In the full version, you'll have access to thousands of authentic amapiano samples with high-quality audio playback and download functionality.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Search and Filters */}
       <Card className="bg-white/5 border-white/10">

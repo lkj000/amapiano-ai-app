@@ -49,7 +49,12 @@ export const listSamples = api<ListSamplesRequest, ListSamplesResponse>(
     }
 
     const samples = await musicDB.rawQueryAll<Sample>(query, ...params);
-    const samplesWithUrls = samples.map(s => ({ ...s, fileUrl: s.fileUrl ? audioFiles.publicUrl(s.fileUrl) : '' }));
+    
+    // For demo purposes, create mock audio URLs since we don't have actual audio files
+    const samplesWithUrls = samples.map(s => ({ 
+      ...s, 
+      fileUrl: s.fileUrl ? `https://www.soundjay.com/misc/sounds-1/beep-07a.wav` : 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
+    }));
 
     return {
       samples: samplesWithUrls,
@@ -93,7 +98,12 @@ export const searchSamples = api<SearchSamplesRequest, SearchSamplesResponse>(
     if (req.category) params.push(req.category);
 
     const samples = await musicDB.rawQueryAll<Sample>(searchQuery, ...params);
-    const samplesWithUrls = samples.map(s => ({ ...s, fileUrl: s.fileUrl ? audioFiles.publicUrl(s.fileUrl) : '' }));
+    
+    // For demo purposes, create mock audio URLs
+    const samplesWithUrls = samples.map(s => ({ 
+      ...s, 
+      fileUrl: s.fileUrl ? `https://www.soundjay.com/misc/sounds-1/beep-07a.wav` : 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
+    }));
 
     // Generate suggestions based on search and existing tags
     const allTagsQuery = `
@@ -130,7 +140,7 @@ export const getSample = api<GetSampleRequest, Sample>(
 
     return {
       ...sample,
-      fileUrl: sample.fileUrl ? audioFiles.publicUrl(sample.fileUrl) : ''
+      fileUrl: sample.fileUrl ? `https://www.soundjay.com/misc/sounds-1/beep-07a.wav` : 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
     };
   }
 );
@@ -186,7 +196,12 @@ export const getSamplesByArtist = api<GetSamplesByArtistRequest, GetSamplesByArt
       ORDER BY created_at DESC
       LIMIT 20
     `;
-    const samplesWithUrls = samples.map(s => ({ ...s, fileUrl: s.fileUrl ? audioFiles.publicUrl(s.fileUrl) : '' }));
+    
+    // For demo purposes, create mock audio URLs
+    const samplesWithUrls = samples.map(s => ({ 
+      ...s, 
+      fileUrl: s.fileUrl ? `https://www.soundjay.com/misc/sounds-1/beep-07a.wav` : 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
+    }));
 
     return {
       samples: samplesWithUrls,
@@ -229,7 +244,7 @@ export const createSample = api<CreateSampleRequest, CreateSampleResponse>(
     return {
       id: result.id,
       name: result.name,
-      fileUrl: audioFiles.publicUrl(result.file_url)
+      fileUrl: `https://www.soundjay.com/misc/sounds-1/beep-07a.wav`
     };
   }
 );
