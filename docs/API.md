@@ -34,7 +34,8 @@ POST /generate/track
   "mood": "chill" | "energetic" | "soulful" | "groovy" | "mellow" | "uplifting" | "deep" | "jazzy",
   "bpm": 120,
   "keySignature": "C",
-  "duration": 180
+  "duration": 180,
+  "sourceAnalysisId": 12345
 }
 ```
 
@@ -150,9 +151,35 @@ GET /generate/stats
 
 ### Audio Analysis
 
+#### Get Upload URL
+Generates a signed URL for securely uploading audio/video files.
+
+```http
+POST /analyze/upload-url
+```
+
+**Request Body:**
+```json
+{
+  "fileName": "my-track.mp4",
+  "fileSize": 15728640,
+  "fileType": "video/mp4"
+}
+```
+
+**Response:**
+```json
+{
+  "uploadUrl": "https://storage.example.com/signed-url...",
+  "fileId": "upload_1672531200000_abcdef123",
+  "maxFileSize": 104857600,
+  "supportedFormats": ["mp3", "wav", "mp4", "mov", "..."]
+}
+```
+
 #### Analyze Audio
 
-Analyze audio from YouTube URLs or uploaded files to extract stems and patterns.
+Analyze audio from various sources to extract stems and patterns.
 
 ```http
 POST /analyze/audio
@@ -162,7 +189,9 @@ POST /analyze/audio
 ```json
 {
   "sourceUrl": "https://www.youtube.com/watch?v=example",
-  "sourceType": "youtube" | "upload" | "url"
+  "sourceType": "youtube" | "upload" | "url" | "tiktok",
+  "fileName": "my-track.mp4",
+  "fileSize": 15728640
 }
 ```
 
@@ -195,8 +224,39 @@ POST /analyze/audio
     "bpm": 120,
     "keySignature": "C",
     "genre": "amapiano",
-    "duration": 180
+    "duration": 180,
+    "originalFileName": "my-track.mp4",
+    "fileType": "video"
   }
+}
+```
+
+#### Amapianorize Track
+Transforms an analyzed track into amapiano style.
+
+```http
+POST /analyze/amapianorize
+```
+
+**Request Body:**
+```json
+{
+  "sourceAnalysisId": 12345,
+  "targetGenre": "private_school_amapiano",
+  "intensity": "moderate",
+  "preserveVocals": true,
+  "customPrompt": "Add more jazzy saxophone"
+}
+```
+
+**Response:**
+```json
+{
+  "id": 67890,
+  "originalTrackId": 12345,
+  "amapianorizedTrackUrl": "https://storage.example.com/amapianorized_67890.wav",
+  "stems": { "...": "..." },
+  "metadata": { "bpm": 115, "keySignature": "F#m", "genre": "private_school_amapiano", "..." }
 }
 ```
 

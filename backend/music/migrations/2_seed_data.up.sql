@@ -53,3 +53,33 @@ SELECT * FROM (VALUES
 WHERE NOT EXISTS (
   SELECT 1 FROM samples WHERE samples.name = v.name
 );
+
+-- Ensure we have pattern data by inserting if not exists
+INSERT INTO patterns (name, category, genre, pattern_data, bpm, key_signature, bars)
+SELECT * FROM (VALUES
+-- Classic Amapiano Chord Progressions
+('Classic Amapiano', 'chord_progression', 'amapiano', '{"chords": ["C", "Am", "F", "G"], "progression": "I-vi-IV-V", "style": "soulful"}'::jsonb, 120, 'C', 4),
+('Kabza Style', 'chord_progression', 'amapiano', '{"chords": ["Cm", "Fm", "G", "Cm"], "progression": "i-iv-V-i", "style": "energetic"}'::jsonb, 118, 'Cm', 4),
+('Deep House Influence', 'chord_progression', 'amapiano', '{"chords": ["Am7", "Dm7", "G7", "Cmaj7"], "progression": "vim7-iim7-V7-Imaj7", "style": "deep"}'::jsonb, 122, 'C', 4),
+
+-- Private School Chord Progressions
+('Private School Classic', 'chord_progression', 'private_school_amapiano', '{"chords": ["Cmaj9", "Am7", "Fmaj7", "G7sus4"], "progression": "Imaj9-vim7-IVmaj7-V7sus4", "style": "jazzy"}'::jsonb, 115, 'C', 4),
+('Kelvin Momo Style', 'chord_progression', 'private_school_amapiano', '{"chords": ["Dm9", "G13", "Cmaj7", "Am7"], "progression": "iim9-V13-Imaj7-vim7", "style": "sophisticated"}'::jsonb, 110, 'C', 4),
+('Smooth Jazz Influence', 'chord_progression', 'private_school_amapiano', '{"chords": ["Fmaj7", "Em7", "Am7", "Dm7"], "progression": "IVmaj7-iiim7-vim7-iim7", "style": "smooth"}'::jsonb, 112, 'C', 4),
+
+-- Drum Patterns
+('Classic Log Drum', 'drum_pattern', 'amapiano', '{"logDrum": "x-x-.-x-x-.-x-.-", "kick": "x...x...x...x...", "snare": "....x.......x...", "hiHat": "x.x.x.x.x.x.x.x.", "style": "classic"}'::jsonb, 120, NULL, 1),
+('Private School Subtle', 'drum_pattern', 'private_school_amapiano', '{"logDrum": "x.-.x.-.x.-.x.-.", "kick": "x.......x.......", "snare": "........x.......", "hiHat": "..x...x...x...x.", "style": "minimal"}'::jsonb, 110, NULL, 1),
+('Modern Amapiano', 'drum_pattern', 'amapiano', '{"logDrum": "x-x.x-x.x-x.x-x.", "kick": "x...x.x.x...x.x.", "snare": "....x.......x...", "hiHat": "x.x.x.x.x.x.x.x.", "style": "modern"}'::jsonb, 122, NULL, 1),
+
+-- Bass Patterns
+('Classic Bass Walk', 'bass_pattern', 'amapiano', '{"notes": ["C2", "C2", "F2", "G2"], "rhythm": "quarter", "style": "walking"}'::jsonb, 120, 'C', 4),
+('Jazz Bass Line', 'bass_pattern', 'private_school_amapiano', '{"notes": ["Dm", "G", "C", "Am"], "rhythm": "syncopated", "style": "jazz"}'::jsonb, 115, 'C', 4),
+
+-- Melodies
+('Soulful Piano Melody', 'melody', 'amapiano', '{"notes": ["C4", "E4", "G4", "A4", "G4", "F4", "E4", "C4"], "rhythm": "eighth", "style": "soulful"}'::jsonb, 120, 'C', 2),
+('Jazz Piano Melody', 'melody', 'private_school_amapiano', '{"notes": ["D4", "F4", "A4", "C5", "Bb4", "G4", "F4", "D4"], "rhythm": "triplet", "style": "jazzy"}'::jsonb, 115, 'Dm', 2)
+) AS v(name, category, genre, pattern_data, bpm, key_signature, bars)
+WHERE NOT EXISTS (
+  SELECT 1 FROM patterns WHERE patterns.name = v.name
+);

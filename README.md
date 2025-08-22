@@ -15,30 +15,31 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 
 ## Features
 
-### 🎵 AI Music Generation
-- Generate complete amapiano tracks from text prompts.
-- **New**: Create remixes or tracks inspired by analyzed audio from sources like TikTok.
-- Create specific loops and patterns (log drums, piano, bass, percussion).
-- Support for both Classic Amapiano and Private School Amapiano styles.
-- Customizable parameters: BPM, key signature, mood, duration.
+### 🎵 AI Music Generation & Transformation
+- **Generate from Prompt**: Create complete amapiano tracks from text descriptions.
+- **Amapianorize**: Transform any audio/video file into authentic amapiano style.
+- **Remix from Source**: Create new tracks inspired by analyzed audio from TikTok, YouTube, or local files.
+- **Loop Creation**: Generate specific loops and patterns like log drums, piano, bass, and percussion.
+- **Style Support**: Full support for both Classic Amapiano and Private School Amapiano styles.
+- **Customization**: Control BPM, key signature, mood, and duration.
 
 ### 🔍 Audio Analysis
-- Analyze audio from **TikTok**, YouTube, direct URLs, or file uploads.
-- Extract individual stems (drums, bass, piano, vocals, other).
-- Identify musical patterns and structures.
-- Detect chord progressions, drum patterns, and basslines.
+- **Universal Input**: Analyze audio from **TikTok**, YouTube, direct URLs, or **local file uploads**.
+- **Stem Separation**: Extract individual stems (drums, bass, piano, vocals, other).
+- **Pattern Recognition**: Identify musical patterns, chord progressions, and drum patterns.
+- **Music Theory**: Detect BPM, key signature, and other musical characteristics.
 
 ### 📚 Sample Library
-- Curated collection of authentic amapiano samples.
-- Samples in the style of legendary artists (Kabza De Small, Kelvin Momo, Babalwa M).
-- Advanced search and filtering by genre, category, and tags.
-- Multiple sample categories: log drums, piano, percussion, bass, vocals, saxophone, guitar, synth.
+- **Curated Collection**: Authentic amapiano samples and loops.
+- **Artist Styles**: Samples in the style of legendary artists like Kabza De Small and Kelvin Momo.
+- **Advanced Search**: Filter by genre, category, tags, BPM, and key.
+- **Multiple Categories**: Log drums, piano, percussion, bass, vocals, saxophone, guitar, and synth.
 
 ### 🎼 Pattern Library
-- Comprehensive collection of chord progressions and drum patterns.
-- Genre-specific patterns for Classic and Private School Amapiano.
-- Complexity levels: simple, intermediate, advanced.
-- Interactive pattern visualization and playback.
+- **Comprehensive Database**: Chord progressions and drum patterns.
+- **Genre-Specific**: Patterns for Classic and Private School Amapiano.
+- **Complexity Levels**: Simple, intermediate, and advanced patterns.
+- **Interactive Learning**: Visualize and play patterns to understand their structure.
 
 ## Amapiano Genres
 

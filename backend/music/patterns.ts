@@ -22,25 +22,22 @@ export const listPatterns = api<ListPatternsRequest, ListPatternsResponse>(
     let paramIndex = 1;
 
     if (req.genre) {
-      query += ` AND genre = $${paramIndex}`;
+      query += ` AND genre = $${paramIndex++}`;
       params.push(req.genre);
-      paramIndex++;
     }
 
     if (req.category) {
-      query += ` AND category = $${paramIndex}`;
+      query += ` AND category = $${paramIndex++}`;
       params.push(req.category);
-      paramIndex++;
     }
 
     if (req.bpm) {
-      query += ` AND bpm BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND bpm BETWEEN $${paramIndex++} AND $${paramIndex++}`;
       params.push(req.bpm - 10, req.bpm + 10);
-      paramIndex += 2;
     }
 
     if (req.keySignature) {
-      query += ` AND key_signature = $${paramIndex}`;
+      query += ` AND key_signature = $${paramIndex++}`;
       params.push(req.keySignature);
     }
 
@@ -72,57 +69,62 @@ export interface GetChordProgressionsResponse {
 export const getChordProgressions = api<GetChordProgressionsRequest, GetChordProgressionsResponse>(
   { expose: true, method: "GET", path: "/patterns/chords" },
   async (req) => {
-    const progressions = req.genre === "private_school_amapiano" ? [
-      {
-        id: 1,
-        name: "Private School Classic",
-        chords: ["Cmaj9", "Am7", "Fmaj7", "G7sus4"],
-        romanNumerals: ["Imaj9", "vim7", "IVmaj7", "V7sus4"],
-        complexity: "intermediate",
-        style: "jazzy"
-      },
-      {
-        id: 2,
-        name: "Kelvin Momo Style",
-        chords: ["Dm9", "G13", "Cmaj7", "Am7"],
-        romanNumerals: ["iim9", "V13", "Imaj7", "vim7"],
-        complexity: "advanced",
-        style: "sophisticated"
-      },
-      {
-        id: 3,
-        name: "Smooth Jazz Influence",
-        chords: ["Fmaj7", "Em7", "Am7", "Dm7"],
-        romanNumerals: ["IVmaj7", "iiim7", "vim7", "iim7"],
-        complexity: "intermediate",
-        style: "smooth"
-      }
-    ] : [
-      {
-        id: 4,
-        name: "Classic Amapiano",
-        chords: ["C", "Am", "F", "G"],
-        romanNumerals: ["I", "vi", "IV", "V"],
-        complexity: "simple",
-        style: "soulful"
-      },
-      {
-        id: 5,
-        name: "Kabza Style",
-        chords: ["Cm", "Fm", "G", "Cm"],
-        romanNumerals: ["i", "iv", "V", "i"],
-        complexity: "simple",
-        style: "energetic"
-      },
-      {
-        id: 6,
-        name: "Deep House Influence",
-        chords: ["Am7", "Dm7", "G7", "Cmaj7"],
-        romanNumerals: ["vim7", "iim7", "V7", "Imaj7"],
-        complexity: "intermediate",
-        style: "deep"
-      }
-    ];
+    const allProgressions = {
+      amapiano: [
+        {
+          id: 4,
+          name: "Classic Amapiano",
+          chords: ["C", "Am", "F", "G"],
+          romanNumerals: ["I", "vi", "IV", "V"],
+          complexity: "simple",
+          style: "soulful"
+        },
+        {
+          id: 5,
+          name: "Kabza Style",
+          chords: ["Cm", "Fm", "G", "Cm"],
+          romanNumerals: ["i", "iv", "V", "i"],
+          complexity: "simple",
+          style: "energetic"
+        },
+        {
+          id: 6,
+          name: "Deep House Influence",
+          chords: ["Am7", "Dm7", "G7", "Cmaj7"],
+          romanNumerals: ["vim7", "iim7", "V7", "Imaj7"],
+          complexity: "intermediate",
+          style: "deep"
+        }
+      ],
+      private_school_amapiano: [
+        {
+          id: 1,
+          name: "Private School Classic",
+          chords: ["Cmaj9", "Am7", "Fmaj7", "G7sus4"],
+          romanNumerals: ["Imaj9", "vim7", "IVmaj7", "V7sus4"],
+          complexity: "intermediate",
+          style: "jazzy"
+        },
+        {
+          id: 2,
+          name: "Kelvin Momo Style",
+          chords: ["Dm9", "G13", "Cmaj7", "Am7"],
+          romanNumerals: ["iim9", "V13", "Imaj7", "vim7"],
+          complexity: "advanced",
+          style: "sophisticated"
+        },
+        {
+          id: 3,
+          name: "Smooth Jazz Influence",
+          chords: ["Fmaj7", "Em7", "Am7", "Dm7"],
+          romanNumerals: ["IVmaj7", "iiim7", "vim7", "iim7"],
+          complexity: "intermediate",
+          style: "smooth"
+        }
+      ]
+    };
+
+    const progressions = allProgressions[req.genre] || [];
 
     const filtered = req.complexity 
       ? progressions.filter(p => p.complexity === req.complexity)
