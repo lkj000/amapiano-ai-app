@@ -1,6 +1,6 @@
 import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
-import { extractedStems, audioFiles } from "./storage";
+import { extractedStems, audioFiles, generatedTracks } from "./storage";
 import type { StemSeparation, DetectedPattern } from "./types";
 
 export interface AnalyzeAudioRequest {
