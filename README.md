@@ -5,6 +5,7 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 ## Table of Contents
 
 - [Features](#features)
+- [Demo Status](#demo-status)
 - [Amapiano Genres](#amapiano-genres)
 - [Technology Stack](#technology-stack)
 - [Getting Started](#getting-started)
@@ -40,6 +41,15 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 - **Genre-Specific**: Patterns for Classic and Private School Amapiano.
 - **Complexity Levels**: Simple, intermediate, and advanced patterns.
 - **Interactive Learning**: Visualize and play patterns to understand their structure.
+
+## Demo Status
+
+This application is currently in a demonstration phase. While the user interface and workflows are fully functional, the backend AI processing is mocked.
+- **Audio Playback**: Generates simple tones to represent audio content.
+- **Downloads**: Creates placeholder text files with metadata instead of actual audio/MIDI files.
+- **AI Generation/Analysis**: Uses pre-defined data to simulate AI responses.
+
+This approach allows for a complete demonstration of the application's features and user experience.
 
 ## Amapiano Genres
 
