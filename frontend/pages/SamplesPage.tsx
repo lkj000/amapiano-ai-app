@@ -1,21 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Play, Download, Search, Music, Clock, Key } from 'lucide-react';
+import { Play, Download, Search, Music, Clock, Key, Pause } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import backend from '~backend/client';
-import type { Genre, SampleCategory } from '~backend/music/types';
+import type { Genre, SampleCategory, Sample } from '~backend/music/types';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function SamplesPage() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<Genre | ''>('');
   const [selectedCategory, setSelectedCategory] = useState<SampleCategory | ''>('');
   const [selectedArtist, setSelectedArtist] = useState<'kabza_da_small' | 'kelvin_momo' | 'babalwa_m' | ''>('');
+  const [playingSample, setPlayingSample] = useState<{ id: number; audio: HTMLAudioElement } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (playingSample) {
+        playingSample.audio.pause();
+      }
+    };
+  }, [playingSample]);
 
   const { data: samplesData, isLoading, error, refetch } = useQuery({
     queryKey: ['samples', selectedGenre, selectedCategory],
@@ -50,6 +61,54 @@ export default function SamplesPage() {
 
   const displaySamples = searchQuery ? searchResults?.samples : artistSamples?.samples || samplesData?.samples || [];
   const isLoadingAny = isLoading || isSearching || isLoadingArtist;
+
+  const handlePlay = (sample: Sample) => {
+    if (playingSample && playingSample.id === sample.id) {
+      playingSample.audio.pause();
+      setPlayingSample(null);
+    } else {
+      if (playingSample) {
+        playingSample.audio.pause();
+      }
+      const newAudio = new Audio(sample.fileUrl);
+      newAudio.onended = () => setPlayingSample(null);
+      newAudio.play().catch(err => {
+        console.error("Audio play failed:", err);
+        toast({
+          title: "Playback Error",
+          description: "Could not play the audio file.",
+          variant: "destructive",
+        });
+      });
+      setPlayingSample({ id: sample.id, audio: newAudio });
+    }
+  };
+
+  const handleDownload = async (sample: Sample) => {
+    try {
+      const response = await fetch(sample.fileUrl);
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const fileName = sample.fileUrl.split('/').pop() || `${sample.name}.wav`;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download failed:", error);
+      toast({
+        title: "Download Failed",
+        description: "Could not download the sample.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const categories = [
     { value: 'log_drum', label: 'Log Drum' },
@@ -294,11 +353,11 @@ export default function SamplesPage() {
                   )}
 
                   <div className="flex items-center space-x-2">
-                    <Button size="sm" className="bg-green-500 hover:bg-green-600 flex-1">
-                      <Play className="h-3 w-3 mr-1" />
-                      Play
+                    <Button size="sm" className="bg-green-500 hover:bg-green-600 flex-1" onClick={() => handlePlay(sample)}>
+                      {playingSample?.id === sample.id ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
+                      {playingSample?.id === sample.id ? 'Pause' : 'Play'}
                     </Button>
-                    <Button size="sm" variant="outline" className="border-white/20 text-white">
+                    <Button size="sm" variant="outline" className="border-white/20 text-white" onClick={() => handleDownload(sample)}>
                       <Download className="h-3 w-3" />
                     </Button>
                   </div>

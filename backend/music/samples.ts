@@ -1,5 +1,6 @@
 import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
+import { audioFiles } from "./storage";
 import type { Genre, SampleCategory, Sample } from "./types";
 
 export interface ListSamplesRequest {
@@ -48,9 +49,10 @@ export const listSamples = api<ListSamplesRequest, ListSamplesResponse>(
     }
 
     const samples = await musicDB.rawQueryAll<Sample>(query, ...params);
+    const samplesWithUrls = samples.map(s => ({ ...s, fileUrl: s.fileUrl ? audioFiles.publicUrl(s.fileUrl) : '' }));
 
     return {
-      samples,
+      samples: samplesWithUrls,
       total: samples.length
     };
   }
@@ -91,6 +93,7 @@ export const searchSamples = api<SearchSamplesRequest, SearchSamplesResponse>(
     if (req.category) params.push(req.category);
 
     const samples = await musicDB.rawQueryAll<Sample>(searchQuery, ...params);
+    const samplesWithUrls = samples.map(s => ({ ...s, fileUrl: s.fileUrl ? audioFiles.publicUrl(s.fileUrl) : '' }));
 
     // Generate suggestions based on search and existing tags
     const allTagsQuery = `
@@ -103,7 +106,7 @@ export const searchSamples = api<SearchSamplesRequest, SearchSamplesResponse>(
     const suggestions = tagResults.map(r => r.tag);
 
     return {
-      samples,
+      samples: samplesWithUrls,
       suggestions
     };
   }
@@ -125,7 +128,10 @@ export const getSample = api<GetSampleRequest, Sample>(
       throw APIError.notFound("Sample not found");
     }
 
-    return sample;
+    return {
+      ...sample,
+      fileUrl: sample.fileUrl ? audioFiles.publicUrl(sample.fileUrl) : ''
+    };
   }
 );
 
@@ -180,9 +186,10 @@ export const getSamplesByArtist = api<GetSamplesByArtistRequest, GetSamplesByArt
       ORDER BY created_at DESC
       LIMIT 20
     `;
+    const samplesWithUrls = samples.map(s => ({ ...s, fileUrl: s.fileUrl ? audioFiles.publicUrl(s.fileUrl) : '' }));
 
     return {
-      samples,
+      samples: samplesWithUrls,
       artistInfo
     };
   }
@@ -202,23 +209,28 @@ export interface CreateSampleRequest {
 export interface CreateSampleResponse {
   id: number;
   name: string;
+  fileUrl: string;
 }
 
 // Creates a new sample (for admin/content management)
 export const createSample = api<CreateSampleRequest, CreateSampleResponse>(
   { expose: true, method: "POST", path: "/samples" },
   async (req) => {
-    const result = await musicDB.queryRow<{id: number, name: string}>`
+    const result = await musicDB.queryRow<{id: number, name: string, file_url: string}>`
       INSERT INTO samples (name, category, genre, file_url, bpm, key_signature, duration_seconds, tags)
       VALUES (${req.name}, ${req.category}, ${req.genre}, ${req.fileUrl}, ${req.bpm || null}, ${req.keySignature || null}, ${req.durationSeconds || null}, ${req.tags || []})
-      RETURNING id, name
+      RETURNING id, name, file_url
     `;
 
     if (!result) {
       throw APIError.internal("Failed to create sample");
     }
 
-    return result;
+    return {
+      id: result.id,
+      name: result.name,
+      fileUrl: audioFiles.publicUrl(result.file_url)
+    };
   }
 );
 

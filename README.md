@@ -90,14 +90,19 @@ The application will be available at `http://localhost:4000`
 ### Music Generation
 - `POST /generate/track` - Generate a complete amapiano track
 - `POST /generate/loop` - Generate specific loops and patterns
+- `GET /generate/history` - Get generation history
+- `GET /generate/stats` - Get generation statistics
 
 ### Audio Analysis
 - `POST /analyze/audio` - Analyze audio from URLs or uploads
 - `POST /analyze/patterns` - Extract amapiano-specific patterns
+- `GET /analyze/history` - Get analysis history
 
 ### Sample Management
 - `GET /samples` - List available samples with filtering
+- `POST /samples` - Create a new sample
 - `GET /samples/search` - Search samples by query
+- `GET /samples/stats` - Get sample library statistics
 - `GET /samples/:id` - Get specific sample details
 - `GET /samples/artist/:artist` - Get samples by artist style
 
@@ -150,7 +155,9 @@ amapiano-ai/
 ├── frontend/
 │   ├── App.tsx                   # Main application component
 │   ├── components/
-│   │   └── Header.tsx            # Navigation header
+│   │   ├── Header.tsx            # Navigation header
+│   │   ├── LoadingSpinner.tsx    # Loading indicator
+│   │   └── ErrorMessage.tsx      # Error display component
 │   └── pages/
 │       ├── HomePage.tsx          # Landing page
 │       ├── GeneratePage.tsx      # Music generation interface

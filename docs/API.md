@@ -90,6 +90,64 @@ POST /generate/loop
 }
 ```
 
+#### Get Generation History
+
+Get a list of previously generated tracks.
+
+```http
+GET /generate/history?limit=20&genre=amapiano
+```
+
+**Query Parameters:**
+- `limit` (optional): Number of results to return (default 50)
+- `genre` (optional): Filter by genre
+
+**Response:**
+```json
+{
+  "tracks": [
+    {
+      "id": 123456,
+      "prompt": "A soulful amapiano track...",
+      "genre": "amapiano",
+      "mood": "soulful",
+      "bpm": 120,
+      "keySignature": "C",
+      "fileUrl": "generated_123456.wav",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+#### Get Generation Statistics
+
+Get statistics about generated content.
+
+```http
+GET /generate/stats
+```
+
+**Response:**
+```json
+{
+  "totalGenerations": 1234,
+  "generationsByGenre": {
+    "amapiano": 800,
+    "private_school_amapiano": 434
+  },
+  "generationsByMood": {
+    "chill": 500,
+    "energetic": 300
+  },
+  "averageBpm": 118,
+  "popularKeySignatures": [
+    { "key": "C", "count": 200 },
+    { "key": "Am", "count": 150 }
+  ]
+}
+```
+
 ### Audio Analysis
 
 #### Analyze Audio
@@ -190,6 +248,38 @@ POST /analyze/patterns
 }
 ```
 
+#### Get Analysis History
+
+Get a list of previously analyzed tracks.
+
+```http
+GET /analyze/history?limit=20&sourceType=youtube
+```
+
+**Query Parameters:**
+- `limit` (optional): Number of results to return (default 50)
+- `sourceType` (optional): Filter by source type
+
+**Response:**
+```json
+{
+  "analyses": [
+    {
+      "id": 345678,
+      "sourceUrl": "https://www.youtube.com/watch?v=example",
+      "sourceType": "youtube",
+      "metadata": {
+        "bpm": 120,
+        "keySignature": "C",
+        "genre": "amapiano",
+        "duration": 180
+      },
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
 ### Sample Management
 
 #### List Samples
@@ -227,6 +317,37 @@ GET /samples?genre=amapiano&category=log_drum&limit=50
 }
 ```
 
+#### Create Sample
+
+Create a new sample (for admin/content management).
+
+```http
+POST /samples
+```
+
+**Request Body:**
+```json
+{
+  "name": "New Sample",
+  "category": "log_drum",
+  "genre": "amapiano",
+  "fileUrl": "samples/new_sample.wav",
+  "bpm": 120,
+  "keySignature": "C",
+  "durationSeconds": 4.0,
+  "tags": ["new", "test"]
+}
+```
+
+**Response:**
+```json
+{
+  "id": 123,
+  "name": "New Sample",
+  "fileUrl": "https://storage.example.com/samples/new_sample.wav"
+}
+```
+
 #### Search Samples
 
 Search samples by name, tags, or characteristics.
@@ -260,6 +381,33 @@ GET /samples/search?query=log%20drum&genre=amapiano
   "suggestions": [
     "log drum deep",
     "log drum classic"
+  ]
+}
+```
+
+#### Get Sample Statistics
+
+Get statistics about the sample library.
+
+```http
+GET /samples/stats
+```
+
+**Response:**
+```json
+{
+  "totalSamples": 5432,
+  "samplesByCategory": {
+    "log_drum": 500,
+    "piano": 800
+  },
+  "samplesByGenre": {
+    "amapiano": 3000,
+    "private_school_amapiano": 2432
+  },
+  "popularTags": [
+    { "tag": "deep", "count": 400 },
+    { "tag": "jazzy", "count": 350 }
   ]
 }
 ```
