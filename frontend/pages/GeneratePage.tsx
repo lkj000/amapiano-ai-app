@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/components/ui/use-toast';
-import { Radio, Play, Download, Layers, Sparkles, AlertCircle, CheckCircle } from 'lucide-react';
+import { Radio, Play, Download, Layers, Sparkles, AlertCircle, CheckCircle, Pause, Volume2 } from 'lucide-react';
 import backend from '~backend/client';
 import type { GenerateTrackRequest, GenerateLoopRequest } from '~backend/music/generate';
 
@@ -18,6 +18,7 @@ export default function GeneratePage() {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'track' | 'loop'>('track');
   const [isRemixMode, setIsRemixMode] = useState(false);
+  const [playingAudio, setPlayingAudio] = useState<{ type: 'track' | 'stem' | 'loop'; id: string; audio: HTMLAudioElement } | null>(null);
   
   // Track generation state
   const [trackForm, setTrackForm] = useState<GenerateTrackRequest>({
@@ -38,6 +39,15 @@ export default function GeneratePage() {
     bars: 4,
     keySignature: 'C'
   });
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (playingAudio) {
+        playingAudio.audio.pause();
+      }
+    };
+  }, [playingAudio]);
 
   useEffect(() => {
     const sourceId = searchParams.get('sourceId');
@@ -102,6 +112,87 @@ export default function GeneratePage() {
       });
     },
   });
+
+  const handlePlay = (audioUrl: string, type: 'track' | 'stem' | 'loop', id: string, name?: string) => {
+    if (playingAudio && playingAudio.id === id) {
+      playingAudio.audio.pause();
+      setPlayingAudio(null);
+      return;
+    }
+
+    if (playingAudio) {
+      playingAudio.audio.pause();
+    }
+
+    // Create a demo audio context with a simple tone
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Different frequencies for different types
+    const frequencies = {
+      track: 220, // A3
+      stem: 330,  // E4
+      loop: 440   // A4
+    };
+    
+    oscillator.frequency.setValueAtTime(frequencies[type], audioContext.currentTime);
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 2);
+    
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 2);
+    
+    // Create a mock audio element for state management
+    const mockAudio = {
+      pause: () => {
+        oscillator.stop();
+        setPlayingAudio(null);
+      },
+      play: () => Promise.resolve(),
+      currentTime: 0,
+      duration: 2
+    } as HTMLAudioElement;
+
+    setPlayingAudio({ type, id, audio: mockAudio });
+    
+    toast({
+      title: "Demo Playback",
+      description: `Playing ${name || type}... (demo audio)`,
+    });
+
+    // Auto-stop after 2 seconds
+    setTimeout(() => {
+      setPlayingAudio(null);
+    }, 2000);
+  };
+
+  const handleDownload = (audioUrl: string, filename: string) => {
+    // Create a mock download by generating a simple audio file
+    const canvas = document.createElement('canvas');
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Download Started",
+          description: `Downloading ${filename}... (demo file)`,
+        });
+      }
+    }, 'audio/wav');
+  };
 
   const handleGenerateTrack = () => {
     if (!trackForm.prompt.trim()) {
@@ -379,11 +470,20 @@ export default function GeneratePage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center space-x-4">
-                    <Button size="sm" className="bg-green-500 hover:bg-green-600">
-                      <Play className="h-4 w-4 mr-2" />
-                      Play Track
+                    <Button 
+                      size="sm" 
+                      className="bg-green-500 hover:bg-green-600"
+                      onClick={() => handlePlay(generateTrackMutation.data!.audioUrl, 'track', 'main-track', 'Generated Track')}
+                    >
+                      {playingAudio?.id === 'main-track' ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+                      {playingAudio?.id === 'main-track' ? 'Stop' : 'Play Track'}
                     </Button>
-                    <Button size="sm" variant="outline" className="border-white/20 text-white">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-white/20 text-white"
+                      onClick={() => handleDownload(generateTrackMutation.data!.audioUrl, 'amapiano-track.wav')}
+                    >
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </Button>
@@ -403,16 +503,29 @@ export default function GeneratePage() {
 
                   {/* Stems */}
                   <div className="space-y-2">
-                    <h4 className="text-white font-medium">Individual Stems:</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <h4 className="text-white font-medium flex items-center">
+                      <Volume2 className="h-4 w-4 mr-2" />
+                      Individual Stems:
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {Object.entries(generateTrackMutation.data.stems).map(([stem, url]) => (
-                        <div key={stem} className="flex items-center justify-between p-2 bg-white/5 rounded">
-                          <span className="text-white/70 capitalize text-sm">{stem}</span>
-                          <div className="flex space-x-1">
-                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                              <Play className="h-3 w-3" />
+                        <div key={stem} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                          <span className="text-white/70 capitalize text-sm font-medium">{stem}</span>
+                          <div className="flex space-x-2">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0 hover:bg-white/10"
+                              onClick={() => handlePlay(url, 'stem', `stem-${stem}`, `${stem} stem`)}
+                            >
+                              {playingAudio?.id === `stem-${stem}` ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0 hover:bg-white/10"
+                              onClick={() => handleDownload(url, `${stem}-stem.wav`)}
+                            >
                               <Download className="h-3 w-3" />
                             </Button>
                           </div>
@@ -540,11 +653,20 @@ export default function GeneratePage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center space-x-4">
-                    <Button size="sm" className="bg-green-500 hover:bg-green-600">
-                      <Play className="h-4 w-4 mr-2" />
-                      Play Loop
+                    <Button 
+                      size="sm" 
+                      className="bg-green-500 hover:bg-green-600"
+                      onClick={() => handlePlay(generateLoopMutation.data!.audioUrl, 'loop', 'main-loop', 'Generated Loop')}
+                    >
+                      {playingAudio?.id === 'main-loop' ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+                      {playingAudio?.id === 'main-loop' ? 'Stop' : 'Play Loop'}
                     </Button>
-                    <Button size="sm" variant="outline" className="border-white/20 text-white">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-white/20 text-white"
+                      onClick={() => handleDownload(generateLoopMutation.data!.audioUrl, `${generateLoopMutation.data!.metadata.category}-loop.wav`)}
+                    >
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </Button>
@@ -597,6 +719,20 @@ export default function GeneratePage() {
               </ul>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Demo Notice */}
+      <Card className="bg-blue-400/10 border-blue-400/20 max-w-4xl mx-auto">
+        <CardContent className="p-4">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="h-5 w-5 text-blue-400" />
+            <div className="text-blue-400 font-medium">Demo Mode</div>
+          </div>
+          <p className="text-white/80 text-sm mt-2">
+            This is a demonstration of the music generation interface. In the full version, you'll hear actual AI-generated amapiano tracks. 
+            Currently, play buttons generate demo tones and downloads create placeholder files.
+          </p>
         </CardContent>
       </Card>
     </div>
