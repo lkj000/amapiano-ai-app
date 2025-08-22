@@ -21,6 +21,8 @@ CREATE TABLE samples (
   key_signature TEXT,
   duration_seconds DOUBLE PRECISION,
   tags TEXT[],
+  quality_rating DOUBLE PRECISION DEFAULT 0.0,
+  download_count INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -33,6 +35,8 @@ CREATE TABLE patterns (
   bpm INTEGER,
   key_signature TEXT,
   bars INTEGER DEFAULT 4,
+  complexity TEXT CHECK (complexity IN ('simple', 'intermediate', 'advanced')),
+  usage_count INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -43,6 +47,8 @@ CREATE TABLE audio_analysis (
   analysis_data JSONB NOT NULL,
   extracted_stems JSONB,
   detected_patterns JSONB,
+  processing_time_ms INTEGER,
+  quality_score DOUBLE PRECISION,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -56,12 +62,56 @@ CREATE TABLE generated_tracks (
   file_url TEXT,
   stems_data JSONB,
   source_analysis_id BIGINT REFERENCES audio_analysis(id),
+  processing_time_ms INTEGER,
+  transformation_type TEXT,
+  quality_rating DOUBLE PRECISION DEFAULT 0.0,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE batch_analysis (
+  id BIGSERIAL PRIMARY KEY,
+  batch_id TEXT UNIQUE NOT NULL,
+  sources JSONB NOT NULL,
+  priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high')),
+  status TEXT DEFAULT 'queued' CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
+  estimated_completion_time INTEGER,
+  actual_completion_time INTEGER,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE user_favorites (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  item_type TEXT NOT NULL CHECK (item_type IN ('sample', 'pattern', 'track', 'analysis')),
+  item_id BIGINT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE usage_analytics (
+  id BIGSERIAL PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  event_data JSONB,
+  user_id TEXT,
+  session_id TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for performance
 CREATE INDEX idx_tracks_genre ON tracks(genre);
+CREATE INDEX idx_tracks_bpm ON tracks(bpm);
 CREATE INDEX idx_samples_category ON samples(category);
 CREATE INDEX idx_samples_genre ON samples(genre);
+CREATE INDEX idx_samples_tags ON samples USING GIN(tags);
+CREATE INDEX idx_samples_quality ON samples(quality_rating DESC);
 CREATE INDEX idx_patterns_category ON patterns(category);
 CREATE INDEX idx_patterns_genre ON patterns(genre);
+CREATE INDEX idx_patterns_complexity ON patterns(complexity);
+CREATE INDEX idx_audio_analysis_source_type ON audio_analysis(source_type);
+CREATE INDEX idx_audio_analysis_quality ON audio_analysis(quality_score DESC);
 CREATE INDEX idx_generated_tracks_genre ON generated_tracks(genre);
+CREATE INDEX idx_generated_tracks_source ON generated_tracks(source_analysis_id);
+CREATE INDEX idx_batch_analysis_status ON batch_analysis(status);
+CREATE INDEX idx_user_favorites_user ON user_favorites(user_id);
+CREATE INDEX idx_usage_analytics_event ON usage_analytics(event_type);
+CREATE INDEX idx_usage_analytics_time ON usage_analytics(created_at);
