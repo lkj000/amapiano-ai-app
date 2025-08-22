@@ -243,7 +243,7 @@ export default function GeneratePage() {
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label className="text-white">Duration: {Math.floor((trackForm.duration || 180) / 60)}:{(trackForm.duration || 180) % 60).toString().padStart(2, '0')}</Label>
+                <Label className="text-white">Duration: {Math.floor((trackForm.duration || 180) / 60)}:{((trackForm.duration || 180) % 60).toString().padStart(2, '0')}</Label>
                 <Slider
                   value={[trackForm.duration || 180]}
                   onValueChange={([value]) => setTrackForm({ ...trackForm, duration: value })}
