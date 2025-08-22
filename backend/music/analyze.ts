@@ -1024,8 +1024,47 @@ export const extractPatterns = api<ExtractPatternsRequest, ExtractPatternsRespon
   }
 );
 
+// Schemas for getAnalysisHistory
+interface AnalysisHistoryItemMetadata {
+  bpm: number;
+  keySignature: string;
+  genre: string;
+  subGenre?: string;
+  duration: number;
+  originalFileName?: string;
+  fileType?: string;
+  confidence: number;
+  quality: "low" | "medium" | "high" | "professional";
+  culturalAuthenticity?: number;
+  musicalComplexity?: "simple" | "intermediate" | "advanced" | "expert";
+}
+
+interface AnalysisHistoryItem {
+  id: number;
+  sourceUrl: string;
+  sourceType: string;
+  metadata: AnalysisHistoryItemMetadata;
+  processingTime: number;
+  createdAt: Date;
+}
+
+export interface GetAnalysisHistoryRequest {
+  sourceType?: string;
+  genre?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  limit?: number;
+}
+
+export interface GetAnalysisHistoryResponse {
+  analyses: AnalysisHistoryItem[];
+  totalCount: number;
+  averageQuality: number;
+  averageCulturalAuthenticity: number;
+}
+
 // Keep existing endpoints with enhanced error handling and validation
-export const getAnalysisHistory = api<any, any>(
+export const getAnalysisHistory = api<GetAnalysisHistoryRequest, GetAnalysisHistoryResponse>(
   { expose: true, method: "GET", path: "/analyze/history" },
   async (req) => {
     // Enhanced implementation with better filtering and cultural metrics
@@ -1114,7 +1153,41 @@ export const getAnalysisHistory = api<any, any>(
   }
 );
 
-export const batchAnalyze = api<any, any>(
+// Schemas for batchAnalyze
+interface BatchSource {
+  sourceUrl: string;
+  sourceType: 'youtube' | 'upload' | 'url' | 'tiktok';
+  fileName?: string;
+  fileSize?: number;
+}
+
+export interface BatchAnalyzeRequest {
+  sources: BatchSource[];
+  priority?: 'low' | 'normal' | 'high';
+  enhancedProcessing?: boolean;
+  culturalAnalysis?: boolean;
+}
+
+interface BatchAnalyzeResponseSource {
+  sourceUrl: string;
+  status: 'queued';
+}
+
+interface BatchAnalyzeResponseEnhancedFeatures {
+  professionalStemSeparation: boolean;
+  culturalAuthenticity: boolean;
+  educationalInsights: boolean;
+}
+
+export interface BatchAnalyzeResponse {
+  batchId: string;
+  estimatedCompletionTime: number;
+  queuePosition: number;
+  sources: BatchAnalyzeResponseSource[];
+  enhancedFeatures?: BatchAnalyzeResponseEnhancedFeatures;
+}
+
+export const batchAnalyze = api<BatchAnalyzeRequest, BatchAnalyzeResponse>(
   { expose: true, method: "POST", path: "/analyze/batch" },
   async (req) => {
     if (!req.sources || req.sources.length === 0) {
@@ -1174,7 +1247,37 @@ export const batchAnalyze = api<any, any>(
   }
 );
 
-export const getBatchStatus = api<any, any>(
+// Schemas for getBatchStatus
+export interface GetBatchStatusRequest {
+  batchId: string;
+}
+
+interface BatchStatusResult {
+  sourceUrl: string;
+  status: 'completed' | 'queued';
+  analysisId?: number;
+  qualityScore?: number;
+  culturalAuthenticity?: number;
+}
+
+interface BatchStatusEnhancedFeatures {
+  professionalStemSeparation: boolean;
+  culturalAuthenticity: boolean;
+  educationalInsights: boolean;
+}
+
+export interface GetBatchStatusResponse {
+  batchId: string;
+  status: 'completed' | 'processing';
+  progress: number;
+  completedSources: number;
+  totalSources: number;
+  results: BatchStatusResult[];
+  estimatedTimeRemaining: number;
+  enhancedFeatures?: BatchStatusEnhancedFeatures;
+}
+
+export const getBatchStatus = api<GetBatchStatusRequest, GetBatchStatusResponse>(
   { expose: true, method: "GET", path: "/analyze/batch/:batchId" },
   async (req) => {
     const batch = await musicDB.queryRow<{

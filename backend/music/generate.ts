@@ -852,8 +852,65 @@ function generateMusicalElements(category: string, complexity: string, genre: Ge
   return elements;
 }
 
+// Schemas for getGenerationHistory
+interface GenerationHistoryFilter {
+  hasSourceAnalysis?: boolean;
+  minQuality?: number;
+  qualityTier?: string;
+  transformationType?: string;
+}
+
+export interface GetGenerationHistoryRequest {
+  genre?: Genre;
+  filterBy?: GenerationHistoryFilter;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  limit?: number;
+}
+
+interface GenerationHistoryTrack {
+  id: number;
+  prompt: string;
+  genre: Genre;
+  mood?: string;
+  bpm?: number;
+  keySignature?: string;
+  fileUrl?: string;
+  qualityRating?: number;
+  culturalAuthenticity?: number;
+  musicalComplexity?: string;
+  energyLevel?: number;
+  danceability?: number;
+  qualityTier?: string;
+  processingTime?: number;
+  transformationType?: string;
+  createdAt: Date;
+}
+
+interface GenreDistribution {
+  count: number;
+  avgQuality: number;
+  avgCultural: number;
+}
+
+interface GenerationHistoryStatistics {
+  totalGenerations: number;
+  averageProcessingTime: number;
+  averageEnergyLevel: number;
+  averageDanceability: number;
+  genreDistribution: Record<Genre, GenreDistribution>;
+}
+
+export interface GetGenerationHistoryResponse {
+  tracks: GenerationHistoryTrack[];
+  totalCount: number;
+  averageQuality: number;
+  averageCulturalAuthenticity: number;
+  statistics: GenerationHistoryStatistics;
+}
+
 // Keep existing endpoints with enhanced implementations
-export const getGenerationHistory = api<any, any>(
+export const getGenerationHistory = api<GetGenerationHistoryRequest, GetGenerationHistoryResponse>(
   { expose: true, method: "GET", path: "/generate/history" },
   async (req) => {
     // Enhanced implementation with cultural metrics and quality tiers
@@ -1010,7 +1067,42 @@ export const getGenerationHistory = api<any, any>(
   }
 );
 
-export const getGenerationStats = api<void, any>(
+// Schemas for getGenerationStats
+interface GenreStats {
+  count: number;
+  avgQuality: number;
+  avgCultural: number;
+  avgEnergy: number;
+}
+
+interface QualityTierStats {
+  count: number;
+  avgQuality: number;
+}
+
+interface ProcessingStats {
+  averageTime: number;
+  fastestTime: number;
+  slowestTime: number;
+}
+
+interface QualityMetrics {
+  averageQuality: number;
+  averageCulturalAuthenticity: number;
+  averageEnergyLevel: number;
+  averageDanceability: number;
+}
+
+export interface GetGenerationStatsResponse {
+  totalGenerations: number;
+  generationsByGenre: Record<Genre, GenreStats>;
+  qualityTierDistribution: Record<string, QualityTierStats>;
+  complexityDistribution: Record<string, number>;
+  processingStats: ProcessingStats;
+  qualityMetrics: QualityMetrics;
+}
+
+export const getGenerationStats = api<void, GetGenerationStatsResponse>(
   { expose: true, method: "GET", path: "/generate/stats" },
   async () => {
     try {
