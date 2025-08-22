@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Play, Download, Search, Filter, Music, Clock, Key } from 'lucide-react';
+import { Play, Download, Search, Music, Clock, Key } from 'lucide-react';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorMessage from '../components/ErrorMessage';
 import backend from '~backend/client';
 import type { Genre, SampleCategory } from '~backend/music/types';
 
@@ -15,16 +17,17 @@ export default function SamplesPage() {
   const [selectedCategory, setSelectedCategory] = useState<SampleCategory | ''>('');
   const [selectedArtist, setSelectedArtist] = useState<'kabza_da_small' | 'kelvin_momo' | 'babalwa_m' | ''>('');
 
-  const { data: samplesData, isLoading } = useQuery({
+  const { data: samplesData, isLoading, error, refetch } = useQuery({
     queryKey: ['samples', selectedGenre, selectedCategory],
     queryFn: () => backend.music.listSamples({
       genre: selectedGenre || undefined,
       category: selectedCategory || undefined,
       limit: 50
     }),
+    enabled: !searchQuery && !selectedArtist,
   });
 
-  const { data: searchResults } = useQuery({
+  const { data: searchResults, isLoading: isSearching } = useQuery({
     queryKey: ['searchSamples', searchQuery, selectedGenre, selectedCategory],
     queryFn: () => backend.music.searchSamples({
       query: searchQuery,
@@ -34,13 +37,19 @@ export default function SamplesPage() {
     enabled: searchQuery.length > 0,
   });
 
-  const { data: artistSamples } = useQuery({
+  const { data: artistSamples, isLoading: isLoadingArtist } = useQuery({
     queryKey: ['artistSamples', selectedArtist],
     queryFn: () => backend.music.getSamplesByArtist({ artist: selectedArtist! }),
     enabled: !!selectedArtist,
   });
 
+  const { data: statsData } = useQuery({
+    queryKey: ['sampleStats'],
+    queryFn: () => backend.music.getSampleStats(),
+  });
+
   const displaySamples = searchQuery ? searchResults?.samples : artistSamples?.samples || samplesData?.samples || [];
+  const isLoadingAny = isLoading || isSearching || isLoadingArtist;
 
   const categories = [
     { value: 'log_drum', label: 'Log Drum' },
@@ -73,6 +82,17 @@ export default function SamplesPage() {
     return colors[category] || 'bg-gray-500/20 text-gray-400';
   };
 
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedGenre('');
+    setSelectedCategory('');
+    setSelectedArtist('');
+  };
+
+  if (error) {
+    return <ErrorMessage error={error as Error} retry={refetch} />;
+  }
+
   return (
     <div className="space-y-8">
       <div className="text-center space-y-4">
@@ -81,6 +101,13 @@ export default function SamplesPage() {
           Explore our curated collection of authentic amapiano samples from legendary artists like 
           Kabza De Small, Kelvin Momo, and Babalwa M.
         </p>
+        {statsData && (
+          <div className="flex justify-center space-x-6 text-sm text-white/60">
+            <span>{statsData.totalSamples} total samples</span>
+            <span>{Object.keys(statsData.samplesByCategory).length} categories</span>
+            <span>{statsData.popularTags.length} unique tags</span>
+          </div>
+        )}
       </div>
 
       {/* Search and Filters */}
@@ -138,8 +165,45 @@ export default function SamplesPage() {
               </SelectContent>
             </Select>
           </div>
+          
+          {(searchQuery || selectedGenre || selectedCategory || selectedArtist) && (
+            <div className="mt-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-white/70 text-sm">Active filters:</span>
+                {searchQuery && <Badge variant="secondary">Search: {searchQuery}</Badge>}
+                {selectedGenre && <Badge variant="secondary">Genre: {selectedGenre}</Badge>}
+                {selectedCategory && <Badge variant="secondary">Category: {selectedCategory}</Badge>}
+                {selectedArtist && <Badge variant="secondary">Artist: {artists.find(a => a.value === selectedArtist)?.label}</Badge>}
+              </div>
+              <Button variant="outline" size="sm" onClick={clearFilters} className="border-white/20 text-white">
+                Clear Filters
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Search Suggestions */}
+      {searchResults?.suggestions && searchResults.suggestions.length > 0 && (
+        <Card className="bg-white/5 border-white/10">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2">
+              <span className="text-white/70 text-sm">Suggestions:</span>
+              {searchResults.suggestions.map((suggestion, index) => (
+                <Button
+                  key={index}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSearchQuery(suggestion)}
+                  className="border-white/20 text-white/70 hover:text-white"
+                >
+                  {suggestion}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Artist Info */}
       {artistSamples?.artistInfo && (
@@ -153,95 +217,132 @@ export default function SamplesPage() {
         </Card>
       )}
 
+      {/* Loading State */}
+      {isLoadingAny && <LoadingSpinner />}
+
       {/* Samples Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isLoading ? (
-          Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="bg-white/5 border-white/10 animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-4 bg-white/10 rounded mb-4"></div>
-                <div className="h-3 bg-white/10 rounded mb-2"></div>
-                <div className="h-3 bg-white/10 rounded w-2/3"></div>
-              </CardContent>
-            </Card>
-          ))
-        ) : displaySamples.length === 0 ? (
-          <div className="col-span-full text-center py-12">
-            <Music className="h-12 w-12 text-white/30 mx-auto mb-4" />
-            <p className="text-white/60">No samples found matching your criteria.</p>
-          </div>
-        ) : (
-          displaySamples.map((sample) => (
-            <Card key={sample.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-white text-lg">{sample.name}</CardTitle>
-                    <div className="flex items-center space-x-2">
-                      <Badge className={getCategoryColor(sample.category)}>
-                        {sample.category.replace('_', ' ')}
-                      </Badge>
-                      <Badge variant="outline" className="border-white/20 text-white/70">
-                        {sample.genre === 'private_school_amapiano' ? 'Private School' : 'Classic'}
-                      </Badge>
+      {!isLoadingAny && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {displaySamples.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <Music className="h-12 w-12 text-white/30 mx-auto mb-4" />
+              <p className="text-white/60">No samples found matching your criteria.</p>
+              {(searchQuery || selectedGenre || selectedCategory || selectedArtist) && (
+                <Button variant="outline" onClick={clearFilters} className="mt-4 border-white/20 text-white">
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            displaySamples.map((sample) => (
+              <Card key={sample.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="text-white text-lg">{sample.name}</CardTitle>
+                      <div className="flex items-center space-x-2">
+                        <Badge className={getCategoryColor(sample.category)}>
+                          {sample.category.replace('_', ' ')}
+                        </Badge>
+                        <Badge variant="outline" className="border-white/20 text-white/70">
+                          {sample.genre === 'private_school_amapiano' ? 'Private School' : 'Classic'}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm text-white/70">
-                  {sample.bpm && (
-                    <div className="flex items-center space-x-1">
-                      <Clock className="h-3 w-3" />
-                      <span>{sample.bpm} BPM</span>
-                    </div>
-                  )}
-                  {sample.keySignature && (
-                    <div className="flex items-center space-x-1">
-                      <Key className="h-3 w-3" />
-                      <span>Key {sample.keySignature}</span>
-                    </div>
-                  )}
-                  {sample.durationSeconds && (
-                    <div className="flex items-center space-x-1">
-                      <Music className="h-3 w-3" />
-                      <span>{sample.durationSeconds.toFixed(1)}s</span>
-                    </div>
-                  )}
-                </div>
-
-                {sample.tags && sample.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {sample.tags.slice(0, 3).map((tag, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs bg-white/10 text-white/60">
-                        {tag}
-                      </Badge>
-                    ))}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm text-white/70">
+                    {sample.bpm && (
+                      <div className="flex items-center space-x-1">
+                        <Clock className="h-3 w-3" />
+                        <span>{sample.bpm} BPM</span>
+                      </div>
+                    )}
+                    {sample.keySignature && (
+                      <div className="flex items-center space-x-1">
+                        <Key className="h-3 w-3" />
+                        <span>Key {sample.keySignature}</span>
+                      </div>
+                    )}
+                    {sample.durationSeconds && (
+                      <div className="flex items-center space-x-1">
+                        <Music className="h-3 w-3" />
+                        <span>{sample.durationSeconds.toFixed(1)}s</span>
+                      </div>
+                    )}
                   </div>
-                )}
 
-                <div className="flex items-center space-x-2">
-                  <Button size="sm" className="bg-green-500 hover:bg-green-600 flex-1">
-                    <Play className="h-3 w-3 mr-1" />
-                    Play
-                  </Button>
-                  <Button size="sm" variant="outline" className="border-white/20 text-white">
-                    <Download className="h-3 w-3" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                  {sample.tags && sample.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {sample.tags.slice(0, 3).map((tag, index) => (
+                        <Badge 
+                          key={index} 
+                          variant="secondary" 
+                          className="text-xs bg-white/10 text-white/60 cursor-pointer hover:bg-white/20"
+                          onClick={() => setSearchQuery(tag)}
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                      {sample.tags.length > 3 && (
+                        <Badge variant="secondary" className="text-xs bg-white/10 text-white/60">
+                          +{sample.tags.length - 3} more
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center space-x-2">
+                    <Button size="sm" className="bg-green-500 hover:bg-green-600 flex-1">
+                      <Play className="h-3 w-3 mr-1" />
+                      Play
+                    </Button>
+                    <Button size="sm" variant="outline" className="border-white/20 text-white">
+                      <Download className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Load More */}
-      {displaySamples.length > 0 && (
+      {!isLoadingAny && displaySamples.length > 0 && displaySamples.length >= 50 && (
         <div className="text-center">
           <Button variant="outline" className="border-white/20 text-white">
             Load More Samples
           </Button>
         </div>
+      )}
+
+      {/* Popular Tags */}
+      {statsData?.popularTags && statsData.popularTags.length > 0 && (
+        <Card className="bg-white/5 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white">Popular Tags</CardTitle>
+            <CardDescription className="text-white/70">
+              Click on a tag to search for samples
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {statsData.popularTags.slice(0, 20).map((tag, index) => (
+                <Button
+                  key={index}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSearchQuery(tag.tag)}
+                  className="border-white/20 text-white/70 hover:text-white hover:bg-white/10"
+                >
+                  {tag.tag} ({tag.count})
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { api } from "encore.dev/api";
+import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
 import type { Genre, SampleCategory, Sample } from "./types";
 
@@ -92,14 +92,15 @@ export const searchSamples = api<SearchSamplesRequest, SearchSamplesResponse>(
 
     const samples = await musicDB.rawQueryAll<Sample>(searchQuery, ...params);
 
-    // Mock suggestions based on search
-    const suggestions = [
-      "log drum deep",
-      "piano jazzy",
-      "saxophone smooth",
-      "percussion shuffle",
-      "bass groovy"
-    ].filter(s => s.includes(req.query.toLowerCase()));
+    // Generate suggestions based on search and existing tags
+    const allTagsQuery = `
+      SELECT DISTINCT unnest(tags) as tag 
+      FROM samples 
+      WHERE unnest(tags) ILIKE $1
+      LIMIT 10
+    `;
+    const tagResults = await musicDB.rawQueryAll<{tag: string}>(allTagsQuery, `%${req.query}%`);
+    const suggestions = tagResults.map(r => r.tag);
 
     return {
       samples,
@@ -121,7 +122,7 @@ export const getSample = api<GetSampleRequest, Sample>(
     `;
 
     if (!sample) {
-      throw new Error("Sample not found");
+      throw APIError.notFound("Sample not found");
     }
 
     return sample;
@@ -150,13 +151,13 @@ export const getSamplesByArtist = api<GetSamplesByArtistRequest, GetSamplesByArt
         name: "Kabza De Small",
         style: "Classic Amapiano",
         description: "Known for pioneering the amapiano sound with signature log drums and soulful piano melodies",
-        tags: ["classic", "log_drum", "soulful", "energetic"]
+        tags: ["kabza", "classic", "energetic", "soulful"]
       },
       kelvin_momo: {
         name: "Kelvin Momo",
         style: "Private School Amapiano",
         description: "Master of the sophisticated, jazz-influenced private school amapiano sound",
-        tags: ["private_school", "jazzy", "sophisticated", "mellow"]
+        tags: ["kelvin_momo", "private_school", "jazzy", "sophisticated", "mellow"]
       },
       babalwa_m: {
         name: "Babalwa M",
@@ -169,10 +170,10 @@ export const getSamplesByArtist = api<GetSamplesByArtistRequest, GetSamplesByArt
     const artistInfo = artistStyles[req.artist];
     
     if (!artistInfo) {
-      throw new Error("Artist not found");
+      throw APIError.notFound("Artist not found");
     }
     
-    // Mock samples for the artist style
+    // Get samples that match the artist's style tags
     const samples = await musicDB.queryAll<Sample>`
       SELECT * FROM samples 
       WHERE tags && ${artistInfo.tags}
@@ -183,6 +184,97 @@ export const getSamplesByArtist = api<GetSamplesByArtistRequest, GetSamplesByArt
     return {
       samples,
       artistInfo
+    };
+  }
+);
+
+export interface CreateSampleRequest {
+  name: string;
+  category: SampleCategory;
+  genre: Genre;
+  fileUrl: string;
+  bpm?: number;
+  keySignature?: string;
+  durationSeconds?: number;
+  tags?: string[];
+}
+
+export interface CreateSampleResponse {
+  id: number;
+  name: string;
+}
+
+// Creates a new sample (for admin/content management)
+export const createSample = api<CreateSampleRequest, CreateSampleResponse>(
+  { expose: true, method: "POST", path: "/samples" },
+  async (req) => {
+    const result = await musicDB.queryRow<{id: number, name: string}>`
+      INSERT INTO samples (name, category, genre, file_url, bpm, key_signature, duration_seconds, tags)
+      VALUES (${req.name}, ${req.category}, ${req.genre}, ${req.fileUrl}, ${req.bpm || null}, ${req.keySignature || null}, ${req.durationSeconds || null}, ${req.tags || []})
+      RETURNING id, name
+    `;
+
+    if (!result) {
+      throw APIError.internal("Failed to create sample");
+    }
+
+    return result;
+  }
+);
+
+export interface GetSampleStatsResponse {
+  totalSamples: number;
+  samplesByCategory: Record<SampleCategory, number>;
+  samplesByGenre: Record<Genre, number>;
+  popularTags: Array<{tag: string, count: number}>;
+}
+
+// Gets statistics about the sample library
+export const getSampleStats = api<void, GetSampleStatsResponse>(
+  { expose: true, method: "GET", path: "/samples/stats" },
+  async () => {
+    // Get total count
+    const totalResult = await musicDB.queryRow<{count: number}>`
+      SELECT COUNT(*) as count FROM samples
+    `;
+    const totalSamples = totalResult?.count || 0;
+
+    // Get counts by category
+    const categoryResults = await musicDB.queryAll<{category: SampleCategory, count: number}>`
+      SELECT category, COUNT(*) as count 
+      FROM samples 
+      GROUP BY category
+    `;
+    const samplesByCategory = categoryResults.reduce((acc, row) => {
+      acc[row.category] = row.count;
+      return acc;
+    }, {} as Record<SampleCategory, number>);
+
+    // Get counts by genre
+    const genreResults = await musicDB.queryAll<{genre: Genre, count: number}>`
+      SELECT genre, COUNT(*) as count 
+      FROM samples 
+      GROUP BY genre
+    `;
+    const samplesByGenre = genreResults.reduce((acc, row) => {
+      acc[row.genre] = row.count;
+      return acc;
+    }, {} as Record<Genre, number>);
+
+    // Get popular tags
+    const tagResults = await musicDB.queryAll<{tag: string, count: number}>`
+      SELECT unnest(tags) as tag, COUNT(*) as count
+      FROM samples
+      GROUP BY unnest(tags)
+      ORDER BY count DESC
+      LIMIT 20
+    `;
+
+    return {
+      totalSamples,
+      samplesByCategory,
+      samplesByGenre,
+      popularTags: tagResults
     };
   }
 );
