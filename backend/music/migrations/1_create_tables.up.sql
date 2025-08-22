@@ -1,3 +1,5 @@
+-- Set the default text search configuration for this transaction.
+-- This allows using the IMMUTABLE one-argument version of to_tsvector in indexes.
 SET default_text_search_config = 'pg_catalog.english';
 
 CREATE TABLE tracks (
