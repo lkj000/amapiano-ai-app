@@ -179,6 +179,6 @@ CREATE INDEX idx_cultural_validation_item ON cultural_validation(item_type, item
 CREATE INDEX idx_cultural_validation_status ON cultural_validation(validation_status);
 
 -- Full-text search indexes
-CREATE INDEX idx_samples_search ON samples USING GIN(to_tsvector('english'::regconfig, name || ' ' || array_to_string(tags, ' ')));
-CREATE INDEX idx_patterns_search ON patterns USING GIN(to_tsvector('english'::regconfig, name));
-CREATE INDEX idx_tracks_search ON tracks USING GIN(to_tsvector('english'::regconfig, title || ' ' || COALESCE(artist, '')));
+CREATE INDEX idx_samples_search ON samples USING GIN(to_tsvector('english', name || ' ' || array_to_string(tags, ' ')));
+CREATE INDEX idx_patterns_search ON patterns USING GIN(to_tsvector('english', name));
+CREATE INDEX idx_tracks_search ON tracks USING GIN(to_tsvector('english', title || ' ' || COALESCE(artist, '')));
