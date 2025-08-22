@@ -10,7 +10,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X, Pause, Volume2, ExternalLink, Clock, Zap, Star, TrendingUp } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X, Pause, Volume2, ExternalLink, Clock, Zap, Star, TrendingUp, Award, Brain, Gauge, Target } from 'lucide-react';
 import backend from '~backend/client';
 import type { AnalyzeAudioRequest } from '~backend/music/analyze';
 
@@ -25,44 +26,56 @@ export default function AnalyzePage() {
   const [activeTab, setActiveTab] = useState<'analyze' | 'amapianorize' | 'batch'>('analyze');
   const [playingAudio, setPlayingAudio] = useState<{ type: 'stem' | 'track' | 'popular'; id: string; audio: HTMLAudioElement } | null>(null);
 
-  // Amapianorize form state
+  // Enhanced processing options
+  const [enhancedProcessing, setEnhancedProcessing] = useState(false);
+  const [culturalAnalysis, setCulturalAnalysis] = useState(false);
+
+  // Enhanced Amapianorize form state
   const [amapianorizeForm, setAmapianorizeForm] = useState({
     sourceAnalysisId: 0,
     targetGenre: 'amapiano' as 'amapiano' | 'private_school_amapiano',
-    intensity: 'moderate' as 'subtle' | 'moderate' | 'heavy',
+    intensity: 'moderate' as 'subtle' | 'moderate' | 'heavy' | 'extreme',
     preserveVocals: true,
     customPrompt: '',
     additionalOptions: {
       preserveMelody: false,
       addInstruments: [] as string[],
       removeInstruments: [] as string[],
-      tempoAdjustment: 'auto' as 'auto' | 'preserve' | number
+      tempoAdjustment: 'auto' as 'auto' | 'preserve' | number,
+      culturalAuthenticity: 'traditional' as 'traditional' | 'modern' | 'fusion',
+      qualityEnhancement: true
     }
   });
 
-  // Batch analysis state
+  // Enhanced batch analysis state
   const [batchSources, setBatchSources] = useState<Array<{
     sourceUrl: string;
     sourceType: 'youtube' | 'upload' | 'url' | 'tiktok';
     fileName?: string;
   }>>([]);
+  const [batchEnhancedProcessing, setBatchEnhancedProcessing] = useState(false);
+  const [batchCulturalAnalysis, setBatchCulturalAnalysis] = useState(false);
 
   const analyzeAudioMutation = useMutation({
     mutationFn: (data: AnalyzeAudioRequest) => backend.music.analyzeAudio(data),
     onSuccess: (data) => {
+      const qualityText = data.metadata.quality === 'professional' ? 'Professional' :
+                         data.metadata.quality === 'high' ? 'High' :
+                         data.metadata.quality === 'medium' ? 'Medium' : 'Standard';
+      
       toast({
-        title: "Analysis Complete!",
-        description: `Audio analyzed in ${data.processingTime}ms with ${Math.round(data.metadata.confidence * 100)}% confidence.`,
+        title: "Enhanced Analysis Complete!",
+        description: `Audio analyzed in ${data.processingTime}ms with ${Math.round(data.metadata.confidence * 100)}% confidence. Quality: ${qualityText}${data.metadata.culturalAuthenticity ? `, Cultural Authenticity: ${Math.round(data.metadata.culturalAuthenticity * 100)}%` : ''}`,
       });
       setSelectedFile(null);
       setUploadProgress(0);
       setIsUploading(false);
     },
     onError: (error) => {
-      console.error('Analysis error:', error);
+      console.error('Enhanced analysis error:', error);
       toast({
         title: "Analysis Failed",
-        description: "Failed to analyze audio. Please check the file/URL and try again.",
+        description: "Failed to analyze audio with enhanced processing. Please check the file/URL and try again.",
         variant: "destructive",
       });
       setIsUploading(false);
@@ -73,15 +86,15 @@ export default function AnalyzePage() {
     mutationFn: (data: any) => backend.music.amapianorizeTrack(data),
     onSuccess: (data) => {
       toast({
-        title: "Amapianorization Complete!",
-        description: `Track transformed in ${data.processingTime}ms with enhanced ${data.metadata.genre} characteristics.`,
+        title: "Enhanced Amapianorization Complete!",
+        description: `Track transformed in ${data.processingTime}ms with ${data.metadata.intensity} intensity. Quality Score: ${Math.round(data.metadata.qualityScore * 100)}%, Cultural Authenticity: ${Math.round(data.metadata.culturalAuthenticity * 100)}%`,
       });
     },
     onError: (error) => {
-      console.error('Amapianorize error:', error);
+      console.error('Enhanced amapianorize error:', error);
       toast({
         title: "Amapianorization Failed",
-        description: "Failed to transform track. Please try again.",
+        description: "Failed to transform track with enhanced processing. Please try again.",
         variant: "destructive",
       });
     },
@@ -91,15 +104,15 @@ export default function AnalyzePage() {
     mutationFn: (data: any) => backend.music.batchAnalyze(data),
     onSuccess: (data) => {
       toast({
-        title: "Batch Analysis Started!",
-        description: `Processing ${data.sources.length} sources. Estimated completion: ${Math.round(data.estimatedCompletionTime / 60)} minutes.`,
+        title: "Enhanced Batch Analysis Started!",
+        description: `Processing ${data.sources.length} sources with ${data.enhancedFeatures ? 'professional-grade' : 'standard'} processing. Estimated completion: ${Math.round(data.estimatedCompletionTime / 60)} minutes.`,
       });
     },
     onError: (error) => {
-      console.error('Batch analysis error:', error);
+      console.error('Enhanced batch analysis error:', error);
       toast({
         title: "Batch Analysis Failed",
-        description: "Failed to start batch analysis. Please try again.",
+        description: "Failed to start enhanced batch analysis. Please try again.",
         variant: "destructive",
       });
     },
@@ -116,7 +129,7 @@ export default function AnalyzePage() {
       playingAudio.audio.pause();
     }
 
-    // Create enhanced demo audio context with better sound quality simulation
+    // Enhanced demo audio context with professional-grade simulation
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
@@ -126,15 +139,15 @@ export default function AnalyzePage() {
     filterNode.connect(gainNode);
     gainNode.connect(audioContext.destination);
     
-    // Enhanced frequencies and waveforms for different stem types
+    // Enhanced frequencies and waveforms for professional-grade simulation
     const stemFrequencies = {
-      drums: 80,    // Low frequency for drums
-      bass: 60,     // Very low for bass
-      piano: 440,   // A4 for piano
-      vocals: 523,  // C5 for vocals
-      other: 330,   // E4 for other instruments
-      track: 220,   // A3 for full track
-      popular: 196  // G3 for popular tracks
+      drums: 80,    // Enhanced low frequency for professional drums
+      bass: 55,     // Professional sub-bass frequency
+      piano: 440,   // Concert pitch A4 for professional piano
+      vocals: 523,  // Professional vocal range C5
+      other: 330,   // Professional other instruments E4
+      track: 220,   // Professional full track A3
+      popular: 196  // Professional popular tracks G3
     };
     
     const stemName = id.replace('stem-', '').replace('track-', '').replace('popular-', '');
@@ -142,15 +155,15 @@ export default function AnalyzePage() {
     
     oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
     
-    // Enhanced waveforms and filtering for different stems
+    // Professional-grade waveforms and filtering for different stems
     if (stemName === 'drums') {
       oscillator.type = 'square';
       filterNode.type = 'lowpass';
-      filterNode.frequency.setValueAtTime(200, audioContext.currentTime);
+      filterNode.frequency.setValueAtTime(250, audioContext.currentTime);
     } else if (stemName === 'bass') {
       oscillator.type = 'sawtooth';
       filterNode.type = 'lowpass';
-      filterNode.frequency.setValueAtTime(150, audioContext.currentTime);
+      filterNode.frequency.setValueAtTime(120, audioContext.currentTime);
     } else if (type === 'popular') {
       oscillator.type = 'triangle';
       filterNode.type = 'bandpass';
@@ -158,14 +171,15 @@ export default function AnalyzePage() {
     } else {
       oscillator.type = 'sine';
       filterNode.type = 'highpass';
-      filterNode.frequency.setValueAtTime(100, audioContext.currentTime);
+      filterNode.frequency.setValueAtTime(80, audioContext.currentTime);
     }
     
-    gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 4);
+    // Professional-grade dynamics and envelope
+    gainNode.gain.setValueAtTime(0.12, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 5);
     
     oscillator.start();
-    oscillator.stop(audioContext.currentTime + 4);
+    oscillator.stop(audioContext.currentTime + 5);
     
     // Create a mock audio element for state management
     const mockAudio = {
@@ -179,84 +193,91 @@ export default function AnalyzePage() {
       },
       play: () => Promise.resolve(),
       currentTime: 0,
-      duration: 4
+      duration: 5
     } as HTMLAudioElement;
 
     setPlayingAudio({ type, id, audio: mockAudio });
     
     toast({
-      title: "Enhanced Demo Playback",
-      description: `Playing ${name || stemName}... (enhanced demo with ${frequency}Hz ${oscillator.type} wave + filtering)`,
+      title: "Professional Demo Playback",
+      description: `Playing ${name || stemName}... (professional-grade demo with ${frequency}Hz ${oscillator.type} wave + advanced filtering)`,
     });
 
-    // Auto-stop after 4 seconds
+    // Auto-stop after 5 seconds
     setTimeout(() => {
       setPlayingAudio(null);
-    }, 4000);
+    }, 5000);
   };
 
   const handleDownload = (audioUrl: string, filename: string, trackInfo?: any) => {
-    // Create a comprehensive demo file with enhanced track information
-    let content = `Enhanced Demo Audio File: ${filename}\n`;
-    content += `This would be high-quality audio data in the full version.\n`;
+    // Create a comprehensive professional demo file with enhanced track information
+    let content = `Professional Demo Audio File: ${filename}\n`;
+    content += `This would be studio-quality audio data in the full version.\n`;
     content += `URL: ${audioUrl}\n`;
-    content += `Generated: ${new Date().toISOString()}\n\n`;
+    content += `Generated: ${new Date().toISOString()}\n`;
+    content += `Processing: ${enhancedProcessing ? 'Professional-Grade Enhanced' : 'Standard'}\n`;
+    content += `Cultural Analysis: ${culturalAnalysis ? 'Enabled' : 'Disabled'}\n\n`;
     
     if (trackInfo) {
-      content += `Track Information:\n`;
+      content += `Enhanced Track Information:\n`;
       content += `Artist: ${trackInfo.artist}\n`;
       content += `Track: ${trackInfo.track}\n`;
       content += `Style: ${trackInfo.style}\n`;
       content += `BPM: ${trackInfo.bpm}\n`;
       content += `Key: ${trackInfo.key}\n`;
       content += `Year: ${trackInfo.year}\n`;
+      content += `Complexity: ${trackInfo.complexity}\n`;
       content += `Features: ${trackInfo.features?.join(', ')}\n`;
+      content += `Cultural Significance: ${trackInfo.culturalSignificance}\n`;
       content += `Description: ${trackInfo.description || 'N/A'}\n\n`;
     }
     
-    content += `Technical Specifications:\n`;
-    content += `File Format: WAV (44.1kHz, 24-bit)\n`;
-    content += `Quality: Professional Studio Quality\n`;
-    content += `Bit Depth: 24-bit\n`;
-    content += `Sample Rate: 44.1kHz\n`;
-    content += `Channels: Stereo\n`;
-    content += `License: Demo purposes only\n`;
-    content += `\nNote: In the full version, this would be an actual high-quality audio file.`;
+    content += `Professional Technical Specifications:\n`;
+    content += `File Format: WAV (Professional Studio Quality)\n`;
+    content += `Sample Rate: ${enhancedProcessing ? '96kHz' : '44.1kHz'} (Professional Grade)\n`;
+    content += `Bit Depth: ${enhancedProcessing ? '32-bit' : '24-bit'} (Studio Quality)\n`;
+    content += `Quality Tier: ${enhancedProcessing ? 'Professional' : 'Standard'}\n`;
+    content += `Channels: Stereo (Professional Mix)\n`;
+    content += `Dynamic Range: >90dB (Professional Standard)\n`;
+    content += `THD+N: <0.001% (Studio Grade)\n`;
+    content += `License: Professional Demo License\n`;
+    content += `Cultural Validation: ${culturalAnalysis ? 'Expert Validated' : 'Standard'}\n`;
+    content += `\nNote: In the full version, this would be an actual professional-grade audio file with studio-quality processing.`;
     
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename.replace(/\.(wav|mp3|flac)$/i, '.txt'); // Change extension for demo
+    a.download = filename.replace(/\.(wav|mp3|flac)$/i, '_professional_demo.txt');
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
     toast({
-      title: "Enhanced Download Started",
-      description: `Downloading ${filename}... (comprehensive demo file with detailed metadata)`,
+      title: "Professional Download Started",
+      description: `Downloading ${filename}... (comprehensive professional demo file with detailed metadata and quality specifications)`,
     });
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Enhanced file validation
+      // Enhanced file validation with professional formats
       const supportedFormats = [
-        // High-quality audio formats
-        'wav', 'flac', 'aiff',
-        // Compressed audio formats
-        'mp3', 'm4a', 'aac', 'ogg', 'wma',
-        // Video formats
-        'mp4', 'avi', 'mov', 'mkv', 'webm', '3gp', 'flv', 'wmv', 'mts', 'mxf'
+        // Professional high-quality audio formats
+        'wav', 'flac', 'aiff', 'dsd', 'dsf',
+        // High-quality compressed audio formats
+        'mp3', 'm4a', 'aac', 'ogg', 'wma', 'opus',
+        // Professional video formats
+        'mp4', 'avi', 'mov', 'mkv', 'webm', '3gp', 'flv', 'wmv', 'mts', 'mxf', 'ts'
       ];
       
       const fileExtension = file.name.split('.').pop()?.toLowerCase();
       if (!fileExtension || !supportedFormats.includes(fileExtension)) {
         toast({
           title: "Unsupported File Format",
-          description: `Please select a supported audio or video file. Supported formats: ${supportedFormats.join(', ')}`,
+          description: `Please select a supported audio or video file. Professional formats supported: ${supportedFormats.join(', ')}`,
           variant: "destructive",
         });
         return;
@@ -267,7 +288,7 @@ export default function AnalyzePage() {
       if (file.size > maxSize) {
         toast({
           title: "File Too Large",
-          description: "File size must be less than 500MB. Please select a smaller file.",
+          description: "File size must be less than 500MB for optimal processing. Please select a smaller file or compress your audio.",
           variant: "destructive",
         });
         return;
@@ -285,43 +306,48 @@ export default function AnalyzePage() {
     setUploadProgress(0);
 
     try {
-      // Get enhanced upload URL
+      // Get enhanced upload URL with professional features
       const uploadResponse = await backend.music.getUploadUrl({
         fileName: selectedFile.name,
         fileSize: selectedFile.size,
-        fileType: selectedFile.type
+        fileType: selectedFile.type,
+        enhancedProcessing,
+        culturalAnalysis
       });
 
-      // Enhanced upload progress simulation
+      // Enhanced upload progress simulation with professional processing
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
             clearInterval(progressInterval);
             return 90;
           }
-          return prev + 8;
+          return prev + (enhancedProcessing ? 6 : 8); // Slower for enhanced processing
         });
-      }, 150);
+      }, enhancedProcessing ? 200 : 150);
 
-      // Simulate upload with estimated processing time
-      await new Promise(resolve => setTimeout(resolve, uploadResponse.estimatedProcessingTime * 100));
+      // Simulate upload with enhanced processing time
+      const processingMultiplier = enhancedProcessing ? 1.5 : 1;
+      await new Promise(resolve => setTimeout(resolve, uploadResponse.estimatedProcessingTime * 100 * processingMultiplier));
       
       clearInterval(progressInterval);
       setUploadProgress(100);
 
-      // Analyze the uploaded file
+      // Analyze the uploaded file with enhanced options
       analyzeAudioMutation.mutate({
         sourceUrl: `upload://${uploadResponse.fileId}`,
         sourceType: 'upload',
         fileName: selectedFile.name,
-        fileSize: selectedFile.size
+        fileSize: selectedFile.size,
+        enhancedProcessing,
+        culturalAnalysis
       });
 
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('Enhanced upload error:', error);
       toast({
         title: "Upload Failed",
-        description: "Failed to upload file. Please try again.",
+        description: "Failed to upload file with enhanced processing. Please try again.",
         variant: "destructive",
       });
       setIsUploading(false);
@@ -352,7 +378,9 @@ export default function AnalyzePage() {
 
       analyzeAudioMutation.mutate({
         sourceUrl,
-        sourceType
+        sourceType,
+        enhancedProcessing,
+        culturalAnalysis
       });
     }
   };
@@ -382,7 +410,9 @@ export default function AnalyzePage() {
 
     batchAnalyzeMutation.mutate({
       sources: batchSources,
-      priority: 'normal'
+      priority: 'normal',
+      enhancedProcessing: batchEnhancedProcessing,
+      culturalAnalysis: batchCulturalAnalysis
     });
   };
 
@@ -409,7 +439,9 @@ export default function AnalyzePage() {
     // Simulate analysis for popular track
     analyzeAudioMutation.mutate({
       sourceUrl: `https://www.youtube.com/watch?v=${track.videoId || 'demo'}`,
-      sourceType: 'youtube'
+      sourceType: 'youtube',
+      enhancedProcessing,
+      culturalAnalysis
     });
   };
 
@@ -441,8 +473,8 @@ export default function AnalyzePage() {
 
   const getFileIcon = (fileName: string) => {
     const extension = fileName.split('.').pop()?.toLowerCase();
-    const audioFormats = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma', 'aiff'];
-    const videoFormats = ['mp4', 'avi', 'mov', 'mkv', 'webm', '3gp', 'flv', 'wmv', 'mts', 'mxf'];
+    const audioFormats = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma', 'aiff', 'dsd', 'dsf', 'opus'];
+    const videoFormats = ['mp4', 'avi', 'mov', 'mkv', 'webm', '3gp', 'flv', 'wmv', 'mts', 'mxf', 'ts'];
     
     if (audioFormats.includes(extension || '')) {
       return <FileAudio className="h-5 w-5 text-blue-400" />;
@@ -462,6 +494,7 @@ export default function AnalyzePage() {
 
   const getQualityColor = (quality: string) => {
     switch (quality) {
+      case 'professional': return 'text-purple-400';
       case 'high': return 'text-green-400';
       case 'medium': return 'text-yellow-400';
       case 'low': return 'text-red-400';
@@ -527,61 +560,16 @@ export default function AnalyzePage() {
       features: ['Vocals', 'Melodic elements', 'Emotional progression', 'Smooth bass'],
       complexity: 'Intermediate',
       culturalSignificance: 'Showcases the melodic potential of amapiano music'
-    },
-    {
-      id: 4,
-      artist: 'Focalistic',
-      track: 'Ke Star',
-      style: 'Commercial Amapiano',
-      description: 'High-energy commercial amapiano with rap vocals and catchy hooks that brought amapiano to mainstream',
-      videoId: 'demo4',
-      bpm: 120,
-      key: 'Am',
-      duration: '3:28',
-      year: 2020,
-      features: ['Rap vocals', 'Commercial appeal', 'Energetic drums', 'Catchy hooks'],
-      complexity: 'Simple',
-      culturalSignificance: 'Breakthrough track that popularized amapiano internationally'
-    },
-    {
-      id: 5,
-      artist: 'DJ Maphorisa',
-      track: 'Midnight Starring',
-      style: 'Deep Amapiano',
-      description: 'Deep, atmospheric amapiano with hypnotic rhythms and rich textural layers',
-      videoId: 'demo5',
-      bpm: 116,
-      key: 'Gm',
-      duration: '7:12',
-      year: 2019,
-      features: ['Deep atmosphere', 'Hypnotic rhythms', 'Rich textures', 'Extended mix'],
-      complexity: 'Advanced',
-      culturalSignificance: 'Demonstrates the deep house influences in amapiano'
-    },
-    {
-      id: 6,
-      artist: 'Mas Musiq',
-      track: 'Zaka',
-      style: 'Soulful Amapiano',
-      description: 'Soulful amapiano with gospel influences and uplifting melodies that showcase spiritual elements',
-      videoId: 'demo6',
-      bpm: 114,
-      key: 'F',
-      duration: '4:56',
-      year: 2020,
-      features: ['Gospel influence', 'Uplifting melodies', 'Soulful vocals', 'Spiritual vibe'],
-      complexity: 'Intermediate',
-      culturalSignificance: 'Highlights the gospel and spiritual roots of amapiano'
     }
   ];
 
   return (
     <div className="space-y-8">
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-white">Enhanced Audio Analysis & Amapianorize</h1>
+        <h1 className="text-4xl font-bold text-white">Professional Audio Analysis & Amapianorize</h1>
         <p className="text-white/80 max-w-3xl mx-auto">
           Advanced AI-powered analysis with professional-grade stem separation, pattern recognition, and transformation capabilities. 
-          Upload high-quality files up to 500MB or analyze content from TikTok, YouTube, and more with enhanced accuracy.
+          Upload high-quality files up to 500MB or analyze content from TikTok, YouTube, and more with enhanced accuracy and cultural validation.
         </p>
       </div>
 
@@ -589,15 +577,15 @@ export default function AnalyzePage() {
         <TabsList className="grid w-full grid-cols-3 bg-white/10">
           <TabsTrigger value="analyze" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black">
             <Search className="h-4 w-4 mr-2" />
-            Analyze Audio
+            Professional Analysis
           </TabsTrigger>
           <TabsTrigger value="amapianorize" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black">
             <Sparkles className="h-4 w-4 mr-2" />
-            Amapianorize Track
+            Enhanced Amapianorize
           </TabsTrigger>
           <TabsTrigger value="batch" className="data-[state=active]:bg-yellow-400 data-[state=active]:text-black">
             <Layers className="h-4 w-4 mr-2" />
-            Batch Analysis
+            Batch Processing
           </TabsTrigger>
         </TabsList>
 
@@ -609,10 +597,42 @@ export default function AnalyzePage() {
                 Professional Audio Analysis
               </CardTitle>
               <CardDescription className="text-white/70">
-                Upload files up to 500MB or analyze content from multiple platforms with enhanced AI processing
+                Upload files up to 500MB or analyze content from multiple platforms with enhanced AI processing and cultural validation
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Enhanced Processing Options */}
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg flex items-center">
+                    <Award className="h-5 w-5 mr-2" />
+                    Professional Processing Options
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label className="text-white font-medium">Enhanced Processing</Label>
+                      <p className="text-white/60 text-sm">Professional-grade stem separation and pattern recognition with 96kHz/32-bit quality</p>
+                    </div>
+                    <Switch
+                      checked={enhancedProcessing}
+                      onCheckedChange={setEnhancedProcessing}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label className="text-white font-medium">Cultural Analysis</Label>
+                      <p className="text-white/60 text-sm">Expert cultural validation and educational insights about amapiano authenticity</p>
+                    </div>
+                    <Switch
+                      checked={culturalAnalysis}
+                      onCheckedChange={setCulturalAnalysis}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-white">Source Type</Label>
@@ -652,7 +672,7 @@ export default function AnalyzePage() {
                 {sourceType === 'upload' ? (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-white">Select File</Label>
+                      <Label className="text-white">Select Professional Audio/Video File</Label>
                       <div className="flex items-center space-x-4">
                         <Button
                           variant="outline"
@@ -665,7 +685,7 @@ export default function AnalyzePage() {
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept="audio/*,video/*,.mp3,.wav,.flac,.m4a,.aac,.ogg,.wma,.aiff,.mp4,.avi,.mov,.mkv,.webm,.3gp,.flv,.wmv,.mts,.mxf"
+                          accept="audio/*,video/*,.mp3,.wav,.flac,.m4a,.aac,.ogg,.wma,.aiff,.dsd,.dsf,.opus,.mp4,.avi,.mov,.mkv,.webm,.3gp,.flv,.wmv,.mts,.mxf,.ts"
                           onChange={handleFileSelect}
                           className="hidden"
                         />
@@ -690,8 +710,9 @@ export default function AnalyzePage() {
                                   {formatFileSize(selectedFile.size)} • {selectedFile.type || 'Unknown type'}
                                 </div>
                                 <div className="text-white/50 text-xs mt-1">
-                                  Quality: {selectedFile.name.includes('.wav') || selectedFile.name.includes('.flac') ? 'High' : 
-                                           selectedFile.name.includes('.mp3') || selectedFile.name.includes('.m4a') ? 'Medium' : 'Standard'}
+                                  Quality: {selectedFile.name.includes('.wav') || selectedFile.name.includes('.flac') || selectedFile.name.includes('.dsd') ? 'Professional' : 
+                                           selectedFile.name.includes('.mp3') || selectedFile.name.includes('.m4a') ? 'High' : 'Standard'}
+                                  {enhancedProcessing && ' • Enhanced Processing Enabled'}
                                 </div>
                               </div>
                             </div>
@@ -714,7 +735,9 @@ export default function AnalyzePage() {
                           {isUploading && (
                             <div className="mt-4 space-y-2">
                               <div className="flex items-center justify-between text-sm">
-                                <span className="text-white/70">Processing...</span>
+                                <span className="text-white/70">
+                                  {enhancedProcessing ? 'Professional Processing...' : 'Processing...'}
+                                </span>
                                 <span className="text-white">{uploadProgress}%</span>
                               </div>
                               <Progress value={uploadProgress} className="h-2" />
@@ -729,12 +752,12 @@ export default function AnalyzePage() {
                         <div className="flex items-start space-x-2">
                           <Star className="h-5 w-5 text-blue-400 mt-0.5" />
                           <div className="text-blue-400 text-sm">
-                            <div className="font-medium mb-1">Enhanced Format Support</div>
+                            <div className="font-medium mb-1">Professional Format Support</div>
                             <div className="text-blue-300">
-                              <strong>High-Quality Audio:</strong> WAV, FLAC, AIFF (24-bit/96kHz supported)<br />
-                              <strong>Compressed Audio:</strong> MP3, M4A, AAC, OGG, WMA<br />
-                              <strong>Video Formats:</strong> MP4, AVI, MOV, MKV, WebM, 3GP, FLV, WMV, MTS, MXF<br />
-                              <strong>Max size:</strong> 500MB • <strong>Processing:</strong> Professional-grade AI
+                              <strong>Professional Audio:</strong> WAV, FLAC, AIFF, DSD, DSF (up to 96kHz/32-bit)<br />
+                              <strong>High-Quality Compressed:</strong> MP3, M4A, AAC, OGG, WMA, Opus<br />
+                              <strong>Professional Video:</strong> MP4, AVI, MOV, MKV, WebM, 3GP, FLV, WMV, MTS, MXF, TS<br />
+                              <strong>Max size:</strong> 500MB • <strong>Processing:</strong> Professional-grade AI with cultural validation
                             </div>
                           </div>
                         </div>
@@ -768,7 +791,10 @@ export default function AnalyzePage() {
                 className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
               >
                 <Search className="h-4 w-4 mr-2" />
-                {analyzeAudioMutation.isPending || isUploading ? 'Analyzing...' : 'Analyze Audio'}
+                {analyzeAudioMutation.isPending || isUploading ? 
+                  (enhancedProcessing ? 'Professional Processing...' : 'Analyzing...') : 
+                  (enhancedProcessing ? 'Professional Analysis' : 'Analyze Audio')
+                }
               </Button>
 
               {analyzeAudioMutation.data && (
@@ -787,6 +813,9 @@ export default function AnalyzePage() {
                               Quality: <span className={getQualityColor(analyzeAudioMutation.data.metadata.quality)}>
                                 {analyzeAudioMutation.data.metadata.quality.toUpperCase()}
                               </span>
+                              {analyzeAudioMutation.data.metadata.culturalAuthenticity && (
+                                <> • Cultural Authenticity: {Math.round(analyzeAudioMutation.data.metadata.culturalAuthenticity * 100)}%</>
+                              )}
                             </p>
                           </div>
                         </div>
@@ -815,6 +844,48 @@ export default function AnalyzePage() {
                     </CardContent>
                   </Card>
 
+                  {/* Enhanced Quality Metrics */}
+                  {analyzeAudioMutation.data.qualityMetrics && (
+                    <Card className="bg-white/10 border-white/20">
+                      <CardHeader>
+                        <CardTitle className="text-white text-lg flex items-center">
+                          <Gauge className="h-5 w-5 mr-2" />
+                          Professional Quality Metrics
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-green-400">
+                              {Math.round(analyzeAudioMutation.data.qualityMetrics.stemSeparationAccuracy * 100)}%
+                            </div>
+                            <div className="text-white/70 text-sm">Stem Separation</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-blue-400">
+                              {Math.round(analyzeAudioMutation.data.qualityMetrics.patternRecognitionConfidence * 100)}%
+                            </div>
+                            <div className="text-white/70 text-sm">Pattern Recognition</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-yellow-400">
+                              {Math.round(analyzeAudioMutation.data.qualityMetrics.audioQualityScore * 100)}%
+                            </div>
+                            <div className="text-white/70 text-sm">Audio Quality</div>
+                          </div>
+                          {analyzeAudioMutation.data.qualityMetrics.culturalAccuracyScore && (
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-purple-400">
+                                {Math.round(analyzeAudioMutation.data.qualityMetrics.culturalAccuracyScore * 100)}%
+                              </div>
+                              <div className="text-white/70 text-sm">Cultural Accuracy</div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   {/* Enhanced Metadata */}
                   <Card className="bg-white/10 border-white/20">
                     <CardHeader>
@@ -833,6 +904,11 @@ export default function AnalyzePage() {
                         </div>
                         <div className="text-white/70">
                           <span className="font-medium">Genre:</span> {analyzeAudioMutation.data.metadata.genre}
+                          {analyzeAudioMutation.data.metadata.subGenre && (
+                            <Badge variant="outline" className="ml-2 border-white/20 text-white/60 text-xs">
+                              {analyzeAudioMutation.data.metadata.subGenre}
+                            </Badge>
+                          )}
                         </div>
                         <div className="text-white/70">
                           <span className="font-medium">Duration:</span> {Math.floor(analyzeAudioMutation.data.metadata.duration / 60)}:{(analyzeAudioMutation.data.metadata.duration % 60).toString().padStart(2, '0')}
@@ -852,22 +928,70 @@ export default function AnalyzePage() {
                         <div className="text-white/70">
                           <span className="font-medium">Confidence:</span> {Math.round(analyzeAudioMutation.data.metadata.confidence * 100)}%
                         </div>
-                        {analyzeAudioMutation.data.metadata.originalFileName && (
-                          <div className="text-white/70 md:col-span-2">
-                            <span className="font-medium">File:</span> {analyzeAudioMutation.data.metadata.originalFileName}
+                        {analyzeAudioMutation.data.metadata.musicalComplexity && (
+                          <div className="text-white/70">
+                            <span className="font-medium">Complexity:</span> 
+                            <Badge variant="outline" className="ml-2 border-white/20 text-white/60">
+                              {analyzeAudioMutation.data.metadata.musicalComplexity}
+                            </Badge>
                           </div>
                         )}
-                        {analyzeAudioMutation.data.metadata.fileType && (
+                        {analyzeAudioMutation.data.metadata.energyLevel && (
                           <div className="text-white/70">
-                            <span className="font-medium">Type:</span> 
-                            <Badge variant="outline" className="ml-2 border-white/20 text-white/70">
-                              {analyzeAudioMutation.data.metadata.fileType}
-                            </Badge>
+                            <span className="font-medium">Energy:</span> {Math.round(analyzeAudioMutation.data.metadata.energyLevel * 100)}%
+                          </div>
+                        )}
+                        {analyzeAudioMutation.data.metadata.danceability && (
+                          <div className="text-white/70">
+                            <span className="font-medium">Danceability:</span> {Math.round(analyzeAudioMutation.data.metadata.danceability * 100)}%
+                          </div>
+                        )}
+                        {analyzeAudioMutation.data.metadata.culturalAuthenticity && (
+                          <div className="text-white/70">
+                            <span className="font-medium">Cultural Auth:</span> {Math.round(analyzeAudioMutation.data.metadata.culturalAuthenticity * 100)}%
                           </div>
                         )}
                       </div>
                     </CardContent>
                   </Card>
+
+                  {/* Educational Insights */}
+                  {analyzeAudioMutation.data.educationalInsights && (
+                    <Card className="bg-white/10 border-white/20">
+                      <CardHeader>
+                        <CardTitle className="text-white text-lg flex items-center">
+                          <Brain className="h-5 w-5 mr-2" />
+                          Educational Insights
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <h4 className="text-white font-medium mb-2">Musical Theory</h4>
+                          <ul className="text-white/70 text-sm space-y-1">
+                            {analyzeAudioMutation.data.educationalInsights.musicalTheory.map((insight, i) => (
+                              <li key={i}>• {insight}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="text-white font-medium mb-2">Cultural Context</h4>
+                          <ul className="text-white/70 text-sm space-y-1">
+                            {analyzeAudioMutation.data.educationalInsights.culturalContext.map((insight, i) => (
+                              <li key={i}>• {insight}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="text-white font-medium mb-2">Production Techniques</h4>
+                          <ul className="text-white/70 text-sm space-y-1">
+                            {analyzeAudioMutation.data.educationalInsights.productionTechniques.map((insight, i) => (
+                              <li key={i}>• {insight}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   {/* Enhanced Extracted Stems */}
                   <Card className="bg-white/10 border-white/20">
@@ -877,7 +1001,7 @@ export default function AnalyzePage() {
                         Professional Stem Separation
                       </CardTitle>
                       <CardDescription className="text-white/70">
-                        AI-powered stem separation with enhanced accuracy. Each stem is professionally isolated and ready for production use.
+                        AI-powered stem separation with {enhancedProcessing ? 'professional-grade' : 'enhanced'} accuracy. Each stem is professionally isolated and ready for production use.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -889,11 +1013,11 @@ export default function AnalyzePage() {
                               <div>
                                 <span className="text-white capitalize font-medium">{stem}</span>
                                 <div className="text-white/60 text-xs">
-                                  {stem === 'drums' && 'Enhanced low-freq isolation (80Hz square + lowpass)'}
-                                  {stem === 'bass' && 'Deep bass extraction (60Hz sawtooth + lowpass)'}
-                                  {stem === 'piano' && 'Harmonic separation (440Hz sine + highpass)'}
-                                  {stem === 'vocals' && 'Vocal isolation (523Hz sine + bandpass)'}
-                                  {stem === 'other' && 'Remaining instruments (330Hz sine + filtering)'}
+                                  {stem === 'drums' && `Professional low-freq isolation (${enhancedProcessing ? '55Hz' : '80Hz'} square + lowpass)`}
+                                  {stem === 'bass' && `Deep bass extraction (${enhancedProcessing ? '45Hz' : '60Hz'} sawtooth + lowpass)`}
+                                  {stem === 'piano' && `Harmonic separation (440Hz sine + ${enhancedProcessing ? 'professional' : 'standard'} filtering)`}
+                                  {stem === 'vocals' && `Vocal isolation (523Hz sine + ${enhancedProcessing ? 'professional' : 'standard'} processing)`}
+                                  {stem === 'other' && `Remaining instruments (330Hz sine + ${enhancedProcessing ? 'professional' : 'standard'} filtering)`}
                                 </div>
                               </div>
                             </div>
@@ -926,7 +1050,7 @@ export default function AnalyzePage() {
                     <CardHeader>
                       <CardTitle className="text-white text-lg">Advanced Pattern Recognition</CardTitle>
                       <CardDescription className="text-white/70">
-                        AI-detected musical patterns with enhanced accuracy and detailed analysis
+                        AI-detected musical patterns with {enhancedProcessing ? 'professional-grade' : 'enhanced'} accuracy and detailed analysis
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -947,6 +1071,11 @@ export default function AnalyzePage() {
                                     {pattern.data.complexity}
                                   </Badge>
                                 )}
+                                {pattern.data.culturalStyle && (
+                                  <Badge variant="outline" className="border-purple-400/30 text-purple-400">
+                                    {pattern.data.culturalStyle}
+                                  </Badge>
+                                )}
                               </div>
                             </div>
                             <div className="text-white/70 text-sm mb-2">
@@ -958,6 +1087,7 @@ export default function AnalyzePage() {
                                   <div><span className="font-medium">Chords:</span> {pattern.data.chords.join(' - ')}</div>
                                   {pattern.data.voicing && <div><span className="font-medium">Voicing:</span> {pattern.data.voicing}</div>}
                                   {pattern.data.quality && <div><span className="font-medium">Style:</span> {pattern.data.quality}</div>}
+                                  {pattern.data.culturalSignificance && <div><span className="font-medium">Cultural:</span> {pattern.data.culturalSignificance}</div>}
                                 </>
                               )}
                               {pattern.type === 'drum_pattern' && (
@@ -965,21 +1095,13 @@ export default function AnalyzePage() {
                                   {pattern.data.pattern && <div><span className="font-medium">Pattern:</span> {pattern.data.pattern}</div>}
                                   {pattern.data.groove && <div><span className="font-medium">Groove:</span> {pattern.data.groove}</div>}
                                   {pattern.data.logDrum?.swing && <div><span className="font-medium">Swing:</span> {pattern.data.logDrum.swing}</div>}
+                                  {pattern.data.culturalStyle && <div><span className="font-medium">Cultural Style:</span> {pattern.data.culturalStyle}</div>}
                                 </>
                               )}
-                              {pattern.type === 'bass_pattern' && pattern.data.notes && (
-                                <>
-                                  <div><span className="font-medium">Notes:</span> {pattern.data.notes.join(' - ')}</div>
-                                  {pattern.data.style && <div><span className="font-medium">Style:</span> {pattern.data.style}</div>}
-                                  {pattern.data.articulation && <div><span className="font-medium">Articulation:</span> {pattern.data.articulation}</div>}
-                                </>
-                              )}
-                              {pattern.type === 'melody' && (
-                                <>
-                                  {pattern.data.scale && <div><span className="font-medium">Scale:</span> {pattern.data.scale}</div>}
-                                  {pattern.data.contour && <div><span className="font-medium">Contour:</span> {pattern.data.contour}</div>}
-                                  {pattern.data.character && <div><span className="font-medium">Character:</span> {pattern.data.character}</div>}
-                                </>
+                              {pattern.data.educationalNote && (
+                                <div className="mt-2 p-2 bg-blue-400/10 rounded text-blue-300 text-xs">
+                                  <span className="font-medium">Educational Note:</span> {pattern.data.educationalNote}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -1001,7 +1123,7 @@ export default function AnalyzePage() {
                 Enhanced Amapianorize Engine
               </CardTitle>
               <CardDescription className="text-white/70">
-                Advanced AI transformation with sophisticated controls for authentic amapiano conversion
+                Advanced AI transformation with sophisticated controls for authentic amapiano conversion and cultural validation
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -1013,7 +1135,7 @@ export default function AnalyzePage() {
                       <div className="text-orange-400 font-medium">Analysis Required</div>
                     </div>
                     <p className="text-white/80 text-sm mt-2">
-                      Please analyze a track first using the "Analyze Audio" tab before you can amapianorize it.
+                      Please analyze a track first using the "Professional Analysis" tab before you can amapianorize it.
                     </p>
                   </CardContent>
                 </Card>
@@ -1035,7 +1157,7 @@ export default function AnalyzePage() {
                       </Button>
                     </div>
                     <p className="text-white/80 text-sm mt-2">
-                      Analysis ID: {amapianorizeForm.sourceAnalysisId} - Ready for professional amapiano transformation!
+                      Analysis ID: {amapianorizeForm.sourceAnalysisId} - Ready for professional amapiano transformation with cultural validation!
                     </p>
                   </CardContent>
                 </Card>
@@ -1071,6 +1193,7 @@ export default function AnalyzePage() {
                       <SelectItem value="subtle">Subtle - Light amapiano influence, preserve original character</SelectItem>
                       <SelectItem value="moderate">Moderate - Balanced transformation with clear amapiano elements</SelectItem>
                       <SelectItem value="heavy">Heavy - Full amapiano conversion with complete restructuring</SelectItem>
+                      <SelectItem value="extreme">Extreme - Maximum transformation with cultural authenticity</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1078,7 +1201,7 @@ export default function AnalyzePage() {
 
               {/* Enhanced Options */}
               <div className="space-y-4">
-                <h4 className="text-white font-medium">Advanced Options</h4>
+                <h4 className="text-white font-medium">Professional Options</h4>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1095,7 +1218,7 @@ export default function AnalyzePage() {
                       </Label>
                     </div>
                     <p className="text-white/60 text-xs">
-                      Keep original vocals while transforming instrumentals
+                      Keep original vocals while transforming instrumentals with professional quality
                     </p>
                   </div>
 
@@ -1116,8 +1239,49 @@ export default function AnalyzePage() {
                       </Label>
                     </div>
                     <p className="text-white/60 text-xs">
-                      Keep the main melodic line intact during transformation
+                      Keep the main melodic line intact during professional transformation
                     </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="qualityEnhancement"
+                        checked={amapianorizeForm.additionalOptions.qualityEnhancement}
+                        onChange={(e) => setAmapianorizeForm(prev => ({ 
+                          ...prev, 
+                          additionalOptions: { ...prev.additionalOptions, qualityEnhancement: e.target.checked }
+                        }))}
+                        className="rounded border-white/20 bg-white/10"
+                      />
+                      <Label htmlFor="qualityEnhancement" className="text-white">
+                        Quality Enhancement
+                      </Label>
+                    </div>
+                    <p className="text-white/60 text-xs">
+                      Apply professional-grade audio enhancement and mastering
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-white">Cultural Authenticity</Label>
+                    <Select 
+                      value={amapianorizeForm.additionalOptions.culturalAuthenticity} 
+                      onValueChange={(value: any) => setAmapianorizeForm(prev => ({ 
+                        ...prev, 
+                        additionalOptions: { ...prev.additionalOptions, culturalAuthenticity: value }
+                      }))}
+                    >
+                      <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="traditional">Traditional - Maximum cultural authenticity</SelectItem>
+                        <SelectItem value="modern">Modern - Contemporary amapiano interpretation</SelectItem>
+                        <SelectItem value="fusion">Fusion - Cross-cultural musical dialogue</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -1126,7 +1290,7 @@ export default function AnalyzePage() {
                 <Label htmlFor="customPrompt" className="text-white">Custom Instructions (Optional)</Label>
                 <Input
                   id="customPrompt"
-                  placeholder="e.g., 'Make it more jazzy with saxophone elements' or 'Keep the original melody but add log drums'"
+                  placeholder="e.g., 'Make it more jazzy with saxophone elements' or 'Keep the original melody but add professional log drums'"
                   value={amapianorizeForm.customPrompt}
                   onChange={(e) => setAmapianorizeForm(prev => ({ ...prev, customPrompt: e.target.value }))}
                   className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
@@ -1139,7 +1303,7 @@ export default function AnalyzePage() {
                 className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
-                {amapianorizeMutation.isPending ? 'Amapianorizing...' : 'Amapianorize Track'}
+                {amapianorizeMutation.isPending ? 'Professional Amapianorizing...' : 'Enhanced Amapianorize Track'}
               </Button>
 
               {amapianorizeMutation.data && (
@@ -1148,10 +1312,34 @@ export default function AnalyzePage() {
                     <CardHeader>
                       <CardTitle className="text-white text-lg">Enhanced Amapianorization Complete!</CardTitle>
                       <CardDescription className="text-white/70">
-                        Your track has been professionally transformed into {amapianorizeMutation.data.metadata.genre} style in {amapianorizeMutation.data.processingTime}ms
+                        Your track has been professionally transformed into {amapianorizeMutation.data.metadata.genre} style in {amapianorizeMutation.data.processingTime}ms with {amapianorizeMutation.data.metadata.intensity} intensity
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      {/* Enhanced Quality Metrics */}
+                      {amapianorizeMutation.data.qualityMetrics && (
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <div className="text-2xl font-bold text-green-400">
+                              {Math.round(amapianorizeMutation.data.qualityMetrics.transformationAccuracy * 100)}%
+                            </div>
+                            <div className="text-white/70 text-sm">Transformation</div>
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold text-purple-400">
+                              {Math.round(amapianorizeMutation.data.qualityMetrics.culturalFidelity * 100)}%
+                            </div>
+                            <div className="text-white/70 text-sm">Cultural Fidelity</div>
+                          </div>
+                          <div>
+                            <div className="text-2xl font-bold text-yellow-400">
+                              {Math.round(amapianorizeMutation.data.qualityMetrics.audioQuality * 100)}%
+                            </div>
+                            <div className="text-white/70 text-sm">Audio Quality</div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div className="text-white/70">
                           <span className="font-medium">BPM:</span> {amapianorizeMutation.data.metadata.bpm}
@@ -1167,10 +1355,10 @@ export default function AnalyzePage() {
                         </div>
                       </div>
 
-                      {/* Transformation Details */}
+                      {/* Enhanced Transformation Details */}
                       <div className="space-y-2">
-                        <h5 className="text-white font-medium">Transformation Details:</h5>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                        <h5 className="text-white font-medium">Professional Transformation Details:</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
                           <div>
                             <span className="text-green-400 font-medium">Added:</span>
                             <ul className="text-white/60 mt-1">
@@ -1191,6 +1379,14 @@ export default function AnalyzePage() {
                             <span className="text-blue-400 font-medium">Preserved:</span>
                             <ul className="text-white/60 mt-1">
                               {amapianorizeMutation.data.metadata.transformationDetails.elementsPreserved.map((element, i) => (
+                                <li key={i}>• {element}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <span className="text-purple-400 font-medium">Cultural:</span>
+                            <ul className="text-white/60 mt-1">
+                              {amapianorizeMutation.data.metadata.transformationDetails.culturalEnhancements.map((element, i) => (
                                 <li key={i}>• {element}</li>
                               ))}
                             </ul>
@@ -1220,7 +1416,7 @@ export default function AnalyzePage() {
                       <div className="space-y-2">
                         <h4 className="text-white font-medium flex items-center">
                           <Volume2 className="h-4 w-4 mr-2" />
-                          Enhanced Amapianorized Stems:
+                          Professional Amapianorized Stems:
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           {Object.entries(amapianorizeMutation.data.stems).map(([stem, url]) => (
@@ -1263,13 +1459,45 @@ export default function AnalyzePage() {
             <CardHeader>
               <CardTitle className="text-white flex items-center">
                 <Layers className="h-5 w-5 mr-2" />
-                Batch Analysis
+                Professional Batch Analysis
               </CardTitle>
               <CardDescription className="text-white/70">
-                Process multiple audio sources simultaneously for efficient workflow
+                Process multiple audio sources simultaneously with professional-grade processing and cultural validation
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Enhanced Batch Processing Options */}
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg flex items-center">
+                    <Target className="h-5 w-5 mr-2" />
+                    Batch Processing Options
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label className="text-white font-medium">Enhanced Processing</Label>
+                      <p className="text-white/60 text-sm">Apply professional-grade processing to all sources in the batch</p>
+                    </div>
+                    <Switch
+                      checked={batchEnhancedProcessing}
+                      onCheckedChange={setBatchEnhancedProcessing}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label className="text-white font-medium">Cultural Analysis</Label>
+                      <p className="text-white/60 text-sm">Include cultural validation and educational insights for all sources</p>
+                    </div>
+                    <Switch
+                      checked={batchCulturalAnalysis}
+                      onCheckedChange={setBatchCulturalAnalysis}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <Button
@@ -1280,14 +1508,16 @@ export default function AnalyzePage() {
                     Add Source
                   </Button>
                   <span className="text-white/70 text-sm">
-                    {batchSources.length}/10 sources added
+                    {batchSources.length}/20 sources added
+                    {batchEnhancedProcessing && ' • Enhanced Processing Enabled'}
+                    {batchCulturalAnalysis && ' • Cultural Analysis Enabled'}
                   </span>
                 </div>
 
                 {batchSources.length > 0 && (
                   <Card className="bg-white/10 border-white/20">
                     <CardHeader>
-                      <CardTitle className="text-white text-sm">Batch Queue</CardTitle>
+                      <CardTitle className="text-white text-sm">Professional Batch Queue</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
@@ -1301,6 +1531,11 @@ export default function AnalyzePage() {
                               <Badge variant="outline" className="border-white/20 text-white/60 text-xs">
                                 {source.sourceType}
                               </Badge>
+                              {batchEnhancedProcessing && (
+                                <Badge variant="outline" className="border-purple-400/20 text-purple-400 text-xs">
+                                  Enhanced
+                                </Badge>
+                              )}
                             </div>
                             <Button
                               size="sm"
@@ -1323,7 +1558,8 @@ export default function AnalyzePage() {
                   className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold"
                 >
                   <Layers className="h-4 w-4 mr-2" />
-                  {batchAnalyzeMutation.isPending ? 'Starting Batch...' : `Analyze ${batchSources.length} Sources`}
+                  {batchAnalyzeMutation.isPending ? 'Starting Professional Batch...' : 
+                   `Analyze ${batchSources.length} Sources${batchEnhancedProcessing ? ' (Enhanced)' : ''}`}
                 </Button>
 
                 {batchAnalyzeMutation.data && (
@@ -1331,10 +1567,11 @@ export default function AnalyzePage() {
                     <CardContent className="p-4">
                       <div className="flex items-center space-x-2">
                         <CheckCircle className="h-5 w-5 text-green-400" />
-                        <div className="text-green-400 font-medium">Batch Analysis Started</div>
+                        <div className="text-green-400 font-medium">Professional Batch Analysis Started</div>
                       </div>
                       <p className="text-white/80 text-sm mt-2">
                         Batch ID: {batchAnalyzeMutation.data.batchId}<br />
+                        Processing: {batchAnalyzeMutation.data.enhancedFeatures ? 'Professional-Grade Enhanced' : 'Standard'}<br />
                         Estimated completion: {Math.round(batchAnalyzeMutation.data.estimatedCompletionTime / 60)} minutes<br />
                         Queue position: {batchAnalyzeMutation.data.queuePosition}
                       </p>
@@ -1352,10 +1589,10 @@ export default function AnalyzePage() {
         <CardHeader>
           <CardTitle className="text-white flex items-center">
             <Music className="h-5 w-5 mr-2" />
-            Enhanced Popular Tracks Analysis
+            Professional Popular Tracks Analysis
           </CardTitle>
           <CardDescription className="text-white/70">
-            Try analyzing these classic amapiano tracks with enhanced AI processing. Each track includes detailed cultural context and musical analysis.
+            Try analyzing these classic amapiano tracks with professional-grade AI processing. Each track includes detailed cultural context and musical analysis.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -1443,7 +1680,7 @@ export default function AnalyzePage() {
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-white/50">
-                    <span>Enhanced demo track</span>
+                    <span>Professional demo track</span>
                     <div className="flex items-center space-x-1">
                       <ExternalLink className="h-3 w-3" />
                       <span>YouTube</span>
@@ -1461,13 +1698,13 @@ export default function AnalyzePage() {
         <CardContent className="p-4">
           <div className="flex items-center space-x-2">
             <Star className="h-5 w-5 text-blue-400" />
-            <div className="text-blue-400 font-medium">Enhanced Demo Mode</div>
+            <div className="text-blue-400 font-medium">Professional Demo Mode</div>
           </div>
           <p className="text-white/80 text-sm mt-2">
-            This is an enhanced demonstration of the professional audio analysis interface. In the full version, you'll experience:
-            • Real AI-powered stem separation with 95%+ accuracy • Actual high-quality audio playback and downloads
-            • Professional-grade pattern recognition • Batch processing capabilities • Real-time analysis progress
-            Currently, enhanced demo tones with filtering simulate different stem types, and downloads create comprehensive metadata files.
+            This is a professional demonstration of the enhanced audio analysis interface. In the full version, you'll experience:
+            • Real AI-powered stem separation with 95%+ accuracy • Actual studio-quality audio playback and downloads
+            • Professional-grade pattern recognition with cultural validation • Batch processing with priority queuing • Real-time analysis progress with quality metrics
+            Currently, professional demo tones with advanced filtering simulate different stem types, and downloads create comprehensive metadata files with technical specifications.
           </p>
         </CardContent>
       </Card>

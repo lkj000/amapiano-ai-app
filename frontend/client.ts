@@ -92,6 +92,10 @@ import {
     getUploadUrl as api_music_analyze_getUploadUrl
 } from "~backend/music/analyze";
 import {
+    loadProject as api_music_daw_loadProject,
+    saveProject as api_music_daw_saveProject
+} from "~backend/music/daw";
+import {
     generateLoop as api_music_generate_generateLoop,
     generateTrack as api_music_generate_generateTrack,
     getGenerationHistory as api_music_generate_getGenerationHistory,
@@ -137,11 +141,13 @@ export namespace music {
             this.getUploadUrl = this.getUploadUrl.bind(this)
             this.listPatterns = this.listPatterns.bind(this)
             this.listSamples = this.listSamples.bind(this)
+            this.loadProject = this.loadProject.bind(this)
+            this.saveProject = this.saveProject.bind(this)
             this.searchSamples = this.searchSamples.bind(this)
         }
 
         /**
-         * Enhanced amapianorize with more sophisticated transformation options
+         * Enhanced amapianorize with cultural authenticity and quality metrics
          */
         public async amapianorizeTrack(params: RequestType<typeof api_music_analyze_amapianorizeTrack>): Promise<ResponseType<typeof api_music_analyze_amapianorizeTrack>> {
             // Now make the actual call to the API
@@ -150,7 +156,7 @@ export namespace music {
         }
 
         /**
-         * Analyzes audio from various sources to extract stems and patterns
+         * Enhanced audio analysis with cultural authenticity and educational insights
          */
         public async analyzeAudio(params: RequestType<typeof api_music_analyze_analyzeAudio>): Promise<ResponseType<typeof api_music_analyze_analyzeAudio>> {
             // Now make the actual call to the API
@@ -158,9 +164,6 @@ export namespace music {
             return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_analyze_analyzeAudio>
         }
 
-        /**
-         * Batch analysis for processing multiple files
-         */
         public async batchAnalyze(params: RequestType<typeof api_music_analyze_batchAnalyze>): Promise<ResponseType<typeof api_music_analyze_batchAnalyze>> {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI(`/analyze/batch`, {method: "POST", body: JSON.stringify(params)})
@@ -177,7 +180,7 @@ export namespace music {
         }
 
         /**
-         * Enhanced pattern extraction with deeper analysis
+         * Enhanced pattern extraction with expert-level analysis
          */
         public async extractPatterns(params: RequestType<typeof api_music_analyze_extractPatterns>): Promise<ResponseType<typeof api_music_analyze_extractPatterns>> {
             // Now make the actual call to the API
@@ -186,7 +189,7 @@ export namespace music {
         }
 
         /**
-         * Enhanced loop generation with better categorization and quality
+         * Enhanced loop generation with professional quality and cultural authenticity
          */
         public async generateLoop(params: RequestType<typeof api_music_generate_generateLoop>): Promise<ResponseType<typeof api_music_generate_generateLoop>> {
             // Now make the actual call to the API
@@ -195,7 +198,7 @@ export namespace music {
         }
 
         /**
-         * Enhanced track generation with advanced options and better quality
+         * Enhanced track generation with professional quality and cultural authenticity
          */
         public async generateTrack(params: RequestType<typeof api_music_generate_generateTrack>): Promise<ResponseType<typeof api_music_generate_generateTrack>> {
             // Now make the actual call to the API
@@ -204,16 +207,16 @@ export namespace music {
         }
 
         /**
-         * Enhanced analysis history with better filtering and sorting
+         * Keep existing endpoints with enhanced error handling and validation
          */
         public async getAnalysisHistory(params: RequestType<typeof api_music_analyze_getAnalysisHistory>): Promise<ResponseType<typeof api_music_analyze_getAnalysisHistory>> {
             // Convert our params into the objects we need for the request
             const query = makeRecord<string, string | string[]>({
-                genre:      params.genre === undefined ? undefined : String(params.genre),
+                genre:      params.genre,
                 limit:      params.limit === undefined ? undefined : String(params.limit),
-                sortBy:     params.sortBy === undefined ? undefined : String(params.sortBy),
+                sortBy:     params.sortBy,
                 sortOrder:  params.sortOrder === undefined ? undefined : String(params.sortOrder),
-                sourceType: params.sourceType === undefined ? undefined : String(params.sourceType),
+                sourceType: params.sourceType,
             })
 
             // Now make the actual call to the API
@@ -221,9 +224,6 @@ export namespace music {
             return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_analyze_getAnalysisHistory>
         }
 
-        /**
-         * Get batch analysis status
-         */
         public async getBatchStatus(params: { batchId: string }): Promise<ResponseType<typeof api_music_analyze_getBatchStatus>> {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI(`/analyze/batch/${encodeURIComponent(params.batchId)}`, {method: "GET", body: undefined})
@@ -261,7 +261,7 @@ export namespace music {
         }
 
         /**
-         * Enhanced generation history with better filtering and statistics
+         * Keep existing endpoints with enhanced implementations
          */
         public async getGenerationHistory(params: RequestType<typeof api_music_generate_getGenerationHistory>): Promise<ResponseType<typeof api_music_generate_getGenerationHistory>> {
             // Convert our params into the objects we need for the request
@@ -269,7 +269,7 @@ export namespace music {
                 filterBy:  params.filterBy === undefined ? undefined : String(params.filterBy),
                 genre:     params.genre === undefined ? undefined : String(params.genre),
                 limit:     params.limit === undefined ? undefined : String(params.limit),
-                sortBy:    params.sortBy === undefined ? undefined : String(params.sortBy),
+                sortBy:    params.sortBy,
                 sortOrder: params.sortOrder === undefined ? undefined : String(params.sortOrder),
             })
 
@@ -278,9 +278,6 @@ export namespace music {
             return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_generate_getGenerationHistory>
         }
 
-        /**
-         * Enhanced statistics with more detailed analytics
-         */
         public async getGenerationStats(): Promise<ResponseType<typeof api_music_generate_getGenerationStats>> {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI(`/generate/stats`, {method: "GET", body: undefined})
@@ -315,7 +312,7 @@ export namespace music {
         }
 
         /**
-         * Generates a signed upload URL for file uploads with enhanced validation
+         * Enhanced upload URL generation with professional features
          */
         public async getUploadUrl(params: RequestType<typeof api_music_analyze_getUploadUrl>): Promise<ResponseType<typeof api_music_analyze_getUploadUrl>> {
             // Now make the actual call to the API
@@ -355,6 +352,24 @@ export namespace music {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI(`/samples`, {query, method: "GET", body: undefined})
             return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_samples_listSamples>
+        }
+
+        /**
+         * Loads a DAW project.
+         */
+        public async loadProject(params: { projectId: number }): Promise<ResponseType<typeof api_music_daw_loadProject>> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI(`/daw/projects/${encodeURIComponent(params.projectId)}`, {method: "GET", body: undefined})
+            return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_daw_loadProject>
+        }
+
+        /**
+         * Saves or updates a DAW project.
+         */
+        public async saveProject(params: RequestType<typeof api_music_daw_saveProject>): Promise<ResponseType<typeof api_music_daw_saveProject>> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI(`/daw/projects`, {method: "POST", body: JSON.stringify(params)})
+            return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_daw_saveProject>
         }
 
         /**
