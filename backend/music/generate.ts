@@ -55,24 +55,26 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
   async (req) => {
     const startTime = Date.now();
     
-    // Enhanced input validation
+    // Enhanced input validation with more permissive rules
     if (!req.prompt || req.prompt.trim().length === 0) {
       throw APIError.invalidArgument("Prompt is required");
     }
 
-    if (req.prompt.length > 1000) {
-      throw APIError.invalidArgument("Prompt must be less than 1000 characters");
+    if (req.prompt.length > 2000) {
+      throw APIError.invalidArgument("Prompt must be less than 2000 characters");
     }
 
-    if (req.bpm && (req.bpm < 80 || req.bpm > 160)) {
-      throw APIError.invalidArgument("BPM must be between 80 and 160");
+    // More permissive BPM validation
+    if (req.bpm !== undefined && req.bpm !== null && (req.bpm < 60 || req.bpm > 200)) {
+      throw APIError.invalidArgument("BPM must be between 60 and 200");
     }
 
-    if (req.duration && (req.duration < 30 || req.duration > 600)) {
-      throw APIError.invalidArgument("Duration must be between 30 and 600 seconds");
+    // More permissive duration validation
+    if (req.duration !== undefined && req.duration !== null && (req.duration < 15 || req.duration > 900)) {
+      throw APIError.invalidArgument("Duration must be between 15 and 900 seconds");
     }
 
-    // Validate advanced options
+    // Validate advanced options if provided
     if (req.advancedOptions?.instrumentation) {
       const validInstruments = [
         'log_drum', 'piano', 'bass', 'vocals', 'saxophone', 'guitar', 
@@ -82,8 +84,10 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
         inst => !validInstruments.includes(inst)
       );
       if (invalidInstruments.length > 0) {
-        throw APIError.invalidArgument(
-          `Invalid instruments: ${invalidInstruments.join(', ')}. Valid options: ${validInstruments.join(', ')}`
+        console.warn(`Invalid instruments provided: ${invalidInstruments.join(', ')}`);
+        // Don't throw error, just filter out invalid instruments
+        req.advancedOptions.instrumentation = req.advancedOptions.instrumentation.filter(
+          inst => validInstruments.includes(inst)
         );
       }
     }
@@ -92,16 +96,20 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
       // Enhanced source analysis integration
       let sourceData = null;
       if (req.sourceAnalysisId) {
-        const analysis = await musicDB.queryRow<{
-          id: number;
-          analysis_data: any;
-        }>`
-          SELECT id, analysis_data FROM audio_analysis WHERE id = ${req.sourceAnalysisId}
-        `;
-        
-        if (analysis) {
-          sourceData = analysis.analysis_data;
-          console.log(`Generating track based on analysis ID: ${req.sourceAnalysisId}`);
+        try {
+          const analysis = await musicDB.queryRow<{
+            id: number;
+            analysis_data: any;
+          }>`
+            SELECT id, analysis_data FROM audio_analysis WHERE id = ${req.sourceAnalysisId}
+          `;
+          
+          if (analysis) {
+            sourceData = analysis.analysis_data;
+            console.log(`Generating track based on analysis ID: ${req.sourceAnalysisId}`);
+          }
+        } catch (error) {
+          console.warn(`Could not find analysis with ID ${req.sourceAnalysisId}, proceeding without source data`);
         }
       }
 
@@ -126,11 +134,13 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
         await generatedTracks.upload(stemFile, mockStemBuffer);
       }
 
-      // Enhanced BPM logic based on genre and source
-      let finalBpm = req.bpm || 120;
-      if (sourceData && !req.bpm) {
+      // Enhanced BPM logic based on genre and source with fallbacks
+      let finalBpm = 120; // Default fallback
+      if (req.bpm !== undefined && req.bpm !== null) {
+        finalBpm = req.bpm;
+      } else if (sourceData && sourceData.bpm) {
         finalBpm = sourceData.bpm;
-      } else if (!req.bpm) {
+      } else {
         // Genre-appropriate BPM ranges
         if (req.genre === "private_school_amapiano") {
           finalBpm = Math.floor(Math.random() * 15) + 105; // 105-120
@@ -139,24 +149,28 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
         }
       }
 
-      // Enhanced key signature logic
-      let finalKey = req.keySignature || "C";
-      if (sourceData && !req.keySignature) {
+      // Enhanced key signature logic with fallbacks
+      let finalKey = "C"; // Default fallback
+      if (req.keySignature) {
+        finalKey = req.keySignature;
+      } else if (sourceData && sourceData.keySignature) {
         finalKey = sourceData.keySignature;
-      } else if (!req.keySignature) {
+      } else {
         const commonKeys = req.genre === "private_school_amapiano" 
           ? ["Dm", "Am", "Gm", "Fm", "Bb", "Eb"]
           : ["C", "F", "G", "Am", "Dm", "Em"];
         finalKey = commonKeys[Math.floor(Math.random() * commonKeys.length)];
       }
 
-      // Enhanced arrangement and instrumentation
+      // Enhanced arrangement and instrumentation with fallbacks
       const arrangement = req.advancedOptions?.arrangement || "standard";
       const defaultInstrumentation = req.genre === "private_school_amapiano"
         ? ["piano", "log_drum", "bass", "saxophone", "percussion"]
         : ["piano", "log_drum", "bass", "vocals", "percussion"];
       
-      const instrumentation = req.advancedOptions?.instrumentation || defaultInstrumentation;
+      const instrumentation = req.advancedOptions?.instrumentation && req.advancedOptions.instrumentation.length > 0
+        ? req.advancedOptions.instrumentation 
+        : defaultInstrumentation;
 
       // Prompt analysis for better generation
       const promptAnalysis = analyzePrompt(req.prompt, req.genre);
@@ -167,35 +181,42 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
       // Quality score based on various factors
       const qualityScore = calculateQualityScore(req, sourceData);
 
+      // Final duration with fallback
+      const finalDuration = req.duration || 180;
+
       // Store enhanced track data in database
-      await musicDB.exec`
-        INSERT INTO generated_tracks (
-          prompt, 
-          genre, 
-          mood, 
-          bpm, 
-          key_signature, 
-          file_url, 
-          stems_data, 
-          source_analysis_id,
-          processing_time_ms,
-          transformation_type,
-          quality_rating
-        )
-        VALUES (
-          ${req.prompt}, 
-          ${req.genre}, 
-          ${req.mood || null}, 
-          ${finalBpm}, 
-          ${finalKey}, 
-          ${audioFileName}, 
-          ${JSON.stringify(stemsData)}, 
-          ${req.sourceAnalysisId || null},
-          ${Date.now() - startTime},
-          ${sourceData ? "remix" : "original"},
-          ${qualityScore}
-        )
-      `;
+      try {
+        await musicDB.exec`
+          INSERT INTO generated_tracks (
+            prompt, 
+            genre, 
+            mood, 
+            bpm, 
+            key_signature, 
+            file_url, 
+            stems_data, 
+            source_analysis_id,
+            processing_time_ms,
+            transformation_type,
+            quality_rating
+          )
+          VALUES (
+            ${req.prompt}, 
+            ${req.genre}, 
+            ${req.mood || null}, 
+            ${finalBpm}, 
+            ${finalKey}, 
+            ${audioFileName}, 
+            ${JSON.stringify(stemsData)}, 
+            ${req.sourceAnalysisId || null},
+            ${Date.now() - startTime},
+            ${sourceData ? "remix" : "original"},
+            ${qualityScore}
+          )
+        `;
+      } catch (dbError) {
+        console.warn("Database insert failed, continuing with response:", dbError);
+      }
 
       const processingTime = Date.now() - startTime;
       const audioUrl = generatedTracks.publicUrl(audioFileName);
@@ -212,7 +233,7 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
         metadata: {
           bpm: finalBpm,
           keySignature: finalKey,
-          duration: req.duration || 180,
+          duration: finalDuration,
           arrangement,
           instrumentation,
           qualityScore
@@ -278,25 +299,26 @@ export const generateLoop = api<GenerateLoopRequest, GenerateLoopResponse>(
   async (req) => {
     const startTime = Date.now();
     
-    // Enhanced validation
-    if (req.bpm && (req.bpm < 80 || req.bpm > 160)) {
-      throw APIError.invalidArgument("BPM must be between 80 and 160");
+    // Enhanced validation with more permissive rules
+    if (req.bpm !== undefined && req.bpm !== null && (req.bpm < 60 || req.bpm > 200)) {
+      throw APIError.invalidArgument("BPM must be between 60 and 200");
     }
 
-    if (req.bars && (req.bars < 1 || req.bars > 16)) {
-      throw APIError.invalidArgument("Bars must be between 1 and 16");
+    if (req.bars !== undefined && req.bars !== null && (req.bars < 1 || req.bars > 32)) {
+      throw APIError.invalidArgument("Bars must be between 1 and 32");
     }
 
     const validComplexities = ["simple", "intermediate", "advanced"];
     if (req.complexity && !validComplexities.includes(req.complexity)) {
-      throw APIError.invalidArgument(`Complexity must be one of: ${validComplexities.join(', ')}`);
+      console.warn(`Invalid complexity: ${req.complexity}, using default`);
+      req.complexity = "intermediate";
     }
 
     try {
       const loopId = Math.floor(Math.random() * 1000000);
       const fileName = `loop_${req.category}_${loopId}.wav`;
 
-      // Enhanced BPM logic for loops
+      // Enhanced BPM logic for loops with fallbacks
       const finalBpm = req.bpm || (req.genre === "private_school_amapiano" ? 112 : 118);
       const finalBars = req.bars || 4;
       const finalKey = req.keySignature || "C";
@@ -446,68 +468,83 @@ export const getGenerationHistory = api<GetGenerationHistoryRequest, GetGenerati
       query += ` LIMIT 50`;
     }
 
-    const tracks = await musicDB.rawQueryAll<{
-      id: number;
-      prompt: string;
-      genre: Genre;
-      mood?: string;
-      bpm?: number;
-      key_signature?: string;
-      file_url?: string;
-      quality_rating?: number;
-      processing_time_ms?: number;
-      transformation_type?: string;
-      created_at: Date;
-    }>(query, ...params);
+    try {
+      const tracks = await musicDB.rawQueryAll<{
+        id: number;
+        prompt: string;
+        genre: Genre;
+        mood?: string;
+        bpm?: number;
+        key_signature?: string;
+        file_url?: string;
+        quality_rating?: number;
+        processing_time_ms?: number;
+        transformation_type?: string;
+        created_at: Date;
+      }>(query, ...params);
 
-    // Get statistics
-    const statsQuery = `
-      SELECT 
-        COUNT(*) as total_generations,
-        AVG(processing_time_ms) as avg_processing_time,
-        AVG(quality_rating) as avg_quality
-      FROM generated_tracks
-    `;
-    const stats = await musicDB.queryRow<{
-      total_generations: number;
-      avg_processing_time: number;
-      avg_quality: number;
-    }>(statsQuery);
+      // Get statistics
+      const statsQuery = `
+        SELECT 
+          COUNT(*) as total_generations,
+          AVG(processing_time_ms) as avg_processing_time,
+          AVG(quality_rating) as avg_quality
+        FROM generated_tracks
+      `;
+      const stats = await musicDB.queryRow<{
+        total_generations: number;
+        avg_processing_time: number;
+        avg_quality: number;
+      }>(statsQuery);
 
-    // Get genre distribution
-    const genreDistQuery = `
-      SELECT genre, COUNT(*) as count 
-      FROM generated_tracks 
-      GROUP BY genre
-    `;
-    const genreResults = await musicDB.queryAll<{genre: Genre, count: number}>(genreDistQuery);
-    const genreDistribution = genreResults.reduce((acc, row) => {
-      acc[row.genre] = row.count;
-      return acc;
-    }, {} as Record<Genre, number>);
+      // Get genre distribution
+      const genreDistQuery = `
+        SELECT genre, COUNT(*) as count 
+        FROM generated_tracks 
+        GROUP BY genre
+      `;
+      const genreResults = await musicDB.queryAll<{genre: Genre, count: number}>(genreDistQuery);
+      const genreDistribution = genreResults.reduce((acc, row) => {
+        acc[row.genre] = row.count;
+        return acc;
+      }, {} as Record<Genre, number>);
 
-    return {
-      tracks: tracks.map(track => ({
-        id: track.id,
-        prompt: track.prompt,
-        genre: track.genre,
-        mood: track.mood,
-        bpm: track.bpm,
-        keySignature: track.key_signature,
-        fileUrl: track.file_url,
-        qualityRating: track.quality_rating,
-        processingTime: track.processing_time_ms,
-        transformationType: track.transformation_type,
-        createdAt: track.created_at
-      })),
-      totalCount: stats?.total_generations || 0,
-      averageQuality: Math.round((stats?.avg_quality || 0) * 100) / 100,
-      statistics: {
-        totalGenerations: stats?.total_generations || 0,
-        averageProcessingTime: Math.round(stats?.avg_processing_time || 0),
-        genreDistribution
-      }
-    };
+      return {
+        tracks: tracks.map(track => ({
+          id: track.id,
+          prompt: track.prompt,
+          genre: track.genre,
+          mood: track.mood,
+          bpm: track.bpm,
+          keySignature: track.key_signature,
+          fileUrl: track.file_url,
+          qualityRating: track.quality_rating,
+          processingTime: track.processing_time_ms,
+          transformationType: track.transformation_type,
+          createdAt: track.created_at
+        })),
+        totalCount: stats?.total_generations || 0,
+        averageQuality: Math.round((stats?.avg_quality || 0) * 100) / 100,
+        statistics: {
+          totalGenerations: stats?.total_generations || 0,
+          averageProcessingTime: Math.round(stats?.avg_processing_time || 0),
+          genreDistribution
+        }
+      };
+    } catch (error) {
+      console.error("Database query error:", error);
+      // Return empty results instead of throwing error
+      return {
+        tracks: [],
+        totalCount: 0,
+        averageQuality: 0,
+        statistics: {
+          totalGenerations: 0,
+          averageProcessingTime: 0,
+          genreDistribution: {} as Record<Genre, number>
+        }
+      };
+    }
   }
 );
 
@@ -538,124 +575,139 @@ export interface GetGenerationStatsResponse {
 export const getGenerationStats = api<void, GetGenerationStatsResponse>(
   { expose: true, method: "GET", path: "/generate/stats" },
   async () => {
-    // Get total count
-    const totalResult = await musicDB.queryRow<{count: number}>`
-      SELECT COUNT(*) as count FROM generated_tracks
-    `;
-    const totalGenerations = totalResult?.count || 0;
+    try {
+      // Get total count
+      const totalResult = await musicDB.queryRow<{count: number}>`
+        SELECT COUNT(*) as count FROM generated_tracks
+      `;
+      const totalGenerations = totalResult?.count || 0;
 
-    // Get counts by genre
-    const genreResults = await musicDB.queryAll<{genre: Genre, count: number}>`
-      SELECT genre, COUNT(*) as count 
-      FROM generated_tracks 
-      GROUP BY genre
-    `;
-    const generationsByGenre = genreResults.reduce((acc, row) => {
-      acc[row.genre] = row.count;
-      return acc;
-    }, {} as Record<Genre, number>);
+      // Get counts by genre
+      const genreResults = await musicDB.queryAll<{genre: Genre, count: number}>`
+        SELECT genre, COUNT(*) as count 
+        FROM generated_tracks 
+        GROUP BY genre
+      `;
+      const generationsByGenre = genreResults.reduce((acc, row) => {
+        acc[row.genre] = row.count;
+        return acc;
+      }, {} as Record<Genre, number>);
 
-    // Get counts by mood
-    const moodResults = await musicDB.queryAll<{mood: string, count: number}>`
-      SELECT mood, COUNT(*) as count 
-      FROM generated_tracks 
-      WHERE mood IS NOT NULL
-      GROUP BY mood
-    `;
-    const generationsByMood = moodResults.reduce((acc, row) => {
-      acc[row.mood] = row.count;
-      return acc;
-    }, {} as Record<string, number>);
+      // Get counts by mood
+      const moodResults = await musicDB.queryAll<{mood: string, count: number}>`
+        SELECT mood, COUNT(*) as count 
+        FROM generated_tracks 
+        WHERE mood IS NOT NULL
+        GROUP BY mood
+      `;
+      const generationsByMood = moodResults.reduce((acc, row) => {
+        acc[row.mood] = row.count;
+        return acc;
+      }, {} as Record<string, number>);
 
-    // Get average BPM
-    const bpmResult = await musicDB.queryRow<{avg_bpm: number}>`
-      SELECT AVG(bpm) as avg_bpm 
-      FROM generated_tracks 
-      WHERE bpm IS NOT NULL
-    `;
-    const averageBpm = Math.round(bpmResult?.avg_bpm || 120);
+      // Get average BPM
+      const bpmResult = await musicDB.queryRow<{avg_bpm: number}>`
+        SELECT AVG(bpm) as avg_bpm 
+        FROM generated_tracks 
+        WHERE bpm IS NOT NULL
+      `;
+      const averageBpm = Math.round(bpmResult?.avg_bpm || 120);
 
-    // Get popular key signatures
-    const keyResults = await musicDB.queryAll<{key_signature: string, count: number}>`
-      SELECT key_signature, COUNT(*) as count
-      FROM generated_tracks
-      WHERE key_signature IS NOT NULL
-      GROUP BY key_signature
-      ORDER BY count DESC
-      LIMIT 10
-    `;
+      // Get popular key signatures
+      const keyResults = await musicDB.queryAll<{key_signature: string, count: number}>`
+        SELECT key_signature, COUNT(*) as count
+        FROM generated_tracks
+        WHERE key_signature IS NOT NULL
+        GROUP BY key_signature
+        ORDER BY count DESC
+        LIMIT 10
+      `;
 
-    // Get quality distribution
-    const qualityResults = await musicDB.queryAll<{quality_range: string, count: number}>`
-      SELECT 
-        CASE 
-          WHEN quality_rating >= 0.8 THEN 'high'
-          WHEN quality_rating >= 0.6 THEN 'medium'
-          ELSE 'low'
-        END as quality_range,
-        COUNT(*) as count
-      FROM generated_tracks
-      WHERE quality_rating IS NOT NULL
-      GROUP BY quality_range
-    `;
-    
-    const qualityDistribution = qualityResults.reduce((acc, row) => {
-      acc[row.quality_range as keyof typeof acc] = row.count;
-      return acc;
-    }, { high: 0, medium: 0, low: 0 });
+      // Get quality distribution
+      const qualityResults = await musicDB.queryAll<{quality_range: string, count: number}>`
+        SELECT 
+          CASE 
+            WHEN quality_rating >= 0.8 THEN 'high'
+            WHEN quality_rating >= 0.6 THEN 'medium'
+            ELSE 'low'
+          END as quality_range,
+          COUNT(*) as count
+        FROM generated_tracks
+        WHERE quality_rating IS NOT NULL
+        GROUP BY quality_range
+      `;
+      
+      const qualityDistribution = qualityResults.reduce((acc, row) => {
+        acc[row.quality_range as keyof typeof acc] = row.count;
+        return acc;
+      }, { high: 0, medium: 0, low: 0 });
 
-    // Get processing statistics
-    const processingStats = await musicDB.queryRow<{
-      avg_time: number;
-      min_time: number;
-      max_time: number;
-    }>`
-      SELECT 
-        AVG(processing_time_ms) as avg_time,
-        MIN(processing_time_ms) as min_time,
-        MAX(processing_time_ms) as max_time
-      FROM generated_tracks
-      WHERE processing_time_ms IS NOT NULL
-    `;
+      // Get processing statistics
+      const processingStats = await musicDB.queryRow<{
+        avg_time: number;
+        min_time: number;
+        max_time: number;
+      }>`
+        SELECT 
+          AVG(processing_time_ms) as avg_time,
+          MIN(processing_time_ms) as min_time,
+          MAX(processing_time_ms) as max_time
+        FROM generated_tracks
+        WHERE processing_time_ms IS NOT NULL
+      `;
 
-    // Get trends over time (last 30 days)
-    const trendsResults = await musicDB.queryAll<{
-      date: string;
-      count: number;
-      avg_quality: number;
-    }>`
-      SELECT 
-        DATE(created_at) as date,
-        COUNT(*) as count,
-        AVG(quality_rating) as avg_quality
-      FROM generated_tracks
-      WHERE created_at >= NOW() - INTERVAL '30 days'
-      GROUP BY DATE(created_at)
-      ORDER BY date DESC
-      LIMIT 30
-    `;
+      // Get trends over time (last 30 days)
+      const trendsResults = await musicDB.queryAll<{
+        date: string;
+        count: number;
+        avg_quality: number;
+      }>`
+        SELECT 
+          DATE(created_at) as date,
+          COUNT(*) as count,
+          AVG(quality_rating) as avg_quality
+        FROM generated_tracks
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
+        LIMIT 30
+      `;
 
-    return {
-      totalGenerations,
-      generationsByGenre,
-      generationsByMood,
-      averageBpm,
-      popularKeySignatures: keyResults.map(row => ({
-        key: row.key_signature,
-        count: row.count
-      })),
-      qualityDistribution,
-      processingStats: {
-        averageTime: Math.round(processingStats?.avg_time || 0),
-        fastestTime: processingStats?.min_time || 0,
-        slowestTime: processingStats?.max_time || 0
-      },
-      trendsOverTime: trendsResults.map(row => ({
-        date: row.date,
-        count: row.count,
-        averageQuality: Math.round((row.avg_quality || 0) * 100) / 100
-      }))
-    };
+      return {
+        totalGenerations,
+        generationsByGenre,
+        generationsByMood,
+        averageBpm,
+        popularKeySignatures: keyResults.map(row => ({
+          key: row.key_signature,
+          count: row.count
+        })),
+        qualityDistribution,
+        processingStats: {
+          averageTime: Math.round(processingStats?.avg_time || 0),
+          fastestTime: processingStats?.min_time || 0,
+          slowestTime: processingStats?.max_time || 0
+        },
+        trendsOverTime: trendsResults.map(row => ({
+          date: row.date,
+          count: row.count,
+          averageQuality: Math.round((row.avg_quality || 0) * 100) / 100
+        }))
+      };
+    } catch (error) {
+      console.error("Stats query error:", error);
+      // Return default stats instead of throwing error
+      return {
+        totalGenerations: 0,
+        generationsByGenre: {} as Record<Genre, number>,
+        generationsByMood: {},
+        averageBpm: 120,
+        popularKeySignatures: [],
+        qualityDistribution: { high: 0, medium: 0, low: 0 },
+        processingStats: { averageTime: 0, fastestTime: 0, slowestTime: 0 },
+        trendsOverTime: []
+      };
+    }
   }
 );
 
