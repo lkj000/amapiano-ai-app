@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X, Pause, Volume2 } from 'lucide-react';
+import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X, Pause, Volume2, ExternalLink } from 'lucide-react';
 import backend from '~backend/client';
 import type { AnalyzeAudioRequest } from '~backend/music/analyze';
 
@@ -23,7 +23,7 @@ export default function AnalyzePage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'analyze' | 'amapianorize'>('analyze');
-  const [playingAudio, setPlayingAudio] = useState<{ type: 'stem' | 'track'; id: string; audio: HTMLAudioElement } | null>(null);
+  const [playingAudio, setPlayingAudio] = useState<{ type: 'stem' | 'track' | 'popular'; id: string; audio: HTMLAudioElement } | null>(null);
 
   // Amapianorize form state
   const [amapianorizeForm, setAmapianorizeForm] = useState({
@@ -74,7 +74,7 @@ export default function AnalyzePage() {
     },
   });
 
-  const handlePlay = (audioUrl: string, type: 'stem' | 'track', id: string, name?: string) => {
+  const handlePlay = (audioUrl: string, type: 'stem' | 'track' | 'popular', id: string, name?: string) => {
     if (playingAudio && playingAudio.id === id) {
       playingAudio.audio.pause();
       setPlayingAudio(null);
@@ -100,10 +100,11 @@ export default function AnalyzePage() {
       piano: 440,   // A4 for piano
       vocals: 523,  // C5 for vocals
       other: 330,   // E4 for other instruments
-      track: 220    // A3 for full track
+      track: 220,   // A3 for full track
+      popular: 196  // G3 for popular tracks
     };
     
-    const stemName = id.replace('stem-', '').replace('track-', '');
+    const stemName = id.replace('stem-', '').replace('track-', '').replace('popular-', '');
     const frequency = stemFrequencies[stemName as keyof typeof stemFrequencies] || stemFrequencies.other;
     
     oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
@@ -113,15 +114,17 @@ export default function AnalyzePage() {
       oscillator.type = 'square';
     } else if (stemName === 'bass') {
       oscillator.type = 'sawtooth';
+    } else if (type === 'popular') {
+      oscillator.type = 'triangle';
     } else {
       oscillator.type = 'sine';
     }
     
-    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 3);
+    gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 4);
     
     oscillator.start();
-    oscillator.stop(audioContext.currentTime + 3);
+    oscillator.stop(audioContext.currentTime + 4);
     
     // Create a mock audio element for state management
     const mockAudio = {
@@ -135,30 +138,46 @@ export default function AnalyzePage() {
       },
       play: () => Promise.resolve(),
       currentTime: 0,
-      duration: 3
+      duration: 4
     } as HTMLAudioElement;
 
     setPlayingAudio({ type, id, audio: mockAudio });
     
     toast({
       title: "Demo Playback",
-      description: `Playing ${name || stemName}... (demo audio with ${frequency}Hz tone)`,
+      description: `Playing ${name || stemName}... (demo audio with ${frequency}Hz ${oscillator.type} wave)`,
     });
 
-    // Auto-stop after 3 seconds
+    // Auto-stop after 4 seconds
     setTimeout(() => {
       setPlayingAudio(null);
-    }, 3000);
+    }, 4000);
   };
 
-  const handleDownload = (audioUrl: string, filename: string) => {
-    // Create a mock download by generating a simple text file
-    const content = `Demo audio file: ${filename}\nThis would be actual audio data in the full version.\nURL: ${audioUrl}`;
+  const handleDownload = (audioUrl: string, filename: string, trackInfo?: any) => {
+    // Create a comprehensive demo file with track information
+    let content = `Demo audio file: ${filename}\n`;
+    content += `This would be actual audio data in the full version.\n`;
+    content += `URL: ${audioUrl}\n`;
+    content += `Generated: ${new Date().toISOString()}\n\n`;
+    
+    if (trackInfo) {
+      content += `Track Information:\n`;
+      content += `Artist: ${trackInfo.artist}\n`;
+      content += `Track: ${trackInfo.track}\n`;
+      content += `Style: ${trackInfo.style}\n`;
+      content += `Description: ${trackInfo.description || 'N/A'}\n\n`;
+    }
+    
+    content += `File Format: WAV (44.1kHz, 16-bit)\n`;
+    content += `Quality: Professional\n`;
+    content += `License: Demo purposes only\n`;
+    
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename.replace('.wav', '.txt'); // Change extension for demo
+    a.download = filename.replace(/\.(wav|mp3|flac)$/i, '.txt'); // Change extension for demo
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -166,7 +185,7 @@ export default function AnalyzePage() {
     
     toast({
       title: "Download Started",
-      description: `Downloading ${filename}... (demo file)`,
+      description: `Downloading ${filename}... (demo file with track info)`,
     });
   };
 
@@ -298,6 +317,17 @@ export default function AnalyzePage() {
     amapianorizeMutation.mutate(amapianorizeForm);
   };
 
+  const handlePopularTrackAnalyze = (track: any) => {
+    setSourceUrl(`https://www.youtube.com/watch?v=${track.videoId || 'demo'}`);
+    setSourceType('youtube');
+    
+    // Simulate analysis for popular track
+    analyzeAudioMutation.mutate({
+      sourceUrl: `https://www.youtube.com/watch?v=${track.videoId || 'demo'}`,
+      sourceType: 'youtube'
+    });
+  };
+
   const getSourceIcon = () => {
     switch (sourceType) {
       case 'youtube':
@@ -344,6 +374,88 @@ export default function AnalyzePage() {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+
+  // Popular tracks data with more comprehensive information
+  const popularTracks = [
+    {
+      id: 1,
+      artist: 'Kabza De Small',
+      track: 'Sponono',
+      style: 'Classic Amapiano',
+      description: 'Iconic track featuring signature log drums and soulful piano melodies',
+      videoId: 'demo1',
+      bpm: 118,
+      key: 'F#m',
+      duration: '4:32',
+      year: 2019,
+      features: ['Log drums', 'Piano', 'Vocals', 'Percussion']
+    },
+    {
+      id: 2,
+      artist: 'Kelvin Momo',
+      track: 'Amukelani',
+      style: 'Private School Amapiano',
+      description: 'Sophisticated jazz-influenced composition with complex harmonies',
+      videoId: 'demo2',
+      bpm: 112,
+      key: 'Dm',
+      duration: '6:18',
+      year: 2021,
+      features: ['Jazz chords', 'Saxophone', 'Subtle percussion', 'Deep bass']
+    },
+    {
+      id: 3,
+      artist: 'Babalwa M',
+      track: 'Suka',
+      style: 'Melodic Amapiano',
+      description: 'Melodic and vocal-driven production with emotional depth',
+      videoId: 'demo3',
+      bpm: 115,
+      key: 'C',
+      duration: '5:45',
+      year: 2020,
+      features: ['Vocals', 'Melodic elements', 'Emotional progression', 'Smooth bass']
+    },
+    {
+      id: 4,
+      artist: 'Focalistic',
+      track: 'Ke Star',
+      style: 'Commercial Amapiano',
+      description: 'High-energy commercial amapiano with rap vocals and catchy hooks',
+      videoId: 'demo4',
+      bpm: 120,
+      key: 'Am',
+      duration: '3:28',
+      year: 2020,
+      features: ['Rap vocals', 'Commercial appeal', 'Energetic drums', 'Catchy hooks']
+    },
+    {
+      id: 5,
+      artist: 'DJ Maphorisa',
+      track: 'Midnight Starring',
+      style: 'Deep Amapiano',
+      description: 'Deep, atmospheric amapiano with hypnotic rhythms and rich textures',
+      videoId: 'demo5',
+      bpm: 116,
+      key: 'Gm',
+      duration: '7:12',
+      year: 2019,
+      features: ['Deep atmosphere', 'Hypnotic rhythms', 'Rich textures', 'Extended mix']
+    },
+    {
+      id: 6,
+      artist: 'Mas Musiq',
+      track: 'Zaka',
+      style: 'Soulful Amapiano',
+      description: 'Soulful amapiano with gospel influences and uplifting melodies',
+      videoId: 'demo6',
+      bpm: 114,
+      key: 'F',
+      duration: '4:56',
+      year: 2020,
+      features: ['Gospel influence', 'Uplifting melodies', 'Soulful vocals', 'Spiritual vibe']
+    }
+  ];
 
   return (
     <div className="space-y-8">
@@ -619,11 +731,11 @@ export default function AnalyzePage() {
                               <div>
                                 <span className="text-white capitalize font-medium">{stem}</span>
                                 <div className="text-white/60 text-xs">
-                                  {stem === 'drums' && 'Low frequency demo tone'}
-                                  {stem === 'bass' && 'Very low frequency demo tone'}
-                                  {stem === 'piano' && 'Mid frequency demo tone'}
-                                  {stem === 'vocals' && 'High frequency demo tone'}
-                                  {stem === 'other' && 'Mixed frequency demo tone'}
+                                  {stem === 'drums' && 'Low frequency square wave (80Hz)'}
+                                  {stem === 'bass' && 'Very low sawtooth wave (60Hz)'}
+                                  {stem === 'piano' && 'Mid frequency sine wave (440Hz)'}
+                                  {stem === 'vocals' && 'High frequency sine wave (523Hz)'}
+                                  {stem === 'other' && 'Mixed frequency sine wave (330Hz)'}
                                 </div>
                               </div>
                             </div>
@@ -893,24 +1005,97 @@ export default function AnalyzePage() {
       {/* Popular Analysis Examples */}
       <Card className="bg-white/5 border-white/10 max-w-4xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-white">Popular Tracks to Analyze</CardTitle>
+          <CardTitle className="text-white flex items-center">
+            <Music className="h-5 w-5 mr-2" />
+            Popular Tracks to Analyze
+          </CardTitle>
           <CardDescription className="text-white/70">
-            Try analyzing these classic amapiano tracks or upload your own files
+            Try analyzing these classic amapiano tracks. Click play to hear demo audio or analyze to extract stems and patterns.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { artist: 'Kabza De Small', track: 'Sponono', style: 'Classic Amapiano' },
-              { artist: 'Kelvin Momo', track: 'Amukelani', style: 'Private School' },
-              { artist: 'Babalwa M', track: 'Suka', style: 'Melodic Amapiano' },
-              { artist: 'Focalistic', track: 'Ke Star', style: 'Commercial Amapiano' }
-            ].map((example, index) => (
-              <div key={index} className="p-3 bg-white/5 rounded-lg">
-                <div className="text-white font-medium">{example.artist}</div>
-                <div className="text-white/70 text-sm">{example.track}</div>
-                <div className="text-yellow-400 text-xs">{example.style}</div>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {popularTracks.map((track) => (
+              <Card key={track.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="text-white text-lg">{track.track}</CardTitle>
+                      <p className="text-white/70 text-sm font-medium">{track.artist}</p>
+                      <Badge variant="outline" className="border-yellow-400/30 text-yellow-400 w-fit">
+                        {track.style}
+                      </Badge>
+                    </div>
+                    <div className="text-white/60 text-xs text-right">
+                      <div>{track.year}</div>
+                      <div>{track.duration}</div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-white/60 text-sm">{track.description}</p>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-xs text-white/70">
+                    <div>
+                      <span className="font-medium">BPM:</span> {track.bpm}
+                    </div>
+                    <div>
+                      <span className="font-medium">Key:</span> {track.key}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-white/70 text-xs font-medium">Features:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {track.features.map((feature, index) => (
+                        <Badge 
+                          key={index} 
+                          variant="secondary" 
+                          className="text-xs bg-white/10 text-white/60"
+                        >
+                          {feature}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-white/20 text-white hover:bg-white/10 flex-1"
+                      onClick={() => handlePlay(`demo-${track.videoId}`, 'popular', `popular-${track.id}`, `${track.artist} - ${track.track}`)}
+                    >
+                      {playingAudio?.id === `popular-${track.id}` ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1" />}
+                      {playingAudio?.id === `popular-${track.id}` ? 'Stop' : 'Play'}
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                      onClick={() => handlePopularTrackAnalyze(track)}
+                    >
+                      <Search className="h-3 w-3 mr-1" />
+                      Analyze
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-white/20 text-white hover:bg-white/10"
+                      onClick={() => handleDownload(`demo-${track.videoId}`, `${track.artist}-${track.track}.wav`, track)}
+                    >
+                      <Download className="h-3 w-3" />
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-white/50">
+                    <span>Demo track</span>
+                    <div className="flex items-center space-x-1">
+                      <ExternalLink className="h-3 w-3" />
+                      <span>YouTube</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </CardContent>
@@ -925,7 +1110,7 @@ export default function AnalyzePage() {
           </div>
           <p className="text-white/80 text-sm mt-2">
             This is a demonstration of the audio analysis interface. In the full version, you'll hear actual separated stems and download real audio files. 
-            Currently, play buttons generate demo tones at different frequencies to represent each stem type, and downloads create placeholder files.
+            Currently, play buttons generate demo tones at different frequencies to represent each stem type, and downloads create comprehensive demo files with track information.
           </p>
         </CardContent>
       </Card>
