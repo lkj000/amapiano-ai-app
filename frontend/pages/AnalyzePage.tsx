@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { Search, Upload, Youtube, Music, Layers, Play, Download } from 'lucide-react';
+import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles } from 'lucide-react';
 import backend from '~backend/client';
 import type { AnalyzeAudioRequest } from '~backend/music/analyze';
 
 export default function AnalyzePage() {
   const { toast } = useToast();
   const [sourceUrl, setSourceUrl] = useState('');
-  const [sourceType, setSourceType] = useState<'youtube' | 'upload' | 'url'>('youtube');
+  const [sourceType, setSourceType] = useState<'youtube' | 'upload' | 'url' | 'tiktok'>('youtube');
 
   const analyzeAudioMutation = useMutation({
     mutationFn: (data: AnalyzeAudioRequest) => backend.music.analyzeAudio(data),
@@ -53,6 +54,8 @@ export default function AnalyzePage() {
     switch (sourceType) {
       case 'youtube':
         return <Youtube className="h-4 w-4" />;
+      case 'tiktok':
+        return <Music className="h-4 w-4" />; // Using Music icon for TikTok
       case 'upload':
         return <Upload className="h-4 w-4" />;
       default:
@@ -64,6 +67,8 @@ export default function AnalyzePage() {
     switch (sourceType) {
       case 'youtube':
         return 'https://www.youtube.com/watch?v=...';
+      case 'tiktok':
+        return 'https://www.tiktok.com/@user/video/...';
       case 'upload':
         return 'Upload an audio file';
       default:
@@ -85,7 +90,7 @@ export default function AnalyzePage() {
         <CardHeader>
           <CardTitle className="text-white">Analyze Audio</CardTitle>
           <CardDescription className="text-white/70">
-            Extract stems and patterns from YouTube videos, uploaded files, or audio URLs
+            Extract stems and patterns from TikTok, YouTube, uploaded files, or audio URLs
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -101,6 +106,12 @@ export default function AnalyzePage() {
                     <div className="flex items-center space-x-2">
                       <Youtube className="h-4 w-4" />
                       <span>YouTube Video</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="tiktok">
+                    <div className="flex items-center space-x-2">
+                      <Music className="h-4 w-4" />
+                      <span>TikTok Video</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="url">
@@ -121,7 +132,7 @@ export default function AnalyzePage() {
 
             <div className="space-y-2">
               <Label htmlFor="sourceUrl" className="text-white">
-                {sourceType === 'youtube' ? 'YouTube URL' : sourceType === 'upload' ? 'File Upload' : 'Audio URL'}
+                {sourceType === 'youtube' ? 'YouTube URL' : sourceType === 'tiktok' ? 'TikTok URL' : sourceType === 'upload' ? 'File Upload' : 'Audio URL'}
               </Label>
               <div className="flex space-x-2">
                 <div className="relative flex-1">
@@ -157,6 +168,22 @@ export default function AnalyzePage() {
 
           {analyzeAudioMutation.data && (
             <div className="space-y-6">
+              {/* Remix Button */}
+              <Card className="bg-gradient-to-r from-yellow-400/10 to-orange-400/10 border-yellow-400/20">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-white font-semibold">Analysis Complete!</h4>
+                    <p className="text-white/70 text-sm">Ready to create something new?</p>
+                  </div>
+                  <Link to={`/generate?sourceId=${analyzeAudioMutation.data.id}&bpm=${analyzeAudioMutation.data.metadata.bpm}&key=${analyzeAudioMutation.data.metadata.keySignature}&prompt=${encodeURIComponent(sourceUrl)}`}>
+                    <Button className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Remix this Track
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
               {/* Metadata */}
               <Card className="bg-white/10 border-white/20">
                 <CardHeader>

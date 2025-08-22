@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,32 +9,55 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/components/ui/use-toast';
-import { Radio, Play, Download, Layers } from 'lucide-react';
+import { Radio, Play, Download, Layers, Sparkles } from 'lucide-react';
 import backend from '~backend/client';
 import type { GenerateTrackRequest, GenerateLoopRequest } from '~backend/music/generate';
 
 export default function GeneratePage() {
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'track' | 'loop'>('track');
   
   // Track generation state
-  const [trackForm, setTrackForm] = useState({
+  const [trackForm, setTrackForm] = useState<GenerateTrackRequest>({
     prompt: '',
-    genre: 'amapiano' as const,
-    mood: '',
-    bpm: 120,
-    keySignature: 'C',
-    duration: 180
+    genre: 'private_school_amapiano',
+    mood: 'mellow',
+    bpm: 115,
+    keySignature: 'F#m',
+    duration: 180,
+    sourceAnalysisId: undefined,
   });
 
   // Loop generation state
-  const [loopForm, setLoopForm] = useState({
-    category: 'log_drum' as const,
-    genre: 'amapiano' as const,
+  const [loopForm, setLoopForm] = useState<GenerateLoopRequest>({
+    category: 'log_drum',
+    genre: 'amapiano',
     bpm: 120,
     bars: 4,
     keySignature: 'C'
   });
+
+  useEffect(() => {
+    const sourceId = searchParams.get('sourceId');
+    const bpm = searchParams.get('bpm');
+    const key = searchParams.get('key');
+    const prompt = searchParams.get('prompt');
+
+    if (sourceId) {
+      setTrackForm(prev => ({
+        ...prev,
+        sourceAnalysisId: parseInt(sourceId, 10),
+        bpm: bpm ? parseInt(bpm, 10) : prev.bpm,
+        keySignature: key || prev.keySignature,
+        prompt: `A Private School Amapiano track (114-120 bpm) inspired by the TikTok video: ${prompt || ''}`
+      }));
+      toast({
+        title: "Remix Mode Activated!",
+        description: "Generating a new track based on the analyzed audio.",
+      });
+    }
+  }, [searchParams, toast]);
 
   const generateTrackMutation = useMutation({
     mutationFn: (data: GenerateTrackRequest) => backend.music.generateTrack(data),
@@ -98,7 +122,7 @@ export default function GeneratePage() {
     { value: 'jazzy', label: 'Jazzy' }
   ];
 
-  const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B', 'Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'A#m', 'Bm'];
 
   return (
     <div className="space-y-8">
@@ -138,6 +162,20 @@ export default function GeneratePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {trackForm.sourceAnalysisId && (
+              <Card className="bg-green-400/10 border-green-400/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <Sparkles className="h-5 w-5 text-green-400" />
+                    <div className="text-green-400 font-medium">Remix Mode</div>
+                  </div>
+                  <p className="text-white/80 text-sm mt-2">
+                    Generating a new track inspired by the analyzed audio. Parameters have been pre-filled.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="prompt" className="text-white">Track Description</Label>
               <Textarea
@@ -181,7 +219,7 @@ export default function GeneratePage() {
               <div className="space-y-2">
                 <Label className="text-white">BPM: {trackForm.bpm}</Label>
                 <Slider
-                  value={[trackForm.bpm]}
+                  value={[trackForm.bpm || 120]}
                   onValueChange={([value]) => setTrackForm({ ...trackForm, bpm: value })}
                   min={100}
                   max={140}
@@ -204,10 +242,10 @@ export default function GeneratePage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-white">Duration: {Math.floor(trackForm.duration / 60)}:{(trackForm.duration % 60).toString().padStart(2, '0')}</Label>
+              <div className="space-y-2 md:col-span-2">
+                <Label className="text-white">Duration: {Math.floor((trackForm.duration || 180) / 60)}:{(trackForm.duration || 180) % 60).toString().padStart(2, '0')}</Label>
                 <Slider
-                  value={[trackForm.duration]}
+                  value={[trackForm.duration || 180]}
                   onValueChange={([value]) => setTrackForm({ ...trackForm, duration: value })}
                   min={60}
                   max={300}
@@ -317,7 +355,7 @@ export default function GeneratePage() {
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 md:col-span-2">
                 <Label className="text-white">Key</Label>
                 <Select value={loopForm.keySignature} onValueChange={(value) => setLoopForm({ ...loopForm, keySignature: value })}>
                   <SelectTrigger className="bg-white/10 border-white/20 text-white">

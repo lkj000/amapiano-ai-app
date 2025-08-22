@@ -16,28 +16,29 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 ## Features
 
 ### 🎵 AI Music Generation
-- Generate complete amapiano tracks from text prompts
-- Create specific loops and patterns (log drums, piano, bass, percussion)
-- Support for both Classic Amapiano and Private School Amapiano styles
-- Customizable parameters: BPM, key signature, mood, duration
+- Generate complete amapiano tracks from text prompts.
+- **New**: Create remixes or tracks inspired by analyzed audio from sources like TikTok.
+- Create specific loops and patterns (log drums, piano, bass, percussion).
+- Support for both Classic Amapiano and Private School Amapiano styles.
+- Customizable parameters: BPM, key signature, mood, duration.
 
 ### 🔍 Audio Analysis
-- Analyze YouTube videos and audio files
-- Extract individual stems (drums, bass, piano, vocals, other)
-- Identify musical patterns and structures
-- Detect chord progressions, drum patterns, and basslines
+- Analyze audio from **TikTok**, YouTube, direct URLs, or file uploads.
+- Extract individual stems (drums, bass, piano, vocals, other).
+- Identify musical patterns and structures.
+- Detect chord progressions, drum patterns, and basslines.
 
 ### 📚 Sample Library
-- Curated collection of authentic amapiano samples
-- Samples in the style of legendary artists (Kabza De Small, Kelvin Momo, Babalwa M)
-- Advanced search and filtering by genre, category, and tags
-- Multiple sample categories: log drums, piano, percussion, bass, vocals, saxophone, guitar, synth
+- Curated collection of authentic amapiano samples.
+- Samples in the style of legendary artists (Kabza De Small, Kelvin Momo, Babalwa M).
+- Advanced search and filtering by genre, category, and tags.
+- Multiple sample categories: log drums, piano, percussion, bass, vocals, saxophone, guitar, synth.
 
 ### 🎼 Pattern Library
-- Comprehensive collection of chord progressions and drum patterns
-- Genre-specific patterns for Classic and Private School Amapiano
-- Complexity levels: simple, intermediate, advanced
-- Interactive pattern visualization and playback
+- Comprehensive collection of chord progressions and drum patterns.
+- Genre-specific patterns for Classic and Private School Amapiano.
+- Complexity levels: simple, intermediate, advanced.
+- Interactive pattern visualization and playback.
 
 ## Amapiano Genres
 

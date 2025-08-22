@@ -50,13 +50,14 @@ export interface GeneratedTrack {
   keySignature?: string;
   fileUrl?: string;
   stemsData?: any;
+  sourceAnalysisId?: number;
   createdAt: Date;
 }
 
 export interface AudioAnalysis {
   id: number;
   sourceUrl: string;
-  sourceType: "youtube" | "upload" | "url";
+  sourceType: "youtube" | "upload" | "url" | "tiktok";
   analysisData: any;
   extractedStems?: any;
   detectedPatterns?: any;

@@ -36,6 +36,16 @@ CREATE TABLE patterns (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE audio_analysis (
+  id BIGSERIAL PRIMARY KEY,
+  source_url TEXT NOT NULL,
+  source_type TEXT NOT NULL CHECK (source_type IN ('youtube', 'upload', 'url', 'tiktok')),
+  analysis_data JSONB NOT NULL,
+  extracted_stems JSONB,
+  detected_patterns JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE generated_tracks (
   id BIGSERIAL PRIMARY KEY,
   prompt TEXT NOT NULL,
@@ -45,16 +55,7 @@ CREATE TABLE generated_tracks (
   key_signature TEXT,
   file_url TEXT,
   stems_data JSONB,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE audio_analysis (
-  id BIGSERIAL PRIMARY KEY,
-  source_url TEXT NOT NULL,
-  source_type TEXT NOT NULL CHECK (source_type IN ('youtube', 'upload', 'url')),
-  analysis_data JSONB NOT NULL,
-  extracted_stems JSONB,
-  detected_patterns JSONB,
+  source_analysis_id BIGINT REFERENCES audio_analysis(id),
   created_at TIMESTAMP DEFAULT NOW()
 );
 

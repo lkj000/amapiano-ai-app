@@ -10,6 +10,7 @@ export interface GenerateTrackRequest {
   bpm?: number;
   keySignature?: string;
   duration?: number;
+  sourceAnalysisId?: number;
 }
 
 export interface GenerateTrackResponse {
@@ -46,6 +47,12 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
     }
 
     try {
+      // If sourceAnalysisId is provided, log it. In a real implementation,
+      // this would fetch the analysis and use it to guide generation.
+      if (req.sourceAnalysisId) {
+        console.log(`Generating track based on analysis ID: ${req.sourceAnalysisId}`);
+      }
+
       // Simulate AI music generation with more realistic processing
       const trackId = Math.floor(Math.random() * 1000000);
       const audioFileName = `generated_${trackId}.wav`;
@@ -68,8 +75,8 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
 
       // Store in database
       await musicDB.exec`
-        INSERT INTO generated_tracks (prompt, genre, mood, bpm, key_signature, file_url, stems_data)
-        VALUES (${req.prompt}, ${req.genre}, ${req.mood || null}, ${req.bpm || 120}, ${req.keySignature || "C"}, ${audioFileName}, ${JSON.stringify(stemsData)})
+        INSERT INTO generated_tracks (prompt, genre, mood, bpm, key_signature, file_url, stems_data, source_analysis_id)
+        VALUES (${req.prompt}, ${req.genre}, ${req.mood || null}, ${req.bpm || 120}, ${req.keySignature || "C"}, ${audioFileName}, ${JSON.stringify(stemsData)}, ${req.sourceAnalysisId || null})
       `;
 
       const audioUrl = generatedTracks.publicUrl(audioFileName);

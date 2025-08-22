@@ -5,7 +5,7 @@ import type { StemSeparation, DetectedPattern } from "./types";
 
 export interface AnalyzeAudioRequest {
   sourceUrl: string;
-  sourceType: "youtube" | "upload" | "url";
+  sourceType: "youtube" | "upload" | "url" | "tiktok";
 }
 
 export interface AnalyzeAudioResponse {
@@ -20,7 +20,7 @@ export interface AnalyzeAudioResponse {
   };
 }
 
-// Analyzes audio from YouTube URLs or uploaded files to extract stems and patterns
+// Analyzes audio from various sources to extract stems and patterns
 export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
   { expose: true, method: "POST", path: "/analyze/audio" },
   async (req) => {
@@ -33,7 +33,9 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
     if (req.sourceType === "youtube" && !req.sourceUrl.includes("youtube.com") && !req.sourceUrl.includes("youtu.be")) {
       throw APIError.invalidArgument("Invalid YouTube URL");
     }
-
+    if (req.sourceType === "tiktok" && !req.sourceUrl.includes("tiktok.com")) {
+      throw APIError.invalidArgument("Invalid TikTok URL");
+    }
     if (req.sourceType === "url") {
       try {
         new URL(req.sourceUrl);
@@ -101,8 +103,8 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
       );
 
       const analysisData = {
-        bpm: 120,
-        keySignature: "C",
+        bpm: 118, // Mock BPM for "Footsteps in the dark" use case
+        keySignature: "F#m", // Mock Key for "Footsteps in the dark" use case
         genre: isPrivateSchool ? "private_school_amapiano" : "amapiano",
         duration: 180,
         stems: stemFiles,
@@ -126,8 +128,8 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
         },
         patterns: detectedPatterns,
         metadata: {
-          bpm: 120,
-          keySignature: "C",
+          bpm: analysisData.bpm,
+          keySignature: analysisData.keySignature,
           genre: analysisData.genre,
           duration: 180
         }
@@ -229,7 +231,7 @@ export const extractPatterns = api<ExtractPatternsRequest, ExtractPatternsRespon
 
 export interface GetAnalysisHistoryRequest {
   limit?: number;
-  sourceType?: "youtube" | "upload" | "url";
+  sourceType?: "youtube" | "upload" | "url" | "tiktok";
 }
 
 export interface GetAnalysisHistoryResponse {
