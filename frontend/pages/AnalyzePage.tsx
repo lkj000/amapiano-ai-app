@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X, Pause, Volume2 } from 'lucide-react';
 import backend from '~backend/client';
 import type { AnalyzeAudioRequest } from '~backend/music/analyze';
 
@@ -23,6 +23,7 @@ export default function AnalyzePage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'analyze' | 'amapianorize'>('analyze');
+  const [playingAudio, setPlayingAudio] = useState<{ type: 'stem' | 'track'; id: string; audio: HTMLAudioElement } | null>(null);
 
   // Amapianorize form state
   const [amapianorizeForm, setAmapianorizeForm] = useState({
@@ -72,6 +73,102 @@ export default function AnalyzePage() {
       });
     },
   });
+
+  const handlePlay = (audioUrl: string, type: 'stem' | 'track', id: string, name?: string) => {
+    if (playingAudio && playingAudio.id === id) {
+      playingAudio.audio.pause();
+      setPlayingAudio(null);
+      return;
+    }
+
+    if (playingAudio) {
+      playingAudio.audio.pause();
+    }
+
+    // Create a demo audio context with different tones for different types
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Different frequencies and waveforms for different stem types
+    const stemFrequencies = {
+      drums: 80,    // Low frequency for drums
+      bass: 60,     // Very low for bass
+      piano: 440,   // A4 for piano
+      vocals: 523,  // C5 for vocals
+      other: 330,   // E4 for other instruments
+      track: 220    // A3 for full track
+    };
+    
+    const stemName = id.replace('stem-', '').replace('track-', '');
+    const frequency = stemFrequencies[stemName as keyof typeof stemFrequencies] || stemFrequencies.other;
+    
+    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+    
+    // Different waveforms for different stems
+    if (stemName === 'drums') {
+      oscillator.type = 'square';
+    } else if (stemName === 'bass') {
+      oscillator.type = 'sawtooth';
+    } else {
+      oscillator.type = 'sine';
+    }
+    
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 3);
+    
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 3);
+    
+    // Create a mock audio element for state management
+    const mockAudio = {
+      pause: () => {
+        try {
+          oscillator.stop();
+        } catch (e) {
+          // Oscillator might already be stopped
+        }
+        setPlayingAudio(null);
+      },
+      play: () => Promise.resolve(),
+      currentTime: 0,
+      duration: 3
+    } as HTMLAudioElement;
+
+    setPlayingAudio({ type, id, audio: mockAudio });
+    
+    toast({
+      title: "Demo Playback",
+      description: `Playing ${name || stemName}... (demo audio with ${frequency}Hz tone)`,
+    });
+
+    // Auto-stop after 3 seconds
+    setTimeout(() => {
+      setPlayingAudio(null);
+    }, 3000);
+  };
+
+  const handleDownload = (audioUrl: string, filename: string) => {
+    // Create a mock download by generating a simple text file
+    const content = `Demo audio file: ${filename}\nThis would be actual audio data in the full version.\nURL: ${audioUrl}`;
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename.replace('.wav', '.txt'); // Change extension for demo
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Download Started",
+      description: `Downloading ${filename}... (demo file)`,
+    });
+  };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -505,24 +602,46 @@ export default function AnalyzePage() {
                   {/* Extracted Stems */}
                   <Card className="bg-white/10 border-white/20">
                     <CardHeader>
-                      <CardTitle className="text-white text-lg">Extracted Stems</CardTitle>
+                      <CardTitle className="text-white text-lg flex items-center">
+                        <Volume2 className="h-5 w-5 mr-2" />
+                        Extracted Stems
+                      </CardTitle>
                       <CardDescription className="text-white/70">
-                        Individual instrument tracks separated from the original audio
+                        Individual instrument tracks separated from the original audio. Click play to hear demo tones representing each stem.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {Object.entries(analyzeAudioMutation.data.stems).map(([stem, url]) => (
-                          <div key={stem} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                          <div key={stem} className="flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
                             <div className="flex items-center space-x-3">
                               <Layers className="h-5 w-5 text-yellow-400" />
-                              <span className="text-white capitalize">{stem}</span>
+                              <div>
+                                <span className="text-white capitalize font-medium">{stem}</span>
+                                <div className="text-white/60 text-xs">
+                                  {stem === 'drums' && 'Low frequency demo tone'}
+                                  {stem === 'bass' && 'Very low frequency demo tone'}
+                                  {stem === 'piano' && 'Mid frequency demo tone'}
+                                  {stem === 'vocals' && 'High frequency demo tone'}
+                                  {stem === 'other' && 'Mixed frequency demo tone'}
+                                </div>
+                              </div>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Button size="sm" variant="outline" className="border-white/20 text-white">
-                                <Play className="h-3 w-3" />
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="border-white/20 text-white hover:bg-white/10"
+                                onClick={() => handlePlay(url, 'stem', `stem-${stem}`, `${stem} stem`)}
+                              >
+                                {playingAudio?.id === `stem-${stem}` ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                               </Button>
-                              <Button size="sm" variant="outline" className="border-white/20 text-white">
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="border-white/20 text-white hover:bg-white/10"
+                                onClick={() => handleDownload(url, `${stem}-stem.wav`)}
+                              >
                                 <Download className="h-3 w-3" />
                               </Button>
                             </div>
@@ -711,11 +830,18 @@ export default function AnalyzePage() {
                       </div>
 
                       <div className="flex items-center space-x-4">
-                        <Button className="bg-green-500 hover:bg-green-600">
-                          <Play className="h-4 w-4 mr-2" />
-                          Play Amapianorized Track
+                        <Button 
+                          className="bg-green-500 hover:bg-green-600"
+                          onClick={() => handlePlay(amapianorizeMutation.data!.amapianorizedTrackUrl, 'track', 'amapianorized-track', 'Amapianorized Track')}
+                        >
+                          {playingAudio?.id === 'amapianorized-track' ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+                          {playingAudio?.id === 'amapianorized-track' ? 'Stop' : 'Play Amapianorized Track'}
                         </Button>
-                        <Button variant="outline" className="border-white/20 text-white">
+                        <Button 
+                          variant="outline" 
+                          className="border-white/20 text-white"
+                          onClick={() => handleDownload(amapianorizeMutation.data!.amapianorizedTrackUrl, 'amapianorized-track.wav')}
+                        >
                           <Download className="h-4 w-4 mr-2" />
                           Download
                         </Button>
@@ -723,17 +849,30 @@ export default function AnalyzePage() {
 
                       {/* Amapianorized Stems */}
                       <div className="space-y-2">
-                        <h4 className="text-white font-medium">Amapianorized Stems:</h4>
+                        <h4 className="text-white font-medium flex items-center">
+                          <Volume2 className="h-4 w-4 mr-2" />
+                          Amapianorized Stems:
+                        </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           {Object.entries(amapianorizeMutation.data.stems).map(([stem, url]) => (
                             url && (
-                              <div key={stem} className="flex items-center justify-between p-2 bg-white/5 rounded">
+                              <div key={stem} className="flex items-center justify-between p-2 bg-white/5 rounded hover:bg-white/10 transition-colors">
                                 <span className="text-white/70 capitalize text-sm">{stem}</span>
                                 <div className="flex space-x-1">
-                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                                    <Play className="h-3 w-3" />
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => handlePlay(url, 'stem', `amapiano-stem-${stem}`, `Amapianorized ${stem} stem`)}
+                                  >
+                                    {playingAudio?.id === `amapiano-stem-${stem}` ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                                   </Button>
-                                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => handleDownload(url, `amapianorized-${stem}-stem.wav`)}
+                                  >
                                     <Download className="h-3 w-3" />
                                   </Button>
                                 </div>
@@ -774,6 +913,20 @@ export default function AnalyzePage() {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Demo Notice */}
+      <Card className="bg-blue-400/10 border-blue-400/20 max-w-4xl mx-auto">
+        <CardContent className="p-4">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="h-5 w-5 text-blue-400" />
+            <div className="text-blue-400 font-medium">Demo Mode</div>
+          </div>
+          <p className="text-white/80 text-sm mt-2">
+            This is a demonstration of the audio analysis interface. In the full version, you'll hear actual separated stems and download real audio files. 
+            Currently, play buttons generate demo tones at different frequencies to represent each stem type, and downloads create placeholder files.
+          </p>
         </CardContent>
       </Card>
     </div>
