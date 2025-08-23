@@ -1,7 +1,3 @@
--- Set the default text search configuration for this transaction.
--- This allows using the IMMUTABLE one-argument version of to_tsvector in indexes.
-SET default_text_search_config = 'pg_catalog.english';
-
 CREATE TABLE tracks (
   id BIGSERIAL PRIMARY KEY,
   title TEXT NOT NULL,
@@ -182,7 +178,8 @@ CREATE INDEX idx_quality_assessments_score ON quality_assessments(quality_score 
 CREATE INDEX idx_cultural_validation_item ON cultural_validation(item_type, item_id);
 CREATE INDEX idx_cultural_validation_status ON cultural_validation(validation_status);
 
--- Full-text search indexes
-CREATE INDEX idx_samples_search ON samples USING GIN(to_tsvector(name || ' ' || COALESCE(array_to_string(tags, ' '), '')));
-CREATE INDEX idx_patterns_search ON patterns USING GIN(to_tsvector(name));
-CREATE INDEX idx_tracks_search ON tracks USING GIN(to_tsvector(title || ' ' || COALESCE(artist, '')));
+-- Basic indexes for text search (without full-text search for now)
+CREATE INDEX idx_samples_name ON samples(name);
+CREATE INDEX idx_patterns_name ON patterns(name);
+CREATE INDEX idx_tracks_title ON tracks(title);
+CREATE INDEX idx_tracks_artist ON tracks(artist);
