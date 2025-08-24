@@ -17,6 +17,11 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 
 ## Features
 
+### 🧠 AI Prompt Parsing
+- **Natural Language to API Call**: Intelligently parses unstructured text prompts into structured data for music generation.
+- **Automatic Parameter Setting**: Automatically sets genre, mood, BPM, key, and instrumentation based on your description.
+- **Interactive Feedback**: Shows you how the AI interprets your prompt, allowing for fine-tuning before generation.
+
 ### 🎤 Microphone Input & Recording
 - **Voice Prompting**: Describe your desired track using your voice.
 - **Hum-to-Melody**: Hum a tune, and the AI will use it as a melodic starting point.
@@ -115,6 +120,7 @@ Sophisticated, jazz-influenced amapiano with live instrumentation. Features:
 | **Primary Focus** | Integrated Amapiano creation, analysis, DAW, and education | General-purpose AI music generation from prompts | General-purpose professional music production |
 | **Genre Specialization** | **Deep focus on Amapiano** (Classic & Private School) | Broad, generic genres; lacks deep cultural nuance | None; requires extensive user knowledge and third-party plugins |
 | **Integrated DAW** | **Yes**, full-featured and genre-specific | No | **Yes**, but not genre-specific |
+| **AI Prompt Parsing** | **Yes**, converts natural language to structured parameters | No | No |
 | **Microphone Input** | **Yes**, for voice, humming, and sound recording | No | Yes, but for recording only, not AI prompting |
 | **Cultural Authenticity** | **Core feature** with expert validation and artist partnerships | Not a primary focus; produces generic results | Relies entirely on user's cultural knowledge |
 | **AI-Powered Workflow** | **Yes**, AI assistant, generation, analysis, and transformation | Yes, but limited to generation | No, requires separate AI tools |

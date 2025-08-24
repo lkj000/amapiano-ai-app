@@ -18,6 +18,36 @@ Currently, the API does not require authentication. All endpoints are publicly a
 
 ### Music Generation
 
+#### Parse Prompt
+
+Intelligently parses a natural language prompt into a structured request for music generation.
+
+```http
+POST /generate/parse-prompt
+```
+
+**Request Body:**
+```json
+{
+  "prompt": "A soulful private school amapiano track with jazzy piano chords and deep log drums, around 112 bpm in F# minor"
+}
+```
+
+**Response:**
+A `GenerateTrackRequest` object with fields populated from the prompt.
+```json
+{
+  "prompt": "A soulful private school amapiano track with jazzy piano chords and deep log drums, around 112 bpm in F# minor",
+  "genre": "private_school_amapiano",
+  "mood": "soulful",
+  "bpm": 112,
+  "keySignature": "F#m",
+  "advancedOptions": {
+    "instrumentation": ["piano", "log_drum"]
+  }
+}
+```
+
 #### Generate Track
 
 Generate a complete amapiano track from a text prompt with advanced customization options.
