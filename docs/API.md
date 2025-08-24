@@ -266,7 +266,7 @@ POST /analyze/audio
 ```json
 {
   "sourceUrl": "https://www.youtube.com/watch?v=example",
-  "sourceType": "youtube" | "upload" | "url" | "tiktok",
+  "sourceType": "youtube" | "upload" | "url" | "tiktok" | "microphone",
   "fileName": "my-track.mp4",
   "fileSize": 157286400
 }

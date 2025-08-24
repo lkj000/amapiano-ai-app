@@ -24,7 +24,7 @@ Amapiano AI is the world's first artificial intelligence platform specifically d
 - **Advanced Controls**: Comprehensive parameter control including arrangement complexity, instrumentation selection, mixing style, energy levels, and cultural authenticity settings.
 
 #### 3. Professional Audio Analysis Engine
-- **Universal Input Support**: Analyze audio from multiple sources including YouTube URLs, TikTok videos, direct audio URLs, and local file uploads supporting both audio and video formats up to 500MB.
+- **Universal Input Support**: Analyze audio from multiple sources including YouTube URLs, TikTok videos, direct audio URLs, microphone recordings, and local file uploads supporting both audio and video formats up to 500MB.
 - **Professional Stem Separation**: Extract individual stems (drums, bass, piano, vocals, other instruments) with 95%+ accuracy using advanced AI processing.
 - **Advanced Pattern Recognition**: Identify complex musical patterns including chord progressions, drum patterns, basslines, melodic structures, and harmonic analysis with confidence scoring.
 - **Comprehensive Music Theory Analysis**: Detect BPM, key signature, genre classification, harmonic analysis with Roman numeral notation, and provide educational insights.

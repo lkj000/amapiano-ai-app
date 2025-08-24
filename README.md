@@ -221,7 +221,6 @@ amapiano-ai/
 │   ├── ARCHITECTURE.md           # System architecture guide
 │   ├── DEVELOPMENT.md            # Development guide
 │   ├── APP_OVERVIEW.md           # Detailed app overview
-│   ├── PRD.md                    # Product requirements document
 │   └── PRP.md                    # Product roadmap and planning
 └── README.md                # This file
 ```
