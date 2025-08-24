@@ -66,34 +66,73 @@ export default function SamplesPage() {
     if (playingSample && playingSample.id === sample.id) {
       playingSample.audio.pause();
       setPlayingSample(null);
-    } else {
-      if (playingSample) {
-        playingSample.audio.pause();
-      }
-      
-      // For demo purposes, we'll use a placeholder audio file
-      const newAudio = new Audio(sample.fileUrl);
-      newAudio.onended = () => setPlayingSample(null);
-      newAudio.onerror = () => {
-        console.error("Audio failed to load:", sample.fileUrl);
-        toast({
-          title: "Demo Mode",
-          description: "This is a demo - actual audio files are not available yet.",
-          variant: "default",
-        });
-        setPlayingSample(null);
-      };
-      
-      newAudio.play().catch(err => {
-        console.error("Audio play failed:", err);
-        toast({
-          title: "Demo Mode",
-          description: "This is a demo - actual audio files are not available yet.",
-          variant: "default",
-        });
-      });
-      setPlayingSample({ id: sample.id, audio: newAudio });
+      return;
     }
+  
+    if (playingSample) {
+      playingSample.audio.pause();
+    }
+  
+    // Create a demo audio context with a simple tone
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    const filterNode = audioContext.createBiquadFilter();
+  
+    oscillator.connect(filterNode);
+    filterNode.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+  
+    const categoryFrequencies: { [key in SampleCategory]?: number } = {
+      log_drum: 80,
+      bass: 60,
+      piano: 440,
+      vocal: 523,
+      saxophone: 392,
+      guitar: 330,
+      synth: 660,
+      percussion: 880,
+    };
+  
+    const frequency = categoryFrequencies[sample.category] || 440;
+    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+  
+    if (sample.category === 'log_drum' || sample.category === 'bass' || sample.category === 'percussion') {
+      oscillator.type = 'square';
+      filterNode.type = 'lowpass';
+      filterNode.frequency.setValueAtTime(frequency * 2, audioContext.currentTime);
+    } else {
+      oscillator.type = 'sine';
+    }
+  
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 2);
+  
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 2);
+  
+    const mockAudio = {
+      pause: () => {
+        try {
+          oscillator.stop();
+        } catch (e) { /* ignore */ }
+        setPlayingSample(null);
+      },
+      play: () => Promise.resolve(),
+      currentTime: 0,
+      duration: 2,
+    } as HTMLAudioElement;
+  
+    setPlayingSample({ id: sample.id, audio: mockAudio });
+  
+    toast({
+      title: "Demo Playback",
+      description: `Playing ${sample.name}... (demo audio)`,
+    });
+  
+    setTimeout(() => {
+      setPlayingSample(null);
+    }, 2000);
   };
 
   const handleDownload = async (sample: Sample) => {

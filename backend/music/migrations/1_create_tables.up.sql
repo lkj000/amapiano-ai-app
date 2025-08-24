@@ -146,6 +146,17 @@ CREATE TABLE cultural_validation (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE daw_projects (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  project_data JSONB NOT NULL,
+  user_id TEXT, -- For future multi-user support
+  version INTEGER NOT NULL DEFAULT 1,
+  is_public BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Enhanced indexes for performance
 CREATE INDEX idx_tracks_genre ON tracks(genre);
 CREATE INDEX idx_tracks_bpm ON tracks(bpm);
@@ -177,6 +188,7 @@ CREATE INDEX idx_quality_assessments_item ON quality_assessments(item_type, item
 CREATE INDEX idx_quality_assessments_score ON quality_assessments(quality_score DESC);
 CREATE INDEX idx_cultural_validation_item ON cultural_validation(item_type, item_id);
 CREATE INDEX idx_cultural_validation_status ON cultural_validation(validation_status);
+CREATE INDEX idx_daw_projects_user ON daw_projects(user_id);
 
 -- Basic indexes for text search (without full-text search for now)
 CREATE INDEX idx_samples_name ON samples(name);

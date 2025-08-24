@@ -81,3 +81,41 @@ export interface DetectedPattern {
     end: number;
   };
 }
+
+export interface DawTrack {
+  type: 'midi' | 'audio';
+  name: string;
+  instrument?: string; // for midi
+  sampleId?: number; // for audio
+  startTime: number;
+  duration: number;
+  notes?: any[]; // MIDI notes
+  audioUrl?: string;
+}
+
+export interface DawMixerChannel {
+  volume: number; // 0-1
+  pan: number; // -1 to 1
+  isMuted: boolean;
+  isSolo: boolean;
+}
+
+export interface DawProjectData {
+  bpm: number;
+  keySignature: string;
+  tracks: DawTrack[];
+  mixer: {
+    masterVolume: number;
+    channels: DawMixerChannel[];
+  };
+}
+
+export interface DawProject extends DawProjectData {
+  id: number;
+  name: string;
+  userId?: string;
+  version: number;
+  isPublic: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}

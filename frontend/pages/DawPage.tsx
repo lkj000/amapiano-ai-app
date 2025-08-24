@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Rewind, FastForward, Circle, Save, FolderOpen, Upload, Download, Settings, HelpCircle, Music, Mic, GitBranch, SlidersHorizontal, Waves, Volume2 } from 'lucide-react';
+import { Play, Pause, Rewind, FastForward, Circle, Save, FolderOpen, Upload, Download, Settings, HelpCircle, Music, Mic, GitBranch, SlidersHorizontal, Waves, Volume2, Sparkles } from 'lucide-react';
 
 const TrackHeader = ({ name, color, icon: Icon }: { name: string, color: string, icon: React.ElementType }) => (
   <div className="flex items-center space-x-2 p-2 bg-gray-700/50 rounded-t-lg border-b border-gray-600">
@@ -47,7 +47,7 @@ export default function DawPage() {
           Professional Amapiano DAW
         </h1>
         <p className="text-white/80 max-w-3xl mx-auto">
-          This is a visual prototype of the upcoming Digital Audio Workstation. The full version will provide a complete, professional-grade production environment specifically designed for Amapiano music.
+          The complete, professional-grade production environment specifically designed for Amapiano music. Arrange audio, MIDI, and loops on a multi-track timeline, and use the AI Assistant to spark your creativity.
         </p>
       </div>
 
