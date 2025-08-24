@@ -13,9 +13,12 @@ const TrackHeader = ({ name, color, icon: Icon }: { name: string, color: string,
     <div className={`w-2 h-full ${color}`}></div>
     <Icon className="h-4 w-4 text-gray-300" />
     <span className="text-xs font-medium text-gray-200 flex-grow">{name}</span>
-    <div className="flex items-center space-x-1 text-xs text-gray-400">
-      <span>S</span>
-      <span>M</span>
+    <div className="flex items-center space-x-1">
+      <button className="w-5 h-5 rounded-full bg-gray-600 hover:bg-red-500 border-2 border-transparent hover:border-red-300 transition-colors flex items-center justify-center">
+        <Circle className="h-2 w-2 text-transparent" />
+      </button>
+      <span className="text-xs text-gray-400">S</span>
+      <span className="text-xs text-gray-400">M</span>
     </div>
   </div>
 );

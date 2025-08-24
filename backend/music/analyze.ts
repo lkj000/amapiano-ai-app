@@ -5,7 +5,7 @@ import type { StemSeparation, DetectedPattern } from "./types";
 
 export interface AnalyzeAudioRequest {
   sourceUrl: string;
-  sourceType: "youtube" | "upload" | "url" | "tiktok";
+  sourceType: "youtube" | "upload" | "url" | "tiktok" | "microphone";
   fileName?: string;
   fileSize?: number;
   enhancedProcessing?: boolean;
@@ -88,18 +88,18 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
     }
 
     // Enhanced file validation for uploads
-    if (req.sourceType === "upload") {
+    if (req.sourceType === "upload" || req.sourceType === "microphone") {
       if (!req.fileName) {
         throw APIError.invalidArgument("File name is required for file uploads");
       }
       
       const supportedFormats = [
         // High-quality audio formats
-        'wav', 'flac', 'aiff', 'dsd', 'dsf',
+        'wav', 'flac', 'aiff', 'dsd', 'dsf', 'webm', 'ogg',
         // Compressed audio formats
-        'mp3', 'm4a', 'aac', 'ogg', 'wma', 'opus',
+        'mp3', 'm4a', 'aac', 'wma', 'opus',
         // Video formats
-        'mp4', 'avi', 'mov', 'mkv', 'webm', '3gp', 'flv', 'wmv', 'mts', 'mxf', 'ts'
+        'mp4', 'avi', 'mov', 'mkv', '3gp', 'flv', 'wmv', 'mts', 'mxf', 'ts'
       ];
       
       const fileExtension = req.fileName.split('.').pop()?.toLowerCase();
@@ -222,8 +222,8 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
       const getFileType = (fileName?: string) => {
         if (!fileName) return "unknown";
         const ext = fileName.split('.').pop()?.toLowerCase();
-        const audioFormats = ['wav', 'flac', 'aiff', 'dsd', 'dsf', 'mp3', 'm4a', 'aac', 'ogg', 'wma', 'opus'];
-        const videoFormats = ['mp4', 'avi', 'mov', 'mkv', 'webm', '3gp', 'flv', 'wmv', 'mts', 'mxf', 'ts'];
+        const audioFormats = ['wav', 'flac', 'aiff', 'dsd', 'dsf', 'mp3', 'm4a', 'aac', 'ogg', 'wma', 'opus', 'webm'];
+        const videoFormats = ['mp4', 'avi', 'mov', 'mkv', '3gp', 'flv', 'wmv', 'mts', 'mxf', 'ts'];
         
         if (audioFormats.includes(ext || '')) return "audio";
         if (videoFormats.includes(ext || '')) return "video";
@@ -246,7 +246,7 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
 
       // Enhanced BPM detection with cultural context
       const culturalBpmRange = detectedGenre === "private_school_amapiano" ? [105, 120] : [110, 125];
-      const detectedBpm = req.sourceType === "upload" ? 
+      const detectedBpm = req.sourceType === "upload" || req.sourceType === "microphone" ? 
         Math.floor(Math.random() * (culturalBpmRange[1] - culturalBpmRange[0])) + culturalBpmRange[0] : 
         detectedGenre === "private_school_amapiano" ? 112 : 118;
 
@@ -254,7 +254,7 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
       const culturalKeys = detectedGenre === "private_school_amapiano" ? 
         ["Dm", "Am", "Gm", "Fm", "Bb", "Eb", "F#m"] : 
         ["C", "F", "G", "Am", "Dm", "Em", "F#m"];
-      const detectedKey = req.sourceType === "upload" ? 
+      const detectedKey = req.sourceType === "upload" || req.sourceType === "microphone" ? 
         culturalKeys[Math.floor(Math.random() * culturalKeys.length)] : 
         detectedGenre === "private_school_amapiano" ? "Dm" : "F#m";
 
@@ -282,7 +282,7 @@ export const analyzeAudio = api<AnalyzeAudioRequest, AnalyzeAudioResponse>(
         keySignature: detectedKey,
         genre: detectedGenre,
         subGenre,
-        duration: req.sourceType === "upload" ? Math.floor(Math.random() * 240) + 60 : 180,
+        duration: req.sourceType === "upload" || req.sourceType === "microphone" ? Math.floor(Math.random() * 240) + 60 : 180,
         stems: stemFiles,
         patterns: detectedPatterns,
         originalFileName: req.fileName,
@@ -426,11 +426,11 @@ export const getUploadUrl = api<UploadAudioRequest, UploadAudioResponse>(
     // Enhanced file type validation with professional formats
     const supportedFormats = [
       // Professional audio formats
-      'wav', 'flac', 'aiff', 'dsd', 'dsf',
+      'wav', 'flac', 'aiff', 'dsd', 'dsf', 'webm', 'ogg',
       // High-quality compressed formats
-      'mp3', 'm4a', 'aac', 'ogg', 'wma', 'opus',
+      'mp3', 'm4a', 'aac', 'wma', 'opus',
       // Video formats with audio
-      'mp4', 'avi', 'mov', 'mkv', 'webm', '3gp', 'flv', 'wmv', 'mts', 'mxf', 'ts'
+      'mp4', 'avi', 'mov', 'mkv', '3gp', 'flv', 'wmv', 'mts', 'mxf', 'ts'
     ];
     
     const fileExtension = req.fileName.split('.').pop()?.toLowerCase();

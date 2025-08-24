@@ -17,6 +17,12 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 
 ## Features
 
+### 🎤 Microphone Input & Recording
+- **Voice Prompting**: Describe your desired track using your voice.
+- **Hum-to-Melody**: Hum a tune, and the AI will use it as a melodic starting point.
+- **Sound Recording**: Record any sound, beatbox, or percussive idea to incorporate into your generation.
+- **DAW Recording**: Arm tracks in the DAW to record audio directly into your project timeline.
+
 ### 🎹 Professional Amapiano DAW
 - **Full-featured DAW**: A complete Digital Audio Workstation rivaling industry standards like Logic Pro and Ableton Live, specifically designed for amapiano production.
 - **Multi-track Timeline**: Arrange audio, MIDI, and loops with advanced editing capabilities.
@@ -109,6 +115,7 @@ Sophisticated, jazz-influenced amapiano with live instrumentation. Features:
 | **Primary Focus** | Integrated Amapiano creation, analysis, DAW, and education | General-purpose AI music generation from prompts | General-purpose professional music production |
 | **Genre Specialization** | **Deep focus on Amapiano** (Classic & Private School) | Broad, generic genres; lacks deep cultural nuance | None; requires extensive user knowledge and third-party plugins |
 | **Integrated DAW** | **Yes**, full-featured and genre-specific | No | **Yes**, but not genre-specific |
+| **Microphone Input** | **Yes**, for voice, humming, and sound recording | No | Yes, but for recording only, not AI prompting |
 | **Cultural Authenticity** | **Core feature** with expert validation and artist partnerships | Not a primary focus; produces generic results | Relies entirely on user's cultural knowledge |
 | **AI-Powered Workflow** | **Yes**, AI assistant, generation, analysis, and transformation | Yes, but limited to generation | No, requires separate AI tools |
 | **Sample & Pattern Libraries** | **Yes**, extensive and curated for amapiano | No | No, requires purchasing third-party sample packs |
@@ -117,7 +124,7 @@ Sophisticated, jazz-influenced amapiano with live instrumentation. Features:
 
 ### Key Differentiators
 
-- **Amapiano AI vs. Suno/ElevenLabs**: While generative AI tools are great for quick idea generation, Amapiano AI offers a complete, professional production environment. Its integrated DAW, curated libraries, and deep cultural and analytical tools provide a comprehensive ecosystem that goes far beyond simple generation.
+- **Amapiano AI vs. Suno/ElevenLabs**: While generative AI tools are great for quick idea generation, Amapiano AI offers a complete, professional production environment. Its integrated DAW, microphone input capabilities, curated libraries, and deep cultural and analytical tools provide a comprehensive ecosystem that goes far beyond simple generation.
 - **Amapiano AI vs. Logic Pro/Ableton Live**: Traditional DAWs are powerful but generic. Amapiano AI provides a specialized, streamlined workflow for amapiano production with built-in, culturally authentic instruments, patterns, and AI-powered creative tools that would require dozens of expensive third-party plugins to replicate in a standard DAW.
 
 In summary, Amapiano AI is not just a music generator or a standard DAW; it's a **next-generation cultural technology platform** dedicated to the preservation, creation, and education of a specific, globally significant musical genre.

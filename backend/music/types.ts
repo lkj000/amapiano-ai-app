@@ -57,7 +57,7 @@ export interface GeneratedTrack {
 export interface AudioAnalysis {
   id: number;
   sourceUrl: string;
-  sourceType: "youtube" | "upload" | "url" | "tiktok";
+  sourceType: "youtube" | "upload" | "url" | "tiktok" | "microphone";
   analysisData: any;
   extractedStems?: any;
   detectedPatterns?: any;
