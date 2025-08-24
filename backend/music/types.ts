@@ -82,6 +82,13 @@ export interface DetectedPattern {
   };
 }
 
+export interface MidiNote {
+  pitch: number; // MIDI note number (0-127)
+  velocity: number; // 0-127
+  startTime: number; // in beats or seconds, relative to clip start
+  duration: number; // in beats or seconds
+}
+
 export interface DawTrack {
   type: 'midi' | 'audio';
   name: string;
@@ -89,7 +96,7 @@ export interface DawTrack {
   sampleId?: number; // for audio
   startTime: number;
   duration: number;
-  notes?: any[]; // MIDI notes
+  notes?: MidiNote[]; // MIDI notes
   audioUrl?: string;
 }
 

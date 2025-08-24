@@ -1,7 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Rewind, FastForward, Circle, Save, FolderOpen, Upload, Download, Settings, HelpCircle, Music, Mic, GitBranch, SlidersHorizontal, Waves, Volume2, Sparkles } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/use-toast';
+import { Play, Pause, Rewind, FastForward, Circle, Save, FolderOpen, Music, Mic, GitBranch, SlidersHorizontal, Waves, Volume2, Sparkles } from 'lucide-react';
+import backend from '~backend/client';
+import type { DawProjectData } from '~backend/music/types';
 
 const TrackHeader = ({ name, color, icon: Icon }: { name: string, color: string, icon: React.ElementType }) => (
   <div className="flex items-center space-x-2 p-2 bg-gray-700/50 rounded-t-lg border-b border-gray-600">
@@ -39,6 +44,55 @@ const MixerChannel = ({ name, color }: { name: string, color: string }) => (
 );
 
 export default function DawPage() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [projectName, setProjectName] = useState('My Amapiano Project');
+  const [projectId, setProjectId] = useState<number | undefined>(undefined);
+
+  const saveMutation = useMutation({
+    mutationFn: (data: { name: string; projectData: DawProjectData; projectId?: number }) => backend.music.saveProject(data),
+    onSuccess: (data) => {
+      setProjectId(data.projectId);
+      setProjectName(data.name);
+      toast({
+        title: "Project Saved",
+        description: `Project "${data.name}" (v${data.version}) saved successfully.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['dawProjects'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Save Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSave = () => {
+    const mockProjectData: DawProjectData = {
+      bpm: 114,
+      keySignature: 'F#m',
+      tracks: [
+        { type: 'midi', name: 'Log Drum', instrument: 'Log Drum Synth', startTime: 0, duration: 8, notes: [{ pitch: 36, velocity: 100, startTime: 0, duration: 0.5 }] },
+        { type: 'audio', name: 'Saxophone', sampleId: 123, startTime: 16, duration: 8, audioUrl: 'samples/sax.wav' }
+      ],
+      mixer: {
+        masterVolume: 0.8,
+        channels: [
+          { volume: 0.7, pan: -0.1, isMuted: false, isSolo: false },
+          { volume: 0.6, pan: 0.2, isMuted: false, isSolo: false }
+        ]
+      }
+    };
+
+    saveMutation.mutate({
+      name: projectName,
+      projectData: mockProjectData,
+      projectId: projectId,
+    });
+  };
+
   return (
     <div className="space-y-8 text-white">
       <div className="text-center space-y-4">
@@ -57,7 +111,14 @@ export default function DawPage() {
           <div className="flex items-center justify-between p-2 bg-gray-900/50 rounded-lg border border-gray-700">
             <div className="flex items-center space-x-2">
               <Button variant="ghost" size="icon"><FolderOpen className="h-5 w-5" /></Button>
-              <Button variant="ghost" size="icon"><Save className="h-5 w-5" /></Button>
+              <Button variant="ghost" size="icon" onClick={handleSave} disabled={saveMutation.isPending}>
+                <Save className="h-5 w-5" />
+              </Button>
+              <Input 
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                className="bg-white/10 border-white/20 text-white h-8 w-48"
+              />
             </div>
             <div className="flex items-center space-x-2">
               <Button variant="ghost" size="icon"><Rewind className="h-6 w-6" /></Button>
