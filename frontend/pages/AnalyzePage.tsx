@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X, Pause, Volume2, ExternalLink, Clock, Zap, Star, TrendingUp, Award, Brain, Gauge, Target } from 'lucide-react';
+import { Search, Upload, Youtube, Music, Layers, Play, Download, Sparkles, FileAudio, FileVideo, AlertCircle, CheckCircle, X, Pause, Volume2, ExternalLink, Clock, Zap, Star, TrendingUp, Award, Brain, Gauge, Target, Mic } from 'lucide-react';
 import backend from '~backend/client';
 import type { AnalyzeAudioRequest } from '~backend/music/analyze';
 
@@ -19,12 +19,19 @@ export default function AnalyzePage() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sourceUrl, setSourceUrl] = useState('');
-  const [sourceType, setSourceType] = useState<'youtube' | 'upload' | 'url' | 'tiktok'>('youtube');
+  const [sourceType, setSourceType] = useState<'youtube' | 'upload' | 'url' | 'tiktok' | 'microphone'>('youtube');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'analyze' | 'amapianorize' | 'batch'>('analyze');
   const [playingAudio, setPlayingAudio] = useState<{ type: 'stem' | 'track' | 'popular'; id: string; audio: HTMLAudioElement } | null>(null);
+
+  // Microphone recording state
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [recordedAudio, setRecordedAudio] = useState<{ url: string; blob: Blob } | null>(null);
 
   // Enhanced processing options
   const [enhancedProcessing, setEnhancedProcessing] = useState(false);
@@ -50,11 +57,19 @@ export default function AnalyzePage() {
   // Enhanced batch analysis state
   const [batchSources, setBatchSources] = useState<Array<{
     sourceUrl: string;
-    sourceType: 'youtube' | 'upload' | 'url' | 'tiktok';
+    sourceType: 'youtube' | 'upload' | 'url' | 'tiktok' | 'microphone';
     fileName?: string;
   }>>([]);
   const [batchEnhancedProcessing, setBatchEnhancedProcessing] = useState(false);
   const [batchCulturalAnalysis, setBatchCulturalAnalysis] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    };
+  }, []);
 
   const analyzeAudioMutation = useMutation({
     mutationFn: (data: AnalyzeAudioRequest) => backend.music.analyzeAudio(data),
@@ -68,6 +83,7 @@ export default function AnalyzePage() {
         description: `Audio analyzed in ${data.processingTime}ms with ${Math.round(data.metadata.confidence * 100)}% confidence. Quality: ${qualityText}${data.metadata.culturalAuthenticity ? `, Cultural Authenticity: ${Math.round(data.metadata.culturalAuthenticity * 100)}%` : ''}`,
       });
       setSelectedFile(null);
+      setRecordedAudio(null);
       setUploadProgress(0);
       setIsUploading(false);
     },
@@ -299,8 +315,9 @@ export default function AnalyzePage() {
     }
   };
 
-  const handleFileUpload = async () => {
-    if (!selectedFile) return;
+  const handleFileUpload = async (fileToUpload?: File) => {
+    const file = fileToUpload || selectedFile;
+    if (!file) return;
 
     setIsUploading(true);
     setUploadProgress(0);
@@ -308,9 +325,9 @@ export default function AnalyzePage() {
     try {
       // Get enhanced upload URL with professional features
       const uploadResponse = await backend.music.getUploadUrl({
-        fileName: selectedFile.name,
-        fileSize: selectedFile.size,
-        fileType: selectedFile.type,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
         enhancedProcessing,
         culturalAnalysis
       });
@@ -336,9 +353,9 @@ export default function AnalyzePage() {
       // Analyze the uploaded file with enhanced options
       analyzeAudioMutation.mutate({
         sourceUrl: `upload://${uploadResponse.fileId}`,
-        sourceType: 'upload',
-        fileName: selectedFile.name,
-        fileSize: selectedFile.size,
+        sourceType: sourceType as 'upload' | 'microphone',
+        fileName: file.name,
+        fileSize: file.size,
         enhancedProcessing,
         culturalAnalysis
       });
@@ -366,6 +383,13 @@ export default function AnalyzePage() {
         return;
       }
       handleFileUpload();
+    } else if (sourceType === 'microphone') {
+      if (!recordedAudio) {
+        toast({ title: "Recording Required", description: "Please record audio from your microphone first.", variant: "destructive" });
+        return;
+      }
+      const recordedFile = new File([recordedAudio.blob], 'recording.webm', { type: 'audio/webm' });
+      handleFileUpload(recordedFile);
     } else {
       if (!sourceUrl.trim()) {
         toast({
@@ -453,6 +477,8 @@ export default function AnalyzePage() {
         return <Music className="h-4 w-4" />;
       case 'upload':
         return <Upload className="h-4 w-4" />;
+      case 'microphone':
+        return <Mic className="h-4 w-4" />;
       default:
         return <Music className="h-4 w-4" />;
     }
@@ -466,6 +492,8 @@ export default function AnalyzePage() {
         return 'https://www.tiktok.com/@user/video/...';
       case 'upload':
         return 'Select an audio or video file';
+      case 'microphone':
+        return 'Use the recording controls below';
       default:
         return 'https://example.com/audio.mp3';
     }
@@ -473,7 +501,7 @@ export default function AnalyzePage() {
 
   const getFileIcon = (fileName: string) => {
     const extension = fileName.split('.').pop()?.toLowerCase();
-    const audioFormats = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma', 'aiff', 'dsd', 'dsf', 'opus'];
+    const audioFormats = ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma', 'aiff', 'dsd', 'dsf', 'opus', 'webm'];
     const videoFormats = ['mp4', 'avi', 'mov', 'mkv', 'webm', '3gp', 'flv', 'wmv', 'mts', 'mxf', 'ts'];
     
     if (audioFormats.includes(extension || '')) {
@@ -512,6 +540,50 @@ export default function AnalyzePage() {
       title: "Analysis Cleared",
       description: "You can now select a different track to amapianorize.",
     });
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      const audioChunks: Blob[] = [];
+  
+      recorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+  
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setRecordedAudio({ url: audioUrl, blob: audioBlob });
+        stream.getTracks().forEach(track => track.stop()); // Stop mic access
+      };
+  
+      recorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      toast({
+        title: "Microphone Access Denied",
+        description: "Please allow microphone access in your browser settings to use this feature.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    }
   };
 
   // Enhanced popular tracks data with more comprehensive information
@@ -641,6 +713,12 @@ export default function AnalyzePage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="microphone">
+                        <div className="flex items-center space-x-2">
+                          <Mic className="h-4 w-4" />
+                          <span>Record Microphone</span>
+                        </div>
+                      </SelectItem>
                       <SelectItem value="upload">
                         <div className="flex items-center space-x-2">
                           <Upload className="h-4 w-4" />
@@ -669,7 +747,48 @@ export default function AnalyzePage() {
                   </Select>
                 </div>
 
-                {sourceType === 'upload' ? (
+                {sourceType === 'microphone' && (
+                  <div className="space-y-4">
+                    {!isRecording && !recordedAudio && (
+                      <Button onClick={startRecording} className="w-full bg-red-500 hover:bg-red-600">
+                        <Mic className="h-4 w-4 mr-2" />
+                        Start Recording
+                      </Button>
+                    )}
+                    {isRecording && (
+                      <div className="flex items-center justify-center space-x-4">
+                        <Button onClick={stopRecording} className="w-full bg-gray-500 hover:bg-gray-600">
+                          <Circle className="h-4 w-4 mr-2 fill-red-500 text-red-500 animate-pulse" />
+                          Stop Recording
+                        </Button>
+                        <div className="text-white font-mono">{new Date(recordingTime * 1000).toISOString().substr(14, 5)}</div>
+                      </div>
+                    )}
+                    {recordedAudio && (
+                      <Card className="bg-white/10 border-white/20">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <Mic className="h-5 w-5 text-green-400" />
+                              <div>
+                                <div className="text-white font-medium">Recording ready</div>
+                                <div className="text-white/60 text-sm">
+                                  Duration: {Math.round(recordedAudio.blob.size / 16000)}s
+                                </div>
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => setRecordedAudio(null)} className="text-white/60 hover:text-white">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <audio src={recordedAudio.url} controls className="w-full mt-4" />
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+
+                {sourceType === 'upload' && (
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label className="text-white">Select Professional Audio/Video File</Label>
@@ -764,7 +883,9 @@ export default function AnalyzePage() {
                       </CardContent>
                     </Card>
                   </div>
-                ) : (
+                )}
+                
+                {(sourceType === 'youtube' || sourceType === 'tiktok' || sourceType === 'url') && (
                   <div className="space-y-2">
                     <Label htmlFor="sourceUrl" className="text-white">
                       {sourceType === 'youtube' ? 'YouTube URL' : sourceType === 'tiktok' ? 'TikTok URL' : 'Audio URL'}

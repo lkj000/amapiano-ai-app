@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/components/ui/use-toast';
-import { Radio, Play, Download, Layers, Sparkles, AlertCircle, CheckCircle, Pause, Volume2 } from 'lucide-react';
+import { Radio, Play, Download, Layers, Sparkles, AlertCircle, CheckCircle, Pause, Volume2, Mic, Circle, X } from 'lucide-react';
 import backend from '~backend/client';
 import type { GenerateTrackRequest, GenerateLoopRequest } from '~backend/music/generate';
 
@@ -40,11 +40,21 @@ export default function GeneratePage() {
     keySignature: 'C'
   });
 
+  // Microphone recording state
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [recordedAudio, setRecordedAudio] = useState<{ url: string; blob: Blob } | null>(null);
+
   // Cleanup audio on unmount
   useEffect(() => {
     return () => {
       if (playingAudio) {
         playingAudio.audio.pause();
+      }
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
       }
     };
   }, [playingAudio]);
@@ -195,10 +205,10 @@ export default function GeneratePage() {
   };
 
   const handleGenerateTrack = () => {
-    if (!trackForm.prompt.trim()) {
+    if (!trackForm.prompt.trim() && !recordedAudio) {
       toast({
         title: "Prompt Required",
-        description: "Please enter a description for your track.",
+        description: "Please enter a description or record an audio prompt.",
         variant: "destructive",
       });
       return;
@@ -224,8 +234,15 @@ export default function GeneratePage() {
       return;
     }
 
-    console.log('Generating track with data:', trackForm);
-    generateTrackMutation.mutate(trackForm);
+    let finalPrompt = trackForm.prompt;
+    if (recordedAudio) {
+      finalPrompt = trackForm.prompt 
+        ? `${trackForm.prompt} (with inspiration from recorded audio)`
+        : `A track inspired by the recorded audio prompt.`;
+    }
+
+    console.log('Generating track with data:', { ...trackForm, prompt: finalPrompt });
+    generateTrackMutation.mutate({ ...trackForm, prompt: finalPrompt });
   };
 
   const handleGenerateLoop = () => {
@@ -270,6 +287,50 @@ export default function GeneratePage() {
       title: "Remix Mode Cleared",
       description: "You can now create a track from scratch.",
     });
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      const audioChunks: Blob[] = [];
+  
+      recorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+  
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setRecordedAudio({ url: audioUrl, blob: audioBlob });
+        stream.getTracks().forEach(track => track.stop()); // Stop mic access
+      };
+  
+      recorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      toast({
+        title: "Microphone Access Denied",
+        description: "Please allow microphone access in your browser settings to use this feature.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    }
   };
 
   const moods = [
@@ -351,15 +412,45 @@ export default function GeneratePage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="prompt" className="text-white">Track Description</Label>
-              <Textarea
-                id="prompt"
-                placeholder="Describe your track... e.g., 'A soulful amapiano track with jazzy piano chords, deep log drums, and a groovy bassline perfect for late night vibes'"
-                value={trackForm.prompt}
-                onChange={(e) => setTrackForm({ ...trackForm, prompt: e.target.value })}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                rows={4}
-              />
+              <Label htmlFor="prompt" className="text-white">Track Description or Audio Prompt</Label>
+              <div className="relative">
+                <Textarea
+                  id="prompt"
+                  placeholder="Describe your track... e.g., 'A soulful amapiano track with jazzy piano chords, deep log drums, and a groovy bassline perfect for late night vibes'"
+                  value={trackForm.prompt}
+                  onChange={(e) => setTrackForm({ ...trackForm, prompt: e.target.value })}
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50 pr-12"
+                  rows={4}
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-2 bottom-2 text-white/60 hover:text-white"
+                  onClick={isRecording ? stopRecording : startRecording}
+                >
+                  {isRecording ? (
+                    <Circle className="h-4 w-4 text-red-500 fill-current animate-pulse" />
+                  ) : (
+                    <Mic className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              {isRecording && (
+                <div className="text-center text-sm text-red-400 animate-pulse">
+                  Recording... {new Date(recordingTime * 1000).toISOString().substr(14, 5)}
+                </div>
+              )}
+              {recordedAudio && (
+                <div className="mt-2">
+                  <Label className="text-white">Recorded Prompt</Label>
+                  <div className="flex items-center space-x-2 p-2 bg-white/10 rounded-lg">
+                    <audio src={recordedAudio.url} controls className="w-full h-8" />
+                    <Button variant="ghost" size="icon" onClick={() => setRecordedAudio(null)}>
+                      <X className="h-4 w-4 text-white/60" />
+                    </Button>
+                  </div>
+                </div>
+              )}
               {isRemixMode && (
                 <p className="text-white/60 text-sm">
                   💡 Tip: The AI will use the analyzed audio as inspiration while following your description.
