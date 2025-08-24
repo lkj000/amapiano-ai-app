@@ -20,7 +20,7 @@ const marketSegments: MarketSegment[] = [
     segment: 'producers',
     size: 50000,
     growthRate: 0.25,
-    painPoints: ['lack of authentic samples', 'complex production', 'cultural understanding'],
+    painPoints: ['lack of authentic samples', 'complex production', 'cultural understanding', 'expensive DAWs'],
     willingness_to_pay: 49,
     acquisition_cost: 25
   },
@@ -54,7 +54,7 @@ interface RevenueStream {
 
 const revenueStreams: RevenueStream[] = [
   {
-    name: 'Subscription Tiers',
+    name: 'Subscription Tiers (incl. DAW access)',
     type: 'subscription',
     target_percentage: 60,
     implementation_priority: 'high'
@@ -66,7 +66,7 @@ const revenueStreams: RevenueStream[] = [
     implementation_priority: 'high'
   },
   {
-    name: 'Enterprise Licensing',
+    name: 'Enterprise Licensing (DAW for schools)',
     type: 'licensing',
     target_percentage: 15,
     implementation_priority: 'medium'
@@ -96,7 +96,7 @@ const pricingTiers: PricingTier[] = [
     name: 'Free',
     price_usd: 0,
     price_zar: 0,
-    features: ['5 generations/month', 'basic samples', 'community access'],
+    features: ['5 generations/month', 'basic samples', 'community access', 'DAW (limited tracks)'],
     target_segment: 'trial_users',
     conversion_rate_target: 0.15
   },
@@ -104,7 +104,7 @@ const pricingTiers: PricingTier[] = [
     name: 'Creator',
     price_usd: 19,
     price_zar: 299,
-    features: ['unlimited generations', 'full sample library', 'stem downloads'],
+    features: ['unlimited generations', 'full sample library', 'stem downloads', 'DAW (standard features)'],
     target_segment: 'content_creators',
     conversion_rate_target: 0.25
   },
@@ -112,7 +112,7 @@ const pricingTiers: PricingTier[] = [
     name: 'Professional',
     price_usd: 49,
     price_zar: 799,
-    features: ['commercial license', 'priority processing', 'collaboration tools'],
+    features: ['commercial license', 'priority processing', 'collaboration tools', 'DAW (full features)'],
     target_segment: 'producers',
     conversion_rate_target: 0.35
   }
@@ -122,7 +122,7 @@ const pricingTiers: PricingTier[] = [
 ### 1.3 Legal and Compliance Framework
 
 #### Intellectual Property Strategy
-- **Patent Applications**: File patents for unique AI music generation techniques
+- **Patent Applications**: File patents for unique AI music generation techniques and genre-specific DAW workflows.
 - **Trademark Protection**: Secure "Amapiano AI" trademark globally
 - **Copyright Framework**: Establish clear copyright policies for generated content
 - **Licensing Agreements**: Create template agreements for artist partnerships
@@ -170,11 +170,11 @@ interface BrandStrategy {
 }
 
 const brandStrategy: BrandStrategy = {
-  positioning: "The world's first AI platform specifically for authentic amapiano music creation",
-  unique_value_proposition: "Create culturally authentic amapiano music with AI while supporting original South African artists",
+  positioning: "The world's first AI-powered Digital Audio Workstation specifically for authentic amapiano music creation",
+  unique_value_proposition: "Create culturally authentic amapiano music with an integrated AI DAW while supporting original South African artists",
   brand_pillars: ['Cultural Authenticity', 'Technological Innovation', 'Community Support', 'Educational Value'],
   target_emotions: ['Creativity', 'Cultural Pride', 'Innovation', 'Community'],
-  competitive_differentiation: ['Genre Specialization', 'Cultural Partnerships', 'Educational Integration']
+  competitive_differentiation: ['Genre-Specific DAW', 'Integrated AI Workflow', 'Cultural Partnerships', 'Educational Integration']
 };
 ```
 
@@ -204,7 +204,7 @@ const marketingChannels: MarketingChannel[] = [
     roi_target: 12
   },
   {
-    channel: 'Educational Partnerships',
+    channel: 'Educational Partnerships (DAW for schools)',
     budget_allocation: 0.20,
     target_cac: 50,
     expected_ltv: 500,
@@ -245,7 +245,7 @@ const artistPartnerships: ArtistPartnership[] = [
     artist_name: 'Kabza De Small',
     partnership_type: 'collaboration',
     revenue_share: 0.15,
-    content_contribution: ['sample packs', 'pattern library', 'educational content'],
+    content_contribution: ['sample packs', 'pattern library', 'educational content', 'DAW presets'],
     marketing_commitment: ['social media posts', 'platform endorsement'],
     contract_duration: 24
   },
@@ -253,7 +253,7 @@ const artistPartnerships: ArtistPartnership[] = [
     artist_name: 'Kelvin Momo',
     partnership_type: 'exclusive',
     revenue_share: 0.20,
-    content_contribution: ['exclusive samples', 'masterclasses', 'AI training data'],
+    content_contribution: ['exclusive samples', 'masterclasses', 'AI training data', 'DAW workflow tutorials'],
     marketing_commitment: ['brand ambassador', 'event appearances'],
     contract_duration: 36
   }
@@ -262,8 +262,8 @@ const artistPartnerships: ArtistPartnership[] = [
 
 #### Strategic Business Partnerships
 - **Record Labels**: Partnerships with major South African labels
-- **Music Schools**: Integration with music education institutions
-- **Technology Partners**: Collaborations with DAW manufacturers
+- **Music Schools**: Integration with music education institutions (licensing the DAW)
+- **Technology Partners**: Collaborations with hardware manufacturers (MIDI controllers)
 - **Distribution Partners**: Partnerships with music distribution platforms
 
 ### 2.3 Sales Strategy
@@ -284,10 +284,10 @@ const b2bSalesProcess: SalesProcess[] = [
     duration_days: 7,
     success_rate: 0.60,
     required_actions: ['demo request', 'needs assessment', 'budget confirmation'],
-    decision_makers: ['CTO', 'Head of A&R']
+    decision_makers: ['CTO', 'Head of A&R', 'Head of Curriculum']
   },
   {
-    stage: 'Technical Demo',
+    stage: 'Technical Demo (DAW)',
     duration_days: 14,
     success_rate: 0.70,
     required_actions: ['custom demo', 'technical integration discussion'],
@@ -366,7 +366,7 @@ const viralFeatures: ViralFeature[] = [
     expected_impact: 'high'
   },
   {
-    feature: 'Collaborative Track Creation',
+    feature: 'Collaborative DAW Projects',
     viral_coefficient_target: 0.5,
     implementation_effort: 'high',
     expected_impact: 'high'
@@ -435,21 +435,21 @@ interface FeaturePriority {
 
 const featurePriorities: FeaturePriority[] = [
   {
-    feature: 'Real AI Music Generation',
+    feature: 'Full AI-Powered DAW',
     user_impact: 10,
     business_impact: 10,
     development_effort: 9,
     priority_score: 9.3
   },
   {
-    feature: 'Mobile Application',
+    feature: 'Mobile Application (DAW companion)',
     user_impact: 8,
     business_impact: 9,
     development_effort: 7,
     priority_score: 8.0
   },
   {
-    feature: 'Collaboration Features',
+    feature: 'Real-time Collaboration in DAW',
     user_impact: 7,
     business_impact: 8,
     development_effort: 6,
@@ -481,8 +481,8 @@ const pricingExperiments: PricingExperiment[] = [
     expected_impact: 0.25
   },
   {
-    experiment_name: 'Freemium Limits',
-    hypothesis: 'Reducing free tier limits will increase paid conversions',
+    experiment_name: 'Freemium Limits (DAW features)',
+    hypothesis: 'Restricting advanced DAW features will increase paid conversions',
     test_duration_days: 30,
     success_metrics: ['free to paid conversion', 'user engagement', 'churn rate'],
     expected_impact: 0.15
@@ -509,7 +509,7 @@ const revenueStreams: RevenueStream[] = [
     risk_level: 'low'
   },
   {
-    stream: 'Enterprise Licensing',
+    stream: 'Enterprise Licensing (DAW)',
     current_percentage: 10,
     target_percentage: 25,
     growth_initiatives: ['B2B sales team', 'enterprise features', 'white-label solutions'],
@@ -580,7 +580,7 @@ interface CompetitiveMoat {
 
 const competitiveMoats: CompetitiveMoat[] = [
   {
-    moat_type: 'Cultural Authenticity',
+    moat_type: 'Genre-Specific DAW & AI',
     strength: 'strong',
     development_initiatives: ['artist partnerships', 'cultural advisory board', 'community building'],
     timeline_months: 6
@@ -621,7 +621,7 @@ const rdProjects: RDProject[] = [
     potential_impact: 'transformative'
   },
   {
-    project: 'Real-time Collaboration AI',
+    project: 'Real-time Collaborative AI in DAW',
     investment: 300000,
     timeline_months: 12,
     success_probability: 0.8,

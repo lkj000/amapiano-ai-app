@@ -50,6 +50,7 @@ amapiano-ai/
 │       ├── analyze.ts            # Audio analysis and processing endpoints
 │       ├── samples.ts            # Sample management and search endpoints
 │       ├── patterns.ts           # Pattern management endpoints
+│       ├── daw.ts                # DAW project management endpoints
 │       └── migrations/           # Database schema migrations
 │           ├── 1_create_tables.up.sql    # Core table definitions
 │           └── 2_seed_data.up.sql        # Sample data and initial content
@@ -57,6 +58,7 @@ amapiano-ai/
 │   ├── App.tsx                   # Main application component with routing
 │   ├── components/               # Reusable UI components
 │   │   ├── Header.tsx            # Navigation header with responsive design
+│   │   ├── daw/                  # DAW-specific components
 │   │   ├── LoadingSpinner.tsx    # Consistent loading states
 │   │   └── ErrorMessage.tsx      # Error handling and retry functionality
 │   └── pages/                    # Page-level components
@@ -64,7 +66,8 @@ amapiano-ai/
 │       ├── GeneratePage.tsx      # Music generation interface
 │       ├── AnalyzePage.tsx       # Audio analysis and amapianorize interface
 │       ├── SamplesPage.tsx       # Sample library browser with search
-│       └── PatternsPage.tsx      # Pattern library with interactive playback
+│       ├── PatternsPage.tsx      # Pattern library with interactive playback
+│       └── DawPage.tsx           # Professional Amapiano DAW
 ├── docs/                    # Comprehensive documentation
 │   ├── API.md                    # Complete API reference with examples
 │   ├── ARCHITECTURE.md           # System architecture and design decisions
@@ -162,13 +165,11 @@ export const createPlaylist = api<CreatePlaylistRequest, CreatePlaylistResponse>
 #### Example Migration
 
 ```sql
--- 3_add_playlists_table.up.sql
-CREATE TABLE playlists (
+-- 3_add_daw_projects_table.up.sql
+CREATE TABLE daw_projects (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
-  description TEXT,
-  genre TEXT NOT NULL CHECK (genre IN ('amapiano', 'private_school_amapiano')),
-  sample_ids BIGINT[] NOT NULL,
+  project_data JSONB NOT NULL,
   user_id TEXT,
   is_public BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT NOW(),
@@ -176,13 +177,7 @@ CREATE TABLE playlists (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_playlists_genre ON playlists(genre);
-CREATE INDEX idx_playlists_user ON playlists(user_id);
-CREATE INDEX idx_playlists_public ON playlists(is_public) WHERE is_public = true;
-CREATE INDEX idx_playlists_samples ON playlists USING GIN(sample_ids);
-
--- Full-text search index
-CREATE INDEX idx_playlists_search ON playlists USING GIN(to_tsvector('english', name || ' ' || COALESCE(description, '')));
+CREATE INDEX idx_daw_projects_user ON daw_projects(user_id);
 ```
 
 ### Working with Object Storage
@@ -483,6 +478,13 @@ const mutation = useMutation({
   },
 });
 ```
+
+### DAW Development
+Developing the DAW is a major undertaking. Key considerations:
+- **Real-time Audio**: Use the Web Audio API for all audio processing, mixing, and scheduling to achieve low latency.
+- **Performance**: For performance-intensive tasks like custom synths or effects, use WebAssembly by compiling C++ or Rust code.
+- **State Management**: The DAW's state is complex (timeline, mixer, plugins). Use a robust state manager like Zustand or Redux Toolkit.
+- **UI**: The DAW UI will require custom components for the timeline, piano roll, and mixer. These should be highly optimized for performance.
 
 ### Styling Guidelines
 

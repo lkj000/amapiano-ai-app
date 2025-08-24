@@ -2,35 +2,42 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Radio, Search, Library, Layers, Music, Sparkles } from 'lucide-react';
+import { Radio, Search, Library, Layers, Music, Sparkles, SlidersHorizontal } from 'lucide-react';
 
 export default function HomePage() {
   const features = [
     {
+      icon: SlidersHorizontal,
+      title: 'Professional Amapiano DAW',
+      description: 'A full-featured Digital Audio Workstation designed specifically for amapiano production.',
+      link: '/daw',
+      color: 'text-orange-400'
+    },
+    {
       icon: Radio,
       title: 'AI Music Generation',
-      description: 'Generate authentic amapiano and private school amapiano tracks from text prompts',
+      description: 'Generate authentic amapiano and private school amapiano tracks from text prompts.',
       link: '/generate',
       color: 'text-yellow-400'
     },
     {
       icon: Search,
       title: 'Audio Analysis',
-      description: 'Analyze YouTube videos and audio files to extract stems and patterns',
+      description: 'Analyze YouTube videos and audio files to extract stems and patterns.',
       link: '/analyze',
       color: 'text-blue-400'
     },
     {
       icon: Library,
       title: 'Sample Library',
-      description: 'Browse curated samples from Kabza De Small, Kelvin Momo, and more',
+      description: 'Browse curated samples from Kabza De Small, Kelvin Momo, and more.',
       link: '/samples',
       color: 'text-green-400'
     },
     {
       icon: Layers,
       title: 'Pattern Library',
-      description: 'Explore chord progressions, drum patterns, and musical structures',
+      description: 'Explore chord progressions, drum patterns, and musical structures.',
       link: '/patterns',
       color: 'text-purple-400'
     }
@@ -61,34 +68,33 @@ export default function HomePage() {
           <Sparkles className="h-12 w-12 text-yellow-400" />
         </div>
         <p className="text-xl text-white/80 max-w-3xl mx-auto">
-          The ultimate AI-powered platform for creating, analyzing, and exploring amapiano music. 
-          Generate authentic South African amapiano tracks, analyze existing music, and discover 
-          the patterns that make this genre unique.
+          The ultimate AI-powered platform for creating, analyzing, and producing amapiano music. 
+          From idea to finished track, all in one place.
         </p>
         <div className="flex items-center justify-center space-x-4">
-          <Link to="/generate">
+          <Link to="/daw">
             <Button size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black">
-              Start Creating
+              Open DAW
             </Button>
           </Link>
-          <Link to="/analyze">
+          <Link to="/generate">
             <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">
-              Analyze Music
+              Generate with AI
             </Button>
           </Link>
         </div>
       </div>
 
       {/* Features Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {features.map((feature, index) => (
           <Link key={index} to={feature.link}>
-            <Card className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors cursor-pointer h-full">
+            <Card className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors cursor-pointer h-full flex flex-col">
               <CardHeader className="text-center">
                 <feature.icon className={`h-12 w-12 mx-auto ${feature.color}`} />
-                <CardTitle className="text-white">{feature.title}</CardTitle>
+                <CardTitle className="text-white mt-4">{feature.title}</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-grow">
                 <CardDescription className="text-white/70 text-center">
                   {feature.description}
                 </CardDescription>
@@ -144,9 +150,9 @@ export default function HomePage() {
         <p className="text-white/80">
           Join thousands of producers and musicians using Amapiano AI to create authentic South African music.
         </p>
-        <Link to="/generate">
+        <Link to="/daw">
           <Button size="lg" className="bg-yellow-400 hover:bg-yellow-500 text-black">
-            Get Started Now
+            Start Producing in the DAW
           </Button>
         </Link>
       </div>

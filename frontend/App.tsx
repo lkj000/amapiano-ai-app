@@ -8,6 +8,7 @@ import GeneratePage from './pages/GeneratePage';
 import AnalyzePage from './pages/AnalyzePage';
 import SamplesPage from './pages/SamplesPage';
 import PatternsPage from './pages/PatternsPage';
+import DawPage from './pages/DawPage';
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ export default function App() {
               <Route path="/analyze" element={<AnalyzePage />} />
               <Route path="/samples" element={<SamplesPage />} />
               <Route path="/patterns" element={<PatternsPage />} />
+              <Route path="/daw" element={<DawPage />} />
             </Routes>
           </main>
           <Toaster />

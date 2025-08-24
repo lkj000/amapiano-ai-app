@@ -2,7 +2,7 @@
 
 ## Overview
 
-Amapiano AI is built using a modern, scalable full-stack architecture with Encore.ts for the backend and React for the frontend. The system is designed for high performance, maintainability, and cultural authenticity while supporting advanced AI music generation and analysis capabilities.
+Amapiano AI is built using a modern, scalable full-stack architecture with Encore.ts for the backend and React for the frontend. The system is designed for high performance, maintainability, and cultural authenticity while supporting advanced AI music generation, analysis, and a full-featured Digital Audio Workstation (DAW).
 
 ## Technology Stack
 
@@ -18,7 +18,8 @@ Amapiano AI is built using a modern, scalable full-stack architecture with Encor
 - **Build Tool**: Vite for fast development and optimized production builds
 - **Styling**: Tailwind CSS v4 for responsive, modern design systems
 - **UI Components**: shadcn/ui for consistent, accessible component library
-- **State Management**: TanStack Query for intelligent server state management
+- **State Management**: TanStack Query for server state; Zustand/Redux for complex client state (e.g., DAW)
+- **DAW Engine**: Web Audio API and WebAssembly for real-time audio processing and effects
 - **Routing**: React Router v6 for client-side navigation and deep linking
 - **Icons**: Lucide React for consistent, scalable iconography
 
@@ -40,7 +41,7 @@ Amapiano AI is built using a modern, scalable full-stack architecture with Encor
 │ • Tailwind CSS  │    │ • Auto APIs     │    │   Indexing      │
 │ • TanStack      │    │ • Validation    │    │ • Full-text     │
 │   Query         │    │ • Error         │    │   Search        │
-│ • Vite          │    │   Handling      │    │ • Performance   │
+│ • Web Audio API │    │   Handling      │    │ • Performance   │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                 │
                                 ▼
@@ -73,6 +74,7 @@ backend/music/
 ├── analyze.ts            # Audio analysis and processing endpoints
 ├── samples.ts            # Sample management and search endpoints
 ├── patterns.ts           # Pattern library and management endpoints
+├── daw.ts                # DAW project management endpoints
 └── migrations/           # Database schema migrations
     ├── 1_create_tables.up.sql    # Core table definitions
     └── 2_seed_data.up.sql        # Sample data and initial content
@@ -88,6 +90,7 @@ The database uses PostgreSQL with advanced features for optimal performance and 
 - **patterns** - Musical patterns and progressions with complexity ratings
 - **generated_tracks** - AI-generated music tracks with source tracking
 - **audio_analysis** - Analysis results with confidence scoring
+- **daw_projects** - Stores user-created DAW project data
 
 #### Advanced Tables
 - **batch_analysis** - Batch processing operations with priority queuing
@@ -95,7 +98,7 @@ The database uses PostgreSQL with advanced features for optimal performance and 
 - **usage_analytics** - Comprehensive usage tracking and insights
 
 #### Key Database Features
-- **JSONB columns** for flexible metadata storage without schema rigidity
+- **JSONB columns** for flexible metadata storage (e.g., DAW project state)
 - **Check constraints** for data validation and integrity
 - **Advanced indexes** including GIN indexes for array and full-text search
 - **Full-text search** capabilities for samples and patterns
@@ -134,6 +137,10 @@ frontend/
 ├── App.tsx                   # Main application component with routing
 ├── components/               # Reusable UI components
 │   ├── Header.tsx            # Navigation header with responsive design
+│   ├── daw/                  # DAW-specific components
+│   │   ├── Timeline.tsx
+│   │   ├── Mixer.tsx
+│   │   └── PianoRoll.tsx
 │   ├── LoadingSpinner.tsx    # Consistent loading states
 │   └── ErrorMessage.tsx      # Error handling and retry functionality
 └── pages/                    # Page-level components
@@ -141,15 +148,22 @@ frontend/
     ├── GeneratePage.tsx      # Music generation interface
     ├── AnalyzePage.tsx       # Audio analysis and amapianorize interface
     ├── SamplesPage.tsx       # Sample library browser with search
-    └── PatternsPage.tsx      # Pattern library with interactive playback
+    ├── PatternsPage.tsx      # Pattern library with interactive playback
+    └── DawPage.tsx           # The full-featured DAW interface
 ```
 
 ### State Management Strategy
 
-- **TanStack Query**: Intelligent server state management with caching, background updates, and optimistic updates
-- **React State**: Local component state for UI interactions and form management
-- **URL State**: Router state for navigation, deep linking, and shareable URLs
-- **Context API**: Global state for user preferences and application settings
+- **TanStack Query**: Intelligent server state management for fetching data (samples, patterns, projects).
+- **Zustand/Redux**: Complex client-side state management for the DAW, including timeline state, mixer settings, and instrument parameters.
+- **URL State**: Router state for navigation, deep linking, and shareable URLs.
+- **Context API**: Global state for user preferences and application settings.
+
+### DAW Engine Architecture
+The DAW's real-time audio capabilities will be built on modern web technologies:
+- **Web Audio API**: For all audio routing, processing, mixing, and scheduling. This provides low-latency audio manipulation directly in the browser.
+- **WebAssembly (Wasm)**: For performance-critical components like custom synthesizers (e.g., Log Drum Synth) and audio effects (e.g., compressors, EQs), written in C++ or Rust and compiled to Wasm.
+- **Web Workers**: To offload heavy audio processing from the main UI thread, ensuring a smooth and responsive user interface.
 
 ### UI Architecture Principles
 
@@ -157,7 +171,7 @@ frontend/
 - **Responsive Design**: Mobile-first approach with Tailwind CSS breakpoints
 - **Accessibility**: ARIA labels, keyboard navigation, and screen reader support
 - **Dark Theme**: Consistent dark theme throughout the application
-- **Performance**: Optimized rendering with React.memo and lazy loading
+- **Performance**: Optimized rendering with React.memo and lazy loading, especially for the complex DAW interface.
 
 ## Data Flow Architecture
 
@@ -184,15 +198,13 @@ frontend/
 8. **Response**: Stems, patterns, and analysis data returned to frontend
 9. **UI Display**: Results displayed with interactive playback and educational content
 
-### Sample Discovery Flow
-
-1. **Search/Filter**: User searches or filters samples using advanced criteria
-2. **Query Processing**: Frontend queries `/samples` or `/samples/search` endpoints
-3. **Database Query**: Backend executes optimized queries with full-text search
-4. **Result Processing**: Results returned with pagination and metadata
-5. **UI Rendering**: Frontend displays samples in responsive grid layout
-6. **Audio Playback**: Users can preview samples directly from storage URLs
-7. **Download**: Secure download functionality with usage tracking
+### DAW Project Save/Load Flow
+1. **User Action**: User clicks "Save" in the DAW interface.
+2. **State Serialization**: The frontend serializes the entire DAW state (track positions, MIDI data, mixer settings, etc.) into a JSON object.
+3. **API Request**: A `POST` or `PUT` request is sent to `/daw/projects/:id` with the project data.
+4. **Backend Processing**: The backend validates the data and stores the JSON object in the `daw_projects` table.
+5. **Response**: The backend confirms the save and returns a version number and timestamp.
+6. **Loading**: On page load or user action, a `GET` request to `/daw/projects/:id` retrieves the JSON data, which the frontend then uses to rehydrate the entire DAW state.
 
 ## Security Architecture
 
@@ -220,7 +232,7 @@ frontend/
 
 ### Frontend Performance
 - **Intelligent Caching**: TanStack Query provides sophisticated caching strategies
-- **Lazy Loading**: Audio files and large components loaded on demand
+- **Lazy Loading**: Audio files and large components (like the DAW) loaded on demand
 - **Bundle Optimization**: Vite provides optimized bundle splitting and tree shaking
 - **Image Optimization**: Responsive images with proper sizing and formats
 - **Code Splitting**: Route-based code splitting for faster initial loads
@@ -247,7 +259,7 @@ frontend/
 - **Background Processing**: Asynchronous processing for heavy operations
 
 ### Microservices Evolution
-- **Service Separation**: Clear boundaries for future service extraction
+- **Service Separation**: Clear boundaries for future service extraction (e.g., a dedicated `daw-service`).
 - **API Gateway**: Centralized API management and routing
 - **Event-Driven Architecture**: Pub/sub patterns for service communication
 - **Data Consistency**: Eventual consistency patterns for distributed data
@@ -258,7 +270,7 @@ frontend/
 1. **Single Command Start**: `encore run` starts entire development environment
 2. **Hot Reloading**: Automatic reloading for both frontend and backend changes
 3. **Type Generation**: Automatic API client generation with full type safety
-4. **Database Management**: Automatic migrations and schema management
+4. **Database Management**: Automatic migrations and seeding
 5. **Storage Simulation**: Local object storage for development
 
 ### Type Safety Workflow
@@ -268,10 +280,10 @@ frontend/
 - **IDE Support**: Complete IntelliSense and error checking in development
 
 ### Testing Strategy
-- **Unit Testing**: Comprehensive unit tests for business logic
-- **Integration Testing**: API endpoint testing with real database
-- **Frontend Testing**: Component testing with React Testing Library
-- **End-to-End Testing**: Full user workflow testing with Playwright
+- **Unit Testing**: Comprehensive unit tests for business logic and UI components.
+- **Integration Testing**: API endpoint testing with real database.
+- **Frontend Testing**: Component testing with React Testing Library, especially for complex DAW components.
+- **End-to-End Testing**: Full user workflow testing with Playwright, including DAW interactions.
 
 ## Monitoring and Observability
 

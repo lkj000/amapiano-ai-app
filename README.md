@@ -1,6 +1,6 @@
 # Amapiano AI
 
-The ultimate AI-powered platform for creating, analyzing, and exploring amapiano music. Generate authentic South African amapiano tracks, analyze existing music, and discover the patterns that make this genre unique.
+The ultimate AI-powered platform for creating, analyzing, and exploring amapiano music. Generate authentic South African amapiano tracks, analyze existing music, and produce professional-quality music from start to finish with our integrated Digital Audio Workstation (DAW).
 
 ## Table of Contents
 
@@ -16,6 +16,13 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 - [License](#license)
 
 ## Features
+
+### 🎹 Professional Amapiano DAW
+- **Full-featured DAW**: A complete Digital Audio Workstation rivaling industry standards like Logic Pro and Ableton Live, specifically designed for amapiano production.
+- **Multi-track Timeline**: Arrange audio, MIDI, and loops with advanced editing capabilities.
+- **AI-Powered Instruments**: Includes a signature Log Drum synthesizer, advanced piano roll, and culturally authentic virtual instruments.
+- **Mixing Console**: Professional mixing environment with EQs, compressors, and amapiano-specific effects.
+- **Seamless AI Integration**: Generate patterns, loops, and stems directly into your DAW timeline with the AI Assistant.
 
 ### 🎵 AI Music Generation & Transformation
 - **Generate from Prompt**: Create complete amapiano tracks from text descriptions with advanced customization options.
@@ -71,6 +78,7 @@ This application is currently in a comprehensive demonstration phase showcasing 
 - **Audio Playback**: Generates enhanced demo tones with filtering to represent different audio content types
 - **Downloads**: Creates comprehensive metadata files with detailed track information instead of actual audio
 - **AI Processing**: Uses sophisticated mock data that demonstrates the full capabilities and accuracy of the intended AI systems
+- **DAW Interface**: A visual prototype of the Digital Audio Workstation is available to demonstrate the intended layout and features.
 
 This approach allows for a complete demonstration of the application's features, user experience, and professional-grade interface while showcasing the technical sophistication of the planned AI systems.
 
@@ -96,23 +104,23 @@ Sophisticated, jazz-influenced amapiano with live instrumentation. Features:
 
 ## Competitive Comparison
 
-| Feature | Amapiano AI | Suno | ElevenLabs Music |
+| Feature | Amapiano AI | Suno / ElevenLabs | Logic Pro / Ableton |
 |---|---|---|---|
-| **Primary Focus** | Comprehensive amapiano creation, analysis, and education | General-purpose AI music generation from text prompts | High-quality instrumental music generation from prompts |
-| **Genre Specialization** | **Deep focus on Amapiano** (Classic & Private School) | Broad, general genres; lacks deep cultural nuance | Broad instrumental genres; less focus on specific cultural styles |
-| **Cultural Authenticity** | **Core feature** with expert validation and artist partnerships | Not a primary focus; may produce generic-sounding results | Not a primary focus; aims for general musical quality |
-| **Audio Analysis** | **Yes**, professional-grade stem separation & pattern recognition | No | No |
-| **Sample & Pattern Libraries** | **Yes**, extensive and curated for amapiano | No | No |
-| **"Amapianorize" Feature** | **Yes**, unique transformation engine | No | No |
+| **Primary Focus** | Integrated Amapiano creation, analysis, DAW, and education | General-purpose AI music generation from prompts | General-purpose professional music production |
+| **Genre Specialization** | **Deep focus on Amapiano** (Classic & Private School) | Broad, generic genres; lacks deep cultural nuance | None; requires extensive user knowledge and third-party plugins |
+| **Integrated DAW** | **Yes**, full-featured and genre-specific | No | **Yes**, but not genre-specific |
+| **Cultural Authenticity** | **Core feature** with expert validation and artist partnerships | Not a primary focus; produces generic results | Relies entirely on user's cultural knowledge |
+| **AI-Powered Workflow** | **Yes**, AI assistant, generation, analysis, and transformation | Yes, but limited to generation | No, requires separate AI tools |
+| **Sample & Pattern Libraries** | **Yes**, extensive and curated for amapiano | No | No, requires purchasing third-party sample packs |
 | **Educational Content** | **Yes**, integrated learning about amapiano history and theory | No | No |
-| **Target Audience** | Amapiano producers, musicians, educators, and enthusiasts | General users, content creators, hobbyists | Content creators, game developers, filmmakers |
+| **Target Audience** | Amapiano producers, musicians, educators, and enthusiasts | General users, content creators, hobbyists | Professional music producers across all genres |
 
 ### Key Differentiators
 
-- **Amapiano AI vs. Suno**: While Suno is excellent for quickly generating music in various styles, Amapiano AI offers a much deeper, more authentic experience for a specific genre. Its integrated analysis tools, curated libraries, and educational content provide a comprehensive ecosystem that goes far beyond simple generation.
-- **Amapiano AI vs. ElevenLabs Music**: ElevenLabs focuses on high-fidelity instrumental generation, which is valuable for background music. Amapiano AI, however, is a specialized creative suite. Its "Amapianorize" feature and deep cultural context provide unique creative tools that are not available in general-purpose platforms.
+- **Amapiano AI vs. Suno/ElevenLabs**: While generative AI tools are great for quick idea generation, Amapiano AI offers a complete, professional production environment. Its integrated DAW, curated libraries, and deep cultural and analytical tools provide a comprehensive ecosystem that goes far beyond simple generation.
+- **Amapiano AI vs. Logic Pro/Ableton Live**: Traditional DAWs are powerful but generic. Amapiano AI provides a specialized, streamlined workflow for amapiano production with built-in, culturally authentic instruments, patterns, and AI-powered creative tools that would require dozens of expensive third-party plugins to replicate in a standard DAW.
 
-In summary, Amapiano AI is not just a music generator; it's a **cultural technology platform** dedicated to the preservation, creation, and education of a specific, globally significant musical genre.
+In summary, Amapiano AI is not just a music generator or a standard DAW; it's a **next-generation cultural technology platform** dedicated to the preservation, creation, and education of a specific, globally significant musical genre.
 
 ## Technology Stack
 
@@ -129,6 +137,7 @@ In summary, Amapiano AI is not just a music generator; it's a **cultural technol
 - **Styling**: Tailwind CSS v4 for modern, responsive design
 - **UI Components**: shadcn/ui for consistent, accessible components
 - **State Management**: TanStack Query for server state and caching
+- **DAW Engine**: Web Audio API, WebAssembly for real-time audio processing
 - **Routing**: React Router v6 for client-side navigation
 - **Icons**: Lucide React for consistent iconography
 
@@ -198,7 +207,8 @@ amapiano-ai/
 │       ├── GeneratePage.tsx      # Music generation interface
 │       ├── AnalyzePage.tsx       # Audio analysis interface
 │       ├── SamplesPage.tsx       # Sample library browser
-│       └── PatternsPage.tsx      # Pattern library browser
+│       ├── PatternsPage.tsx      # Pattern library browser
+│       └── DawPage.tsx           # Professional Amapiano DAW
 ├── docs/                    # Comprehensive documentation
 │   ├── API.md                    # Complete API reference
 │   ├── ARCHITECTURE.md           # System architecture guide
@@ -224,6 +234,7 @@ Comprehensive documentation is available in the `docs/` directory:
 - **[Product Roadmap (PRP)](./docs/PRP.md)**: Strategic 5-year roadmap with detailed planning and milestones
 
 ### Key Features Covered
+- Professional Amapiano DAW with AI integration
 - Enhanced audio analysis with professional-grade stem separation
 - Advanced AI music generation with cultural authenticity
 - Comprehensive sample and pattern libraries

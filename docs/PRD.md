@@ -13,10 +13,11 @@
 ## 1. Executive Summary
 
 ### 1.1 Product Vision
-Amapiano AI is the world's first AI-powered platform specifically designed for creating, analyzing, and exploring amapiano music. Our mission is to democratize amapiano music production while preserving and celebrating the authentic South African musical heritage through cutting-edge technology and deep cultural understanding.
+Amapiano AI is the world's first AI-powered platform specifically designed for creating, analyzing, and exploring amapiano music. Our mission is to democratize amapiano music production while preserving and celebrating the authentic South African musical heritage through cutting-edge technology, deep cultural understanding, and a fully-featured, genre-specific Digital Audio Workstation (DAW).
 
 ### 1.2 Product Overview
 Amapiano AI combines cutting-edge artificial intelligence with comprehensive musical understanding to provide:
+- **Professional Amapiano DAW**: A complete production environment rivaling industry standards, but optimized for the amapiano workflow with integrated AI assistance.
 - **Advanced AI Music Generation**: Create authentic amapiano tracks from text prompts with professional-grade stem separation and real-time processing.
 - **Universal Audio Analysis & Transformation**: Extract stems, identify patterns, and transform any audio/video file into amapiano style with the revolutionary "Amapianorize" engine.
 - **Comprehensive Sample Library**: Curated collection of 10,000+ authentic amapiano samples with advanced search and artist-specific styles.
@@ -48,11 +49,12 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 
 ### 2.2 Competitive Landscape
 - **Generic AI Music Tools**: Lack cultural specificity and authentic amapiano understanding
-- **Traditional DAWs**: Complex learning curve and no amapiano-specific features
+- **Traditional DAWs**: Complex learning curve and no amapiano-specific features or integrated AI.
 - **Sample Libraries**: Limited authentic amapiano content and no AI generation capabilities
 - **Educational Platforms**: No comprehensive amapiano-focused learning resources
 
 ### 2.3 Competitive Advantages
+- **Integrated AI DAW**: The only professional DAW built specifically for amapiano, with AI deeply integrated into the workflow.
 - **Genre Specialization**: Only platform specifically designed for amapiano music
 - **Cultural Authenticity**: Built with South African artists and cultural experts
 - **Comprehensive Platform**: Complete workflow from inspiration to finished track
@@ -64,6 +66,7 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 ## 3. Product Strategy
 
 ### 3.1 Strategic Objectives
+- **Market Leadership**: Become the #1 platform for amapiano music production.
 - **Cultural Preservation**: Preserve and promote authentic amapiano musical heritage
 - **Democratization**: Make amapiano creation accessible to creators worldwide
 - **Education**: Provide comprehensive amapiano education and cultural context
@@ -85,7 +88,7 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 - **Demographics**: 22-35 years old, global, intermediate music production skills
 - **Goals**: Create authentic amapiano tracks, learn from masters, build following
 - **Pain Points**: Lack of authentic samples, complex production techniques, cultural understanding
-- **Use Cases**: Generate tracks from prompts, analyze favorite songs, learn patterns
+- **Use Cases**: Use the DAW for full production, generate ideas with the AI assistant, analyze favorite songs, learn patterns
 
 ### 4.2 Secondary Persona: Content Creator "Maya"
 - **Demographics**: 18-30 years old, social media focused, basic music knowledge
@@ -97,7 +100,7 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 - **Demographics**: 35-55 years old, academic background, cultural preservation focus
 - **Goals**: Teach African music, preserve cultural knowledge, engage students
 - **Pain Points**: Limited authentic resources, student engagement, cultural accuracy
-- **Use Cases**: Interactive lessons, pattern analysis, cultural education content
+- **Use Cases**: Use the DAW as a teaching tool, interactive lessons, pattern analysis, cultural education content
 
 ---
 
@@ -105,7 +108,35 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 
 ### 5.1 Core Features
 
-#### 5.1.1 Advanced AI Music Generation Engine
+#### 5.1.1 Professional Amapiano DAW
+
+**Feature Description**: A complete, professional-grade Digital Audio Workstation specifically designed for Amapiano music production, rivaling industry standards while maintaining its unique specialization.
+
+**Functional Requirements**:
+- **Multi-track Timeline**: Arrange unlimited audio, MIDI, and loop tracks with advanced editing tools (grid snapping, fades, time-stretching, automation lanes).
+- **MIDI Editor/Piano Roll**: Advanced MIDI editing with velocity, note length, quantization, and an AI-powered "Amapiano Chord Mode" that suggests culturally authentic progressions.
+- **Audio Editor**: Non-destructive audio editing, pitch correction, and transient detection.
+- **Mixing Console**: Professional mixer with faders, pan controls, mute/solo, sends/returns, and a master bus.
+- **Virtual Instruments**:
+  - **Signature Log Drum Synth**: A dedicated synthesizer for creating authentic log drum sounds with control over timbre, decay, and pitch glide.
+  - **Amapiano Piano**: A virtual instrument with classic amapiano piano sounds (e.g., M1-style piano).
+  - **Percussion Sampler**: A drum machine-style sampler optimized for layering amapiano percussion.
+- **Audio Effects**:
+  - **Core Effects**: EQ, Compressor, Reverb, Delay, Limiter.
+  - **Amapiano-Specific Effects**: "Shaker Groove Engine", "3D Imager", "Log Drum Saturator".
+- **AI Assistant**: A sidebar in the DAW that can:
+  - Generate a log drum pattern for the selected MIDI clip.
+  - Suggest chord progressions in the project's key.
+  - Populate a track with a percussive loop.
+  - Analyze a track and suggest mixing improvements.
+- **Project Management**: Save, load, and share projects, with version history.
+
+**User Stories**:
+- As a producer, I want to sketch out a beat in the DAW, use the AI assistant to generate a log drum bassline, and then fine-tune the MIDI in the piano roll.
+- As a musician, I want to record a live saxophone part over an AI-generated backing track and mix it all within the same application.
+- As an educator, I want to use the DAW to deconstruct a famous amapiano track with my students, showing them the individual layers and arrangement.
+
+#### 5.1.2 Advanced AI Music Generation Engine
 
 **Feature Description**: Generate complete amapiano tracks from natural language prompts with professional-grade quality and cultural authenticity.
 
@@ -125,7 +156,7 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 - As a creator, after analyzing a TikTok video, I want to remix it into a full amapiano track with specific BPM and key to use in my content
 - As a student, I want to generate tracks in different amapiano styles to understand the differences between Classic and Private School approaches
 
-#### 5.1.2 Universal Audio Analysis & Processing
+#### 5.1.3 Universal Audio Analysis & Processing
 
 **Feature Description**: Analyze audio/video from any source with professional-grade stem separation, pattern recognition, and educational insights.
 
@@ -145,7 +176,7 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 - As a student, I want to extract the drum pattern from a Kabza De Small song to learn authentic log drum programming
 - As an educator, I want to batch analyze multiple amapiano tracks to create comparative studies for my students
 
-#### 5.1.3 Revolutionary "Amapianorize" Transformation Engine
+#### 5.1.4 Revolutionary "Amapianorize" Transformation Engine
 
 **Feature Description**: Transform any analyzed audio track into authentic amapiano style with sophisticated controls and cultural accuracy.
 
@@ -164,7 +195,7 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 - As a DJ, I want to create a subtle amapiano remix of a classic house track for my set, maintaining the original energy
 - As a producer, I want to transform a jazz recording into Private School Amapiano style to explore genre fusion possibilities
 
-#### 5.1.4 Comprehensive Sample Library
+#### 5.1.5 Comprehensive Sample Library
 
 **Feature Description**: Curated collection of authentic amapiano samples with advanced search, artist styles, and community features.
 
@@ -182,7 +213,7 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 - As a student, I want to explore saxophone samples used in Private School Amapiano to understand the genre's jazz influences
 - As an educator, I want to access samples with cultural context to teach students about amapiano's musical heritage
 
-#### 5.1.5 Interactive Pattern Library
+#### 5.1.6 Interactive Pattern Library
 
 **Feature Description**: Educational database of musical patterns with interactive playback, complexity ratings, and cultural context.
 
@@ -232,6 +263,7 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 
 ### 6.1 Performance Requirements
 - **Response Time**: API endpoints respond within 2 seconds for standard operations
+- **DAW Latency**: Audio processing latency under 10ms for real-time interaction.
 - **Generation Speed**: Music generation completes within 60 seconds for 3-minute tracks
 - **Analysis Speed**: Audio analysis completes within 120 seconds for 5-minute tracks
 - **Concurrent Users**: Support 1,000 concurrent users with maintained performance
@@ -274,7 +306,8 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 
 ### 7.2 Frontend Architecture
 - **Framework**: React 18 with TypeScript for modern, type-safe development
-- **State Management**: TanStack Query for intelligent server state management
+- **State Management**: TanStack Query for server state; Zustand/Redux for complex DAW state.
+- **DAW Engine**: Web Audio API and WebAssembly for real-time audio processing.
 - **UI Components**: shadcn/ui for consistent, accessible design
 - **Build System**: Vite for fast development and optimized production builds
 - **Styling**: Tailwind CSS for responsive, modern design systems
@@ -328,9 +361,9 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 - **Artist Revenue Sharing**: Revenue sharing with original artists and the amapiano community
 
 ### 9.2 Pricing Strategy
-- **Free Tier**: Limited generations, basic samples, educational content access
-- **Pro Tier ($19/month)**: Unlimited generations, full sample library, advanced features
-- **Studio Tier ($49/month)**: Commercial licensing, batch processing, priority support
+- **Free Tier**: Limited generations, basic samples, educational content access, limited-track DAW.
+- **Pro Tier ($19/month)**: Unlimited generations, full sample library, advanced features, standard DAW.
+- **Studio Tier ($49/month)**: Commercial licensing, batch processing, priority support, full-featured DAW.
 - **Enterprise**: Custom pricing for organizations with volume discounts and support
 
 ### 9.3 Market Positioning
@@ -347,7 +380,7 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 - **Monthly Active Users (MAU)**: Target 50,000 MAU by end of Year 1
 - **User Retention**: 75% monthly retention, 40% annual retention
 - **Session Duration**: Average 25 minutes per session
-- **Feature Adoption**: 80% of users try generation, 60% try analysis
+- **Feature Adoption**: 80% of users try generation, 60% try analysis, 30% use DAW.
 - **Content Creation**: 100,000 tracks generated monthly by end of Year 1
 
 ### 10.2 Quality Metrics

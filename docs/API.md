@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Amapiano AI API provides comprehensive endpoints for generating music, analyzing audio, and managing samples and patterns. All endpoints return JSON responses, use standard HTTP status codes, and maintain full type safety through TypeScript.
+The Amapiano AI API provides comprehensive endpoints for generating music, analyzing audio, managing samples and patterns, and handling DAW projects. All endpoints return JSON responses, use standard HTTP status codes, and maintain full type safety through TypeScript.
 
 ## Base URL
 
@@ -141,7 +141,7 @@ GET /generate/history?limit=20&genre=amapiano&sortBy=quality&filterBy.hasSourceA
 - `sortOrder` (optional): "asc" or "desc" (default "desc")
 - `filterBy.hasSourceAnalysis` (optional): Filter tracks with source analysis
 - `filterBy.minQuality` (optional): Minimum quality score (0.0-1.0)
-- `filterBy.transformationType` (optional): "original", "remix", or "amapianorize"
+- `filterBy.transformationType` (optional): "original", "remix", "amapianorize"
 
 **Response:**
 ```json
@@ -875,6 +875,61 @@ GET /patterns/drums?genre=amapiano&style=classic
       "style": "classic"
     }
   ]
+}
+```
+
+### DAW & Project Management
+
+#### Save Project
+
+Save the current state of a DAW project.
+
+```http
+POST /daw/projects
+```
+
+**Request Body:**
+```json
+{
+  "name": "My Amapiano Banger",
+  "projectData": {
+    "bpm": 118,
+    "keySignature": "F#m",
+    "tracks": [
+      { "type": "midi", "instrument": "log_drum_synth", "notes": [...] },
+      { "type": "audio", "sampleId": 123, "startTime": 4.0 }
+    ],
+    "mixer": { "masterVolume": -2.5, "trackVolumes": [-6.0, -4.5] }
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "projectId": "proj_abc123",
+  "name": "My Amapiano Banger",
+  "lastSaved": "2024-01-01T12:00:00Z",
+  "version": 1
+}
+```
+
+#### Load Project
+
+Load a previously saved DAW project.
+
+```http
+GET /daw/projects/:projectId
+```
+
+**Response:**
+```json
+{
+  "projectId": "proj_abc123",
+  "name": "My Amapiano Banger",
+  "projectData": { ... },
+  "lastSaved": "2024-01-01T12:00:00Z",
+  "version": 1
 }
 ```
 
