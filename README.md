@@ -30,6 +30,7 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 - **Natural Language to API Call**: Intelligently parses unstructured text prompts into structured data for music generation.
 - **Automatic Parameter Setting**: Automatically sets genre, mood, BPM, key, and instrumentation based on your description.
 - **Interactive Feedback**: Shows you how the AI interprets your prompt, allowing for fine-tuning before generation.
+- **DAW Integration**: Use natural language in the AI Assistant to generate musical ideas directly into your project timeline.
 
 ### 🎤 Microphone Input & Recording
 - **Voice Prompting**: Describe your desired track using your voice.
