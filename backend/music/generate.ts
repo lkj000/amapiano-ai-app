@@ -124,6 +124,83 @@ export interface GenerateLoopResponse {
   };
 }
 
+// New interfaces for getGenerationHistory
+export interface GenerationHistoryTrack {
+  id: number;
+  prompt: string;
+  genre: Genre;
+  mood?: string;
+  bpm?: number;
+  keySignature?: string;
+  fileUrl: string;
+  qualityRating: number;
+  culturalAuthenticity?: number;
+  musicalComplexity?: "simple" | "intermediate" | "advanced" | "expert";
+  energyLevel?: number;
+  danceability?: number;
+  qualityTier?: "standard" | "professional" | "studio";
+  processingTime: number;
+  transformationType?: string;
+  createdAt: Date;
+}
+
+export interface GetGenerationHistoryRequest {
+  genre?: Genre;
+  filterBy?: {
+    hasSourceAnalysis?: boolean;
+    minQuality?: number;
+    transformationType?: 'original' | 'remix' | 'amapianorize';
+  };
+  sortBy?: 'date' | 'quality' | 'cultural' | 'complexity';
+  sortOrder?: 'asc' | 'desc';
+  limit?: number;
+}
+
+export interface GetGenerationHistoryResponse {
+  tracks: GenerationHistoryTrack[];
+  totalCount: number;
+  averageQuality: number;
+  averageCulturalAuthenticity: number;
+  statistics: {
+    totalGenerations: number;
+    averageProcessingTime: number;
+    averageEnergyLevel: number;
+    averageDanceability: number;
+    genreDistribution: Record<string, {
+      count: number;
+      avgQuality: number;
+      avgCultural: number;
+    }>;
+  };
+}
+
+// New interface for getGenerationStats
+export interface GenerationStatsResponse {
+  totalGenerations: number;
+  generationsByGenre: Record<string, {
+    count: number;
+    avgQuality: number;
+    avgCultural: number;
+    avgEnergy: number;
+  }>;
+  qualityTierDistribution: Record<string, {
+    count: number;
+    avgQuality: number;
+  }>;
+  complexityDistribution: Record<string, number>;
+  processingStats: {
+    averageTime: number;
+    fastestTime: number;
+    slowestTime: number;
+  };
+  qualityMetrics: {
+    averageQuality: number;
+    averageCulturalAuthenticity: number;
+    averageEnergyLevel: number;
+    averageDanceability: number;
+  };
+}
+
 // Enhanced track generation with real AI processing
 export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
   { expose: true, method: "POST", path: "/generate/track" },
@@ -234,10 +311,10 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
       await generatedTracks.upload(audioFileName, aiResult.audioBuffer);
 
       // Generate and upload stems
-      const stemBuffers = await aiService.generateStems(aiResult.audioBuffer);
+      const stemBuffers = await aiService.separateStems(aiResult.audioBuffer);
       for (const [stem, stemFile] of Object.entries(stemsData)) {
-        if (stemFile && stemBuffers[stem]) {
-          await generatedTracks.upload(stemFile, stemBuffers[stem]);
+        if (stemFile && stemBuffers[stem as keyof typeof stemBuffers]) {
+          await generatedTracks.upload(stemFile, stemBuffers[stem as keyof typeof stemBuffers]);
         }
       }
 
@@ -473,7 +550,7 @@ export const generateLoop = api<GenerateLoopRequest, GenerateLoopResponse>(
         sourcePatterns: sourceData?.patterns
       };
 
-      const aiResult = await aiService.generateLoop(aiRequest);
+      const aiResult = await aiService.generateMusic(aiRequest);
 
       // Upload generated loop
       await generatedTracks.upload(fileName, aiResult.audioBuffer);
@@ -869,7 +946,7 @@ function generateLoopProductionTips(category: string, genre: Genre): string[] {
 }
 
 // Keep existing endpoints with enhanced implementations
-export const getGenerationHistory = api<any, any>(
+export const getGenerationHistory = api<GetGenerationHistoryRequest, GetGenerationHistoryResponse>(
   { expose: true, method: "GET", path: "/generate/history" },
   async (req) => {
     try {
@@ -997,7 +1074,7 @@ export const getGenerationHistory = api<any, any>(
   }
 );
 
-export const getGenerationStats = api<void, any>(
+export const getGenerationStats = api<void, GenerationStatsResponse>(
   { expose: true, method: "GET", path: "/generate/stats" },
   async () => {
     try {
