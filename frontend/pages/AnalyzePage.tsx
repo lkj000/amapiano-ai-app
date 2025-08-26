@@ -957,7 +957,7 @@ export default function AnalyzePage() {
                           <Link to={`/generate?sourceId=${analyzeAudioMutation.data.id}&bpm=${analyzeAudioMutation.data.metadata.bpm}&key=${analyzeAudioMutation.data.metadata.keySignature}&prompt=${encodeURIComponent(sourceUrl)}`}>
                             <Button className="bg-yellow-400 hover:bg-yellow-500 text-black">
                               <Sparkles className="h-4 w-4 mr-2" />
-                              Remix Track
+                              Use as Reference
                             </Button>
                           </Link>
                         </div>

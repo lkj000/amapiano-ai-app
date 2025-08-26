@@ -9,15 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/components/ui/use-toast';
-import { Radio, Play, Download, Layers, Sparkles, AlertCircle, CheckCircle, Pause, Volume2, Mic, Circle, X } from 'lucide-react';
+import { Radio, Play, Download, Layers, Sparkles, AlertCircle, CheckCircle, Pause, Volume2, Mic, Circle, X, Upload, Youtube, Music, FileAudio, FileVideo, LinkIcon } from 'lucide-react';
 import backend from '~backend/client';
 import type { GenerateTrackRequest, GenerateLoopRequest } from '~backend/music/generate';
+import type { AnalyzeAudioRequest, AnalyzeAudioResponse } from '~backend/music/analyze';
 
 export default function GeneratePage() {
   const { toast } = useToast();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'track' | 'loop'>('track');
-  const [isRemixMode, setIsRemixMode] = useState(false);
   const [playingAudio, setPlayingAudio] = useState<{ type: 'track' | 'stem' | 'loop'; id: string; audio: HTMLAudioElement } | null>(null);
   
   // Track generation state
@@ -30,6 +30,13 @@ export default function GeneratePage() {
     duration: 180,
     sourceAnalysisId: undefined,
   });
+
+  // Reference Track State
+  const [referenceSourceType, setReferenceSourceType] = useState<'youtube' | 'upload' | 'url' | 'tiktok'>('youtube');
+  const [referenceUrl, setReferenceUrl] = useState('');
+  const [referenceFile, setReferenceFile] = useState<File | null>(null);
+  const [referenceAnalysis, setReferenceAnalysis] = useState<AnalyzeAudioResponse | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Loop generation state
   const [loopForm, setLoopForm] = useState<GenerateLoopRequest>({
@@ -68,19 +75,18 @@ export default function GeneratePage() {
     if (sourceId) {
       const analysisId = parseInt(sourceId, 10);
       if (!isNaN(analysisId)) {
-        setIsRemixMode(true);
         setTrackForm(prev => ({
           ...prev,
           sourceAnalysisId: analysisId,
           bpm: bpm ? parseInt(bpm, 10) : 115,
           keySignature: key || 'F#m',
-          prompt: prompt ? 
-            `A Private School Amapiano track (114-120 bpm) inspired by: ${decodeURIComponent(prompt)}` :
-            'A Private School Amapiano track (114-120 bpm) inspired by the analyzed audio'
+          prompt: prev.prompt || (prompt ? 
+            `A track inspired by: ${decodeURIComponent(prompt)}` :
+            'A track inspired by the analyzed audio')
         }));
         
         toast({
-          title: "Remix Mode Activated!",
+          title: "Reference Track Loaded!",
           description: "Generating a new track based on the analyzed audio.",
         });
       }
@@ -121,6 +127,27 @@ export default function GeneratePage() {
         variant: "destructive",
       });
     },
+  });
+
+  const analyzeReferenceMutation = useMutation({
+    mutationFn: (data: AnalyzeAudioRequest) => backend.music.analyzeAudio(data),
+    onSuccess: (data) => {
+      toast({
+        title: "Reference Analyzed",
+        description: "Reference track is ready. Its characteristics have been applied to the settings below.",
+      });
+      setReferenceAnalysis(data);
+      setTrackForm(prev => ({
+        ...prev,
+        sourceAnalysisId: data.id,
+        bpm: data.metadata.bpm,
+        keySignature: data.metadata.keySignature,
+        prompt: prev.prompt || `A track inspired by ${data.metadata.originalFileName || 'the reference audio'}`
+      }));
+    },
+    onError: (error) => {
+      toast({ title: "Analysis Failed", description: error.message, variant: "destructive" });
+    }
   });
 
   const handlePlay = (audioUrl: string, type: 'track' | 'stem' | 'loop', id: string, name?: string) => {
@@ -270,23 +297,60 @@ export default function GeneratePage() {
     generateLoopMutation.mutate(loopForm);
   };
 
-  const clearRemixMode = () => {
-    setIsRemixMode(false);
+  const clearReference = () => {
+    setReferenceAnalysis(null);
+    setReferenceUrl('');
+    setReferenceFile(null);
     setTrackForm(prev => ({
       ...prev,
       sourceAnalysisId: undefined,
-      prompt: '',
-      bpm: 115,
-      keySignature: 'F#m'
     }));
     
     // Clear URL parameters
-    window.history.replaceState({}, '', '/generate');
+    const currentParams = new URLSearchParams(window.location.search);
+    currentParams.delete('sourceId');
+    currentParams.delete('bpm');
+    currentParams.delete('key');
+    currentParams.delete('prompt');
+    setSearchParams(currentParams);
     
     toast({
-      title: "Remix Mode Cleared",
-      description: "You can now create a track from scratch.",
+      title: "Reference Cleared",
+      description: "You can now create a track from scratch or add a new reference.",
     });
+  };
+
+  const handleAnalyzeReference = () => {
+    let request: AnalyzeAudioRequest;
+    if (referenceSourceType === 'upload') {
+      if (!referenceFile) {
+        toast({ title: "File Required", description: "Please select a file to use as a reference.", variant: "destructive" });
+        return;
+      }
+      request = {
+        sourceUrl: `upload://${referenceFile.name}`,
+        sourceType: 'upload',
+        fileName: referenceFile.name,
+        fileSize: referenceFile.size,
+      };
+    } else {
+      if (!referenceUrl.trim()) {
+        toast({ title: "URL Required", description: "Please enter a valid URL for the reference.", variant: "destructive" });
+        return;
+      }
+      request = {
+        sourceUrl: referenceUrl,
+        sourceType: referenceSourceType,
+      };
+    }
+    analyzeReferenceMutation.mutate(request);
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setReferenceFile(file);
+    }
   };
 
   const startRecording = async () => {
@@ -351,7 +415,7 @@ export default function GeneratePage() {
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-white">AI Music Generation</h1>
         <p className="text-white/80 max-w-2xl mx-auto">
-          Create authentic amapiano tracks and loops using advanced AI. Describe your vision and let our AI bring it to life.
+          Create authentic amapiano tracks and loops using advanced AI. Describe your vision, provide a reference, and let our AI bring it to life.
         </p>
       </div>
 
@@ -380,36 +444,89 @@ export default function GeneratePage() {
           <CardHeader>
             <CardTitle className="text-white">Generate Full Track</CardTitle>
             <CardDescription className="text-white/70">
-              Create a complete amapiano track from your description
+              Create a complete amapiano track from your description, optionally guided by a reference track.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Remix Mode Indicator */}
-            {isRemixMode && trackForm.sourceAnalysisId && (
-              <Card className="bg-gradient-to-r from-green-400/10 to-blue-400/10 border-green-400/20">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Sparkles className="h-6 w-6 text-green-400" />
-                      <div>
-                        <div className="text-green-400 font-semibold">Remix Mode Active</div>
-                        <p className="text-white/80 text-sm">
-                          Generating a new track inspired by analyzed audio (ID: {trackForm.sourceAnalysisId})
-                        </p>
+            
+            {/* Reference Track Section */}
+            <Card className="bg-white/10 border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white text-lg">Reference Track (Optional)</CardTitle>
+                <CardDescription className="text-white/70">
+                  Provide a reference track to guide the AI's generation process.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!referenceAnalysis ? (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-1">
+                        <Label className="text-white">Source Type</Label>
+                        <Select value={referenceSourceType} onValueChange={(v: any) => setReferenceSourceType(v)}>
+                          <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="youtube">YouTube</SelectItem>
+                            <SelectItem value="tiktok">TikTok</SelectItem>
+                            <SelectItem value="upload">Upload File</SelectItem>
+                            <SelectItem value="url">Audio URL</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="md:col-span-2">
+                        {referenceSourceType === 'upload' ? (
+                          <div>
+                            <Label className="text-white">Upload File</Label>
+                            <div className="flex items-center space-x-2">
+                              <Button variant="outline" className="border-white/20 text-white" onClick={() => fileInputRef.current?.click()}>
+                                <Upload className="h-4 w-4 mr-2" /> Choose File
+                              </Button>
+                              <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+                              {referenceFile && <span className="text-white/70 text-sm">{referenceFile.name}</span>}
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <Label className="text-white">URL</Label>
+                            <Input 
+                              value={referenceUrl}
+                              onChange={(e) => setReferenceUrl(e.target.value)}
+                              placeholder={`Enter ${referenceSourceType} URL...`}
+                              className="bg-white/10 border-white/20 text-white"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearRemixMode}
-                      className="border-white/20 text-white hover:bg-white/10"
-                    >
-                      Clear Remix
+                    <Button onClick={handleAnalyzeReference} disabled={analyzeReferenceMutation.isPending} className="w-full">
+                      {analyzeReferenceMutation.isPending ? 'Analyzing...' : 'Analyze Reference'}
                     </Button>
+                  </>
+                ) : (
+                  <div className="bg-green-500/10 p-4 rounded-lg border border-green-500/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <CheckCircle className="h-5 w-5 text-green-400" />
+                        <div>
+                          <p className="text-white font-semibold">Reference Analyzed</p>
+                          <p className="text-white/70 text-sm truncate max-w-xs">
+                            {referenceAnalysis.metadata.originalFileName || referenceAnalysis.metadata.genre}
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={clearReference}>Clear</Button>
+                    </div>
+                    <div className="text-xs text-white/60 mt-2 grid grid-cols-3 gap-2">
+                      <span>BPM: {referenceAnalysis.metadata.bpm}</span>
+                      <span>Key: {referenceAnalysis.metadata.keySignature}</span>
+                      <span>Genre: {referenceAnalysis.metadata.genre}</span>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
+              </CardContent>
+            </Card>
 
             <div className="space-y-2">
               <Label htmlFor="prompt" className="text-white">Track Description or Audio Prompt</Label>
@@ -451,9 +568,9 @@ export default function GeneratePage() {
                   </div>
                 </div>
               )}
-              {isRemixMode && (
+              {trackForm.sourceAnalysisId && (
                 <p className="text-white/60 text-sm">
-                  💡 Tip: The AI will use the analyzed audio as inspiration while following your description.
+                  💡 Tip: The AI will use the reference track as inspiration while following your description.
                 </p>
               )}
             </div>
@@ -546,7 +663,7 @@ export default function GeneratePage() {
               ) : (
                 <>
                   <Sparkles className="h-4 w-4 mr-2" />
-                  {isRemixMode ? 'Generate Remix' : 'Generate Track'}
+                  {trackForm.sourceAnalysisId ? 'Generate from Reference' : 'Generate Track'}
                 </>
               )}
             </Button>

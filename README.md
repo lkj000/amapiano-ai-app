@@ -17,6 +17,15 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 
 ## Features
 
+### 🎵 AI Music Generation & Transformation
+- **Generate from Prompt**: Create complete amapiano tracks from text descriptions with advanced customization options.
+- **Generate from Reference**: Use any audio or video (YouTube, TikTok, file upload) as a creative reference to guide the AI's generation process.
+- **Remix from Source**: Generate new tracks inspired by analyzed audio from TikTok, YouTube, or local files.
+- **Amapianorize**: Transform any audio/video file into authentic amapiano style with intensity controls and vocal preservation.
+- **Loop Creation**: Generate specific loops and patterns like log drums, piano, bass, and percussion with professional quality.
+- **Style Support**: Full support for both Classic Amapiano and Private School Amapiano styles with cultural authenticity.
+- **Advanced Controls**: Control BPM, key signature, mood, duration, arrangement, and instrumentation.
+
 ### 🧠 AI Prompt Parsing
 - **Natural Language to API Call**: Intelligently parses unstructured text prompts into structured data for music generation.
 - **Automatic Parameter Setting**: Automatically sets genre, mood, BPM, key, and instrumentation based on your description.
@@ -34,14 +43,6 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 - **AI-Powered Instruments**: Includes a signature Log Drum synthesizer, advanced piano roll, and culturally authentic virtual instruments.
 - **Mixing Console**: Professional mixing environment with EQs, compressors, and amapiano-specific effects.
 - **Seamless AI Integration**: Generate patterns, loops, and stems directly into your DAW timeline with the AI Assistant.
-
-### 🎵 AI Music Generation & Transformation
-- **Generate from Prompt**: Create complete amapiano tracks from text descriptions with advanced customization options.
-- **Remix from Source**: Generate new tracks inspired by analyzed audio from TikTok, YouTube, or local files.
-- **Amapianorize**: Transform any audio/video file into authentic amapiano style with intensity controls and vocal preservation.
-- **Loop Creation**: Generate specific loops and patterns like log drums, piano, bass, and percussion with professional quality.
-- **Style Support**: Full support for both Classic Amapiano and Private School Amapiano styles with cultural authenticity.
-- **Advanced Controls**: Control BPM, key signature, mood, duration, arrangement, and instrumentation.
 
 ### 🔍 Enhanced Audio Analysis
 - **Universal Input**: Analyze audio from **TikTok**, YouTube, direct URLs, or **local file uploads** (up to 500MB).
