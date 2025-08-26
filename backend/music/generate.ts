@@ -1,7 +1,7 @@
 import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
 import { generatedTracks } from "./storage";
-import { AIService } from "./ai-service";
+import { AIService, MusicGenerationRequest } from "./ai-service";
 import { errorHandler } from "./error-handler";
 import { generationCache, generateGenerationCacheKey } from "./cache";
 import type { Genre, Mood } from "./types";
@@ -311,7 +311,7 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
       await generatedTracks.upload(audioFileName, aiResult.audioBuffer);
 
       // Generate and upload stems
-      const stemBuffers = await aiService.separateStems(aiResult.audioBuffer);
+      const stemBuffers = await aiService.audioProcessor.separateStems(aiResult.audioBuffer);
       for (const [stem, stemFile] of Object.entries(stemsData)) {
         if (stemFile && stemBuffers[stem as keyof typeof stemBuffers]) {
           await generatedTracks.upload(stemFile, stemBuffers[stem as keyof typeof stemBuffers]);
@@ -537,17 +537,18 @@ export const generateLoop = api<GenerateLoopRequest, GenerateLoopResponse>(
       const finalKey = req.keySignature || sourceData?.keySignature || "C";
       const complexity = req.complexity || "intermediate";
 
-      // Generate loop using AI service
-      const aiRequest = {
-        category: req.category,
+      // Generate loop using AI service by creating a descriptive prompt
+      const prompt = `A ${complexity} ${req.genre.replace('_', ' ')} ${req.category.replace('_', ' ')} loop at ${finalBpm} BPM in ${finalKey} for ${finalBars} bars. Style: ${req.style || 'classic'}. Cultural authenticity: ${req.culturalAuthenticity || 'traditional'}.`;
+      const duration = (60 / finalBpm) * 4 * finalBars;
+
+      const aiRequest: MusicGenerationRequest = {
+        prompt,
         genre: req.genre,
         bpm: finalBpm,
-        bars: finalBars,
         keySignature: finalKey,
-        complexity,
+        duration,
         culturalAuthenticity: req.culturalAuthenticity,
-        qualityTier,
-        sourcePatterns: sourceData?.patterns
+        qualityTier: req.qualityTier
       };
 
       const aiResult = await aiService.generateMusic(aiRequest);

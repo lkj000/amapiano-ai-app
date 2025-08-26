@@ -123,7 +123,7 @@ export default function GeneratePage() {
       console.error('Loop generation error:', error);
       toast({
         title: "Generation Failed",
-        description: "Failed to generate loop. Please try again.",
+        description: "Failed to generate loop. Please check your inputs and try again.",
         variant: "destructive",
       });
     },
@@ -242,20 +242,27 @@ export default function GeneratePage() {
     }
 
     // Validate BPM range
-    if (trackForm.bpm && (trackForm.bpm < 80 || trackForm.bpm > 160)) {
-      toast({
-        title: "Invalid BPM",
-        description: "BPM must be between 80 and 160.",
-        variant: "destructive",
-      });
-      return;
+    if (trackForm.bpm) {
+      const genreBpmRanges = {
+        amapiano: [100, 130],
+        private_school_amapiano: [95, 125]
+      };
+      const [minBpm, maxBpm] = genreBpmRanges[trackForm.genre];
+      if (trackForm.bpm < minBpm || trackForm.bpm > maxBpm) {
+        toast({
+          title: "Invalid BPM",
+          description: `For ${trackForm.genre}, BPM must be between ${minBpm} and ${maxBpm}.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // Validate duration
-    if (trackForm.duration && (trackForm.duration < 30 || trackForm.duration > 600)) {
+    if (trackForm.duration && (trackForm.duration < 15 || trackForm.duration > 1200)) {
       toast({
         title: "Invalid Duration",
-        description: "Duration must be between 30 seconds and 10 minutes.",
+        description: "Duration must be between 15 seconds and 20 minutes.",
         variant: "destructive",
       });
       return;
@@ -274,13 +281,20 @@ export default function GeneratePage() {
 
   const handleGenerateLoop = () => {
     // Validate BPM range
-    if (loopForm.bpm && (loopForm.bpm < 80 || loopForm.bpm > 160)) {
-      toast({
-        title: "Invalid BPM",
-        description: "BPM must be between 80 and 160.",
-        variant: "destructive",
-      });
-      return;
+    if (loopForm.bpm) {
+      const genreBpmRanges = {
+        amapiano: [100, 130],
+        private_school_amapiano: [95, 125]
+      };
+      const [minBpm, maxBpm] = genreBpmRanges[loopForm.genre];
+      if (loopForm.bpm < minBpm || loopForm.bpm > maxBpm) {
+        toast({
+          title: "Invalid BPM",
+          description: `For ${loopForm.genre}, BPM must be between ${minBpm} and ${maxBpm}.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // Validate bars
@@ -606,15 +620,15 @@ export default function GeneratePage() {
               <div className="space-y-2">
                 <Label className="text-white">BPM: {trackForm.bpm}</Label>
                 <Slider
-                  value={[trackForm.bpm || 120]}
+                  value={[trackForm.bpm || 115]}
                   onValueChange={([value]) => setTrackForm({ ...trackForm, bpm: value })}
-                  min={100}
+                  min={95}
                   max={140}
                   step={1}
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-white/60">
-                  <span>100</span>
+                  <span>95</span>
                   <span>140</span>
                 </div>
               </div>
@@ -638,14 +652,14 @@ export default function GeneratePage() {
                 <Slider
                   value={[trackForm.duration || 180]}
                   onValueChange={([value]) => setTrackForm({ ...trackForm, duration: value })}
-                  min={60}
-                  max={300}
+                  min={15}
+                  max={1200}
                   step={15}
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-white/60">
-                  <span>1:00</span>
-                  <span>5:00</span>
+                  <span>0:15</span>
+                  <span>20:00</span>
                 </div>
               </div>
             </div>
@@ -717,27 +731,29 @@ export default function GeneratePage() {
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {Object.entries(generateTrackMutation.data.stems).map(([stem, url]) => (
-                        <div key={stem} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                          <span className="text-white/70 capitalize text-sm font-medium">{stem}</span>
-                          <div className="flex space-x-2">
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              className="h-8 w-8 p-0 hover:bg-white/10"
-                              onClick={() => handlePlay(url, 'stem', `stem-${stem}`, `${stem} stem`)}
-                            >
-                              {playingAudio?.id === `stem-${stem}` ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              className="h-8 w-8 p-0 hover:bg-white/10"
-                              onClick={() => handleDownload(url, `${stem}-stem.wav`)}
-                            >
-                              <Download className="h-3 w-3" />
-                            </Button>
+                        url && (
+                          <div key={stem} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                            <span className="text-white/70 capitalize text-sm font-medium">{stem}</span>
+                            <div className="flex space-x-2">
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-8 w-8 p-0 hover:bg-white/10"
+                                onClick={() => handlePlay(url, 'stem', `stem-${stem}`, `${stem} stem`)}
+                              >
+                                {playingAudio?.id === `stem-${stem}` ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="h-8 w-8 p-0 hover:bg-white/10"
+                                onClick={() => handleDownload(url, `${stem}-stem.wav`)}
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
+                        )
                       ))}
                     </div>
                   </div>
@@ -789,15 +805,15 @@ export default function GeneratePage() {
               <div className="space-y-2">
                 <Label className="text-white">BPM: {loopForm.bpm}</Label>
                 <Slider
-                  value={[loopForm.bpm]}
+                  value={[loopForm.bpm || 120]}
                   onValueChange={([value]) => setLoopForm({ ...loopForm, bpm: value })}
-                  min={100}
+                  min={95}
                   max={140}
                   step={1}
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-white/60">
-                  <span>100</span>
+                  <span>95</span>
                   <span>140</span>
                 </div>
               </div>
@@ -805,16 +821,16 @@ export default function GeneratePage() {
               <div className="space-y-2">
                 <Label className="text-white">Bars: {loopForm.bars}</Label>
                 <Slider
-                  value={[loopForm.bars]}
+                  value={[loopForm.bars || 4]}
                   onValueChange={([value]) => setLoopForm({ ...loopForm, bars: value })}
                   min={1}
-                  max={8}
+                  max={16}
                   step={1}
                   className="w-full"
                 />
                 <div className="flex justify-between text-xs text-white/60">
                   <span>1</span>
-                  <span>8</span>
+                  <span>16</span>
                 </div>
               </div>
 
