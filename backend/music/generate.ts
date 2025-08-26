@@ -1,7 +1,13 @@
 import { api, APIError } from "encore.dev/api";
 import { musicDB } from "./db";
 import { generatedTracks } from "./storage";
+import { AIService } from "./ai-service";
+import { errorHandler } from "./error-handler";
+import { generationCache, generateGenerationCacheKey } from "./cache";
 import type { Genre, Mood } from "./types";
+import log from "encore.dev/log";
+
+const aiService = new AIService();
 
 export interface GenerateTrackRequest {
   prompt: string;
@@ -71,57 +77,100 @@ export interface GenerateTrackResponse {
   };
 }
 
-// Enhanced track generation with professional quality and cultural authenticity
+export interface GenerateLoopRequest {
+  category: "log_drum" | "piano" | "percussion" | "bass" | "vocals" | "saxophone" | "guitar" | "synth";
+  genre: Genre;
+  bpm?: number;
+  bars?: number;
+  keySignature?: string;
+  complexity?: "simple" | "intermediate" | "advanced" | "expert";
+  style?: string;
+  culturalAuthenticity?: "traditional" | "modern" | "fusion";
+  qualityTier?: "standard" | "professional" | "studio";
+  educationalMode?: boolean;
+  sourceAnalysisId?: number;
+}
+
+export interface GenerateLoopResponse {
+  id: number;
+  audioUrl: string;
+  metadata: {
+    category: string;
+    bpm: number;
+    bars: number;
+    keySignature: string;
+    complexity: string;
+    style: string;
+    qualityScore: number;
+    culturalAuthenticity?: number;
+    musicalElements?: string[];
+  };
+  processingTime: number;
+  loopDetails: {
+    pattern: string;
+    characteristics: string[];
+    culturalElements?: string[];
+    technicalSpecs: {
+      sampleRate: number;
+      bitDepth: number;
+      format: string;
+      qualityTier: string;
+    };
+  };
+  educationalInsights?: {
+    musicalTheory: string[];
+    culturalSignificance: string[];
+    productionTips: string[];
+  };
+}
+
+// Enhanced track generation with real AI processing
 export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
   { expose: true, method: "POST", path: "/generate/track" },
   async (req) => {
     const startTime = Date.now();
     
-    // Enhanced input validation with detailed error messages
-    if (!req.prompt || req.prompt.trim().length === 0) {
-      throw APIError.invalidArgument("Track description is required for AI generation");
-    }
-
-    if (req.prompt.length > 3000) { // Increased limit for detailed prompts
-      throw APIError.invalidArgument("Track description must be less than 3000 characters");
-    }
-
-    // Enhanced BPM validation with genre-specific ranges
-    if (req.bpm !== undefined && req.bpm !== null) {
-      const genreBpmRanges = {
-        amapiano: [100, 130],
-        private_school_amapiano: [95, 125]
-      };
-      const [minBpm, maxBpm] = genreBpmRanges[req.genre];
-      if (req.bpm < minBpm || req.bpm > maxBpm) {
-        throw APIError.invalidArgument(`BPM must be between ${minBpm} and ${maxBpm} for ${req.genre}`);
-      }
-    }
-
-    // Enhanced duration validation
-    if (req.duration !== undefined && req.duration !== null && (req.duration < 15 || req.duration > 1200)) {
-      throw APIError.invalidArgument("Duration must be between 15 seconds and 20 minutes");
-    }
-
-    // Validate advanced options
-    if (req.advancedOptions?.instrumentation) {
-      const validInstruments = [
-        'log_drum', 'piano', 'bass', 'vocals', 'saxophone', 'guitar', 
-        'synth', 'percussion', 'strings', 'brass', 'flute', 'violin',
-        'organ', 'harmonica', 'marimba', 'kalimba', 'djembe'
-      ];
-      const invalidInstruments = req.advancedOptions.instrumentation.filter(
-        inst => !validInstruments.includes(inst)
-      );
-      if (invalidInstruments.length > 0) {
-        console.warn(`Invalid instruments provided: ${invalidInstruments.join(', ')}`);
-        req.advancedOptions.instrumentation = req.advancedOptions.instrumentation.filter(
-          inst => validInstruments.includes(inst)
-        );
-      }
-    }
-
     try {
+      // Enhanced input validation
+      if (!req.prompt || req.prompt.trim().length === 0) {
+        throw APIError.invalidArgument("Track description is required for AI generation");
+      }
+
+      if (req.prompt.length > 3000) {
+        throw APIError.invalidArgument("Track description must be less than 3000 characters");
+      }
+
+      // Enhanced BPM validation with genre-specific ranges
+      if (req.bpm !== undefined && req.bpm !== null) {
+        const genreBpmRanges = {
+          amapiano: [100, 130],
+          private_school_amapiano: [95, 125]
+        };
+        const [minBpm, maxBpm] = genreBpmRanges[req.genre];
+        if (req.bpm < minBpm || req.bpm > maxBpm) {
+          throw APIError.invalidArgument(`BPM must be between ${minBpm} and ${maxBpm} for ${req.genre}`);
+        }
+      }
+
+      // Enhanced duration validation
+      if (req.duration !== undefined && req.duration !== null && (req.duration < 15 || req.duration > 1200)) {
+        throw APIError.invalidArgument("Duration must be between 15 seconds and 20 minutes");
+      }
+
+      // Check cache first
+      const cacheKey = generateGenerationCacheKey(req.prompt, {
+        genre: req.genre,
+        bpm: req.bpm,
+        keySignature: req.keySignature,
+        sourceAnalysisId: req.sourceAnalysisId
+      });
+
+      const cachedResult = await generationCache.get(cacheKey);
+      if (cachedResult) {
+        log.info("Returning cached generation result", { cacheKey });
+        return cachedResult;
+      }
+
       // Enhanced source analysis integration
       let sourceData = null;
       if (req.sourceAnalysisId) {
@@ -138,14 +187,36 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
           
           if (analysis) {
             sourceData = analysis.analysis_data;
-            console.log(`Generating enhanced track based on analysis ID: ${req.sourceAnalysisId}`);
+            log.info("Using source analysis for generation", { 
+              sourceAnalysisId: req.sourceAnalysisId,
+              sourceBpm: sourceData.bpm,
+              sourceKey: sourceData.keySignature
+            });
           }
         } catch (error) {
-          console.warn(`Could not find analysis with ID ${req.sourceAnalysisId}, proceeding without source data`);
+          log.warn("Could not load source analysis", { 
+            sourceAnalysisId: req.sourceAnalysisId, 
+            error: error.message 
+          });
         }
       }
 
+      // Generate music using AI service
+      const aiRequest = {
+        prompt: req.prompt,
+        genre: req.genre,
+        bpm: req.bpm || sourceData?.bpm,
+        keySignature: req.keySignature || sourceData?.keySignature,
+        duration: req.duration,
+        mood: req.mood,
+        culturalAuthenticity: req.advancedOptions?.culturalAuthenticity,
+        qualityTier: req.advancedOptions?.qualityTier
+      };
+
+      const aiResult = await aiService.generateMusic(aiRequest);
       const trackId = Math.floor(Math.random() * 1000000);
+      
+      // Enhanced file naming and organization
       const qualityTier = req.advancedOptions?.qualityTier || "standard";
       const audioFileName = `generated_${trackId}_${qualityTier}.wav`;
       
@@ -159,90 +230,43 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
         other: `stems/${trackId}_other_${qualityTier}.wav`
       };
 
-      // Generate enhanced mock audio data with professional metadata
-      const mockAudioBuffer = Buffer.from(`professional ${qualityTier} quality audio data for enhanced track generation`);
-      await generatedTracks.upload(audioFileName, mockAudioBuffer);
+      // Upload generated audio and stems
+      await generatedTracks.upload(audioFileName, aiResult.audioBuffer);
 
-      // Upload enhanced mock stem files
-      const mockStemBuffer = Buffer.from(`professional ${qualityTier} quality stem data`);
+      // Generate and upload stems
+      const stemBuffers = await aiService.generateStems(aiResult.audioBuffer);
       for (const [stem, stemFile] of Object.entries(stemsData)) {
-        if (stemFile) {
-          await generatedTracks.upload(stemFile, mockStemBuffer);
+        if (stemFile && stemBuffers[stem]) {
+          await generatedTracks.upload(stemFile, stemBuffers[stem]);
         }
       }
 
-      // Enhanced BPM logic with cultural considerations
-      let finalBpm = 120; // Default fallback
-      if (req.bpm !== undefined && req.bpm !== null) {
-        finalBpm = req.bpm;
-      } else if (sourceData && sourceData.bpm) {
-        finalBpm = sourceData.bpm;
-      } else {
-        // Genre-appropriate BPM ranges with cultural authenticity
-        if (req.genre === "private_school_amapiano") {
-          finalBpm = Math.floor(Math.random() * 20) + 105; // 105-125
-        } else {
-          finalBpm = Math.floor(Math.random() * 20) + 110; // 110-130
-        }
-      }
-
-      // Enhanced key signature logic with cultural considerations
-      let finalKey = "C"; // Default fallback
-      if (req.keySignature) {
-        finalKey = req.keySignature;
-      } else if (sourceData && sourceData.keySignature) {
-        finalKey = sourceData.keySignature;
-      } else {
-        const culturalKeys = req.genre === "private_school_amapiano" 
-          ? ["Dm", "Am", "Gm", "Fm", "Bb", "Eb", "F#m", "C#m"]
-          : ["C", "F", "G", "Am", "Dm", "Em", "F#m", "Bb"];
-        finalKey = culturalKeys[Math.floor(Math.random() * culturalKeys.length)];
-      }
-
-      // Enhanced arrangement and instrumentation with cultural authenticity
+      // Enhanced metadata processing
+      const finalBpm = aiResult.metadata.bpm;
+      const finalKey = aiResult.metadata.keySignature;
       const arrangement = req.advancedOptions?.arrangement || "standard";
-      const defaultInstrumentation = req.genre === "private_school_amapiano"
-        ? ["piano", "log_drum", "bass", "saxophone", "percussion", "strings"]
-        : ["piano", "log_drum", "bass", "vocals", "percussion", "guitar"];
-      
-      const instrumentation = req.advancedOptions?.instrumentation && req.advancedOptions.instrumentation.length > 0
-        ? req.advancedOptions.instrumentation 
-        : defaultInstrumentation;
+      const instrumentation = req.advancedOptions?.instrumentation || 
+        (req.genre === "private_school_amapiano" 
+          ? ["piano", "log_drum", "bass", "saxophone"] 
+          : ["piano", "log_drum", "bass", "vocals"]);
 
-      // Enhanced prompt analysis for better generation
-      const promptAnalysis = analyzePromptEnhanced(req.prompt, req.genre, req.culturalValidation);
-      
-      // Enhanced style characteristics with cultural elements
-      const styleCharacteristics = generateStyleCharacteristicsEnhanced(
-        req.genre, 
-        req.mood, 
-        promptAnalysis, 
-        req.advancedOptions?.culturalAuthenticity
-      );
-
-      // Cultural elements for enhanced generation
-      const culturalElements = req.culturalValidation ? 
-        generateCulturalElements(req.genre, req.advancedOptions?.culturalAuthenticity) : undefined;
-
-      // Enhanced quality scoring with multiple factors
-      const qualityScore = calculateQualityScoreEnhanced(req, sourceData, qualityTier);
-
-      // Cultural authenticity scoring
-      const culturalAuthenticity = req.culturalValidation ? 
-        calculateCulturalAuthenticity(req.genre, req.advancedOptions?.culturalAuthenticity, sourceData) : undefined;
-
-      // Musical complexity assessment
+      // Enhanced quality scoring
+      const qualityScore = calculateQualityScore(req, sourceData, qualityTier, aiResult);
+      const culturalAuthenticity = aiResult.culturalValidation?.authenticityScore;
       const musicalComplexity = assessMusicalComplexity(req, arrangement, instrumentation);
 
-      // Energy and danceability metrics
-      const energyLevel = req.advancedOptions?.energyLevel === "maximum" ? 0.95 :
-                         req.advancedOptions?.energyLevel === "high" ? 0.80 :
-                         req.advancedOptions?.energyLevel === "medium" ? 0.65 : 0.50;
-      
-      const danceability = req.genre === "amapiano" ? 0.85 + (Math.random() * 0.15) : 0.75 + (Math.random() * 0.20);
-
-      // Final duration with enhanced logic
-      const finalDuration = req.duration || (req.advancedOptions?.arrangement === "professional" ? 240 : 180);
+      // Enhanced generation details
+      const generationDetails = {
+        promptAnalysis: analyzePrompt(req.prompt, req.genre),
+        styleCharacteristics: generateStyleCharacteristics(req.genre, req.mood, req.advancedOptions?.culturalAuthenticity),
+        culturalElements: aiResult.culturalValidation?.culturalElements,
+        technicalSpecs: {
+          sampleRate: req.enhancedGeneration ? 96000 : 44100,
+          bitDepth: req.enhancedGeneration ? 32 : 24,
+          format: "WAV",
+          qualityTier
+        }
+      };
 
       // Enhanced quality metrics
       const qualityMetrics = req.enhancedGeneration ? {
@@ -252,25 +276,11 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
         musicalCoherence: 0.88 + (Math.random() * 0.12)
       } : undefined;
 
-      // Educational insights for learning mode
+      // Educational insights
       const educationalInsights = req.advancedOptions?.educationalMode ? {
-        musicalTheory: [
-          `This track uses ${finalKey} key signature, which is culturally significant in ${req.genre}`,
-          `The ${finalBpm} BPM tempo creates the characteristic ${req.genre} groove`,
-          `Instrumentation includes ${instrumentation.join(', ')}, typical of authentic ${req.genre}`
-        ],
-        culturalContext: [
-          `${req.genre} originated in South African townships in the mid-2010s`,
-          "The genre represents the fusion of traditional African music with modern electronic production",
-          req.genre === "private_school_amapiano" ? 
-            "This sophisticated style incorporates jazz elements and complex harmonies" :
-            "This classic style emphasizes the foundational log drum and soulful piano elements"
-        ],
-        productionTechniques: [
-          "Log drum programming provides the rhythmic foundation",
-          "Piano voicings reflect South African gospel and jazz influences",
-          "Layered percussion creates the characteristic amapiano texture"
-        ]
+        musicalTheory: generateEducationalInsights(req.genre, finalKey, finalBpm),
+        culturalContext: generateCulturalContext(req.genre),
+        productionTechniques: generateProductionTechniques(req.genre, instrumentation)
       } : undefined;
 
       // Store enhanced track data in database
@@ -309,22 +319,20 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
             ${qualityScore},
             ${culturalAuthenticity || null},
             ${musicalComplexity},
-            ${energyLevel},
-            ${danceability},
+            ${req.advancedOptions?.energyLevel === "maximum" ? 0.95 : 0.75},
+            ${0.85},
             ${qualityTier},
             ${req.enhancedGeneration || false}
           )
         `;
       } catch (dbError) {
-        console.warn("Database insert failed, continuing with response:", dbError);
+        log.warn("Database insert failed, continuing with response", { error: dbError.message });
       }
 
       const processingTime = Date.now() - startTime;
-      const audioUrl = generatedTracks.publicUrl(audioFileName);
-
-      return {
+      const result = {
         id: trackId,
-        audioUrl,
+        audioUrl: generatedTracks.publicUrl(audioFileName),
         stems: {
           drums: generatedTracks.publicUrl(stemsData.drums),
           bass: generatedTracks.publicUrl(stemsData.bass),
@@ -335,182 +343,167 @@ export const generateTrack = api<GenerateTrackRequest, GenerateTrackResponse>(
         metadata: {
           bpm: finalBpm,
           keySignature: finalKey,
-          duration: finalDuration,
+          duration: aiResult.metadata.duration,
           arrangement,
           instrumentation,
           qualityScore,
           culturalAuthenticity,
           musicalComplexity,
-          energyLevel,
-          danceability
+          energyLevel: req.advancedOptions?.energyLevel === "maximum" ? 0.95 : 0.75,
+          danceability: 0.85
         },
         processingTime,
-        generationDetails: {
-          promptAnalysis,
-          styleCharacteristics,
-          culturalElements,
-          technicalSpecs: {
-            sampleRate: req.enhancedGeneration ? 96000 : 44100,
-            bitDepth: req.enhancedGeneration ? 32 : 24,
-            format: "WAV",
-            qualityTier
-          }
-        },
+        generationDetails,
         qualityMetrics,
         educationalInsights
       };
+
+      // Cache the result
+      await generationCache.set(cacheKey, result, 7200000); // 2 hours
+
+      log.info("Track generation completed", {
+        trackId,
+        processingTime,
+        qualityScore,
+        culturalAuthenticity,
+        cacheKey
+      });
+
+      return result;
+
     } catch (error) {
-      console.error("Enhanced track generation error:", error);
-      if (error instanceof APIError) {
-        throw error;
-      }
-      throw APIError.internal("Failed to generate track with enhanced processing");
+      const apiError = errorHandler.handleError(error, {
+        operation: 'generateTrack',
+        metadata: { genre: req.genre, hasSourceAnalysis: !!req.sourceAnalysisId }
+      });
+      throw apiError;
     }
   }
 );
 
-export interface GenerateLoopRequest {
-  category: "log_drum" | "piano" | "percussion" | "bass" | "vocals" | "saxophone" | "guitar" | "synth";
-  genre: Genre;
-  bpm?: number;
-  bars?: number;
-  keySignature?: string;
-  complexity?: "simple" | "intermediate" | "advanced" | "expert";
-  style?: string;
-  culturalAuthenticity?: "traditional" | "modern" | "fusion";
-  qualityTier?: "standard" | "professional" | "studio";
-  educationalMode?: boolean;
-}
-
-export interface GenerateLoopResponse {
-  id: number;
-  audioUrl: string;
-  metadata: {
-    category: string;
-    bpm: number;
-    bars: number;
-    keySignature: string;
-    complexity: string;
-    style: string;
-    qualityScore: number;
-    culturalAuthenticity?: number;
-    musicalElements?: string[];
-  };
-  processingTime: number;
-  loopDetails: {
-    pattern: string;
-    characteristics: string[];
-    culturalElements?: string[];
-    technicalSpecs: {
-      sampleRate: number;
-      bitDepth: number;
-      format: string;
-      qualityTier: string;
-    };
-  };
-  educationalInsights?: {
-    musicalTheory: string[];
-    culturalSignificance: string[];
-    productionTips: string[];
-  };
-}
-
-// Enhanced loop generation with professional quality and cultural authenticity
+// Enhanced loop generation with real AI processing
 export const generateLoop = api<GenerateLoopRequest, GenerateLoopResponse>(
   { expose: true, method: "POST", path: "/generate/loop" },
   async (req) => {
     const startTime = Date.now();
     
-    // Enhanced validation with genre-specific BPM ranges
-    if (req.bpm !== undefined && req.bpm !== null) {
-      const genreBpmRanges = {
-        amapiano: [100, 130],
-        private_school_amapiano: [95, 125]
-      };
-      const [minBpm, maxBpm] = genreBpmRanges[req.genre];
-      if (req.bpm < minBpm || req.bpm > maxBpm) {
-        throw APIError.invalidArgument(`BPM must be between ${minBpm} and ${maxBpm} for ${req.genre}`);
-      }
-    }
-
-    if (req.bars !== undefined && req.bars !== null && (req.bars < 1 || req.bars > 64)) {
-      throw APIError.invalidArgument("Bars must be between 1 and 64");
-    }
-
-    const validComplexities = ["simple", "intermediate", "advanced", "expert"];
-    if (req.complexity && !validComplexities.includes(req.complexity)) {
-      console.warn(`Invalid complexity: ${req.complexity}, using default`);
-      req.complexity = "intermediate";
-    }
-
     try {
+      // Enhanced validation
+      if (req.bpm !== undefined && req.bpm !== null) {
+        const genreBpmRanges = {
+          amapiano: [100, 130],
+          private_school_amapiano: [95, 125]
+        };
+        const [minBpm, maxBpm] = genreBpmRanges[req.genre];
+        if (req.bpm < minBpm || req.bpm > maxBpm) {
+          throw APIError.invalidArgument(`BPM must be between ${minBpm} and ${maxBpm} for ${req.genre}`);
+        }
+      }
+
+      if (req.bars !== undefined && req.bars !== null && (req.bars < 1 || req.bars > 64)) {
+        throw APIError.invalidArgument("Bars must be between 1 and 64");
+      }
+
+      // Check cache
+      const cacheKey = generateGenerationCacheKey(`loop_${req.category}`, {
+        genre: req.genre,
+        bpm: req.bpm,
+        bars: req.bars,
+        complexity: req.complexity,
+        sourceAnalysisId: req.sourceAnalysisId
+      });
+
+      const cachedResult = await generationCache.get(cacheKey);
+      if (cachedResult) {
+        log.info("Returning cached loop result", { cacheKey });
+        return cachedResult;
+      }
+
+      // Get source analysis if provided
+      let sourceData = null;
+      if (req.sourceAnalysisId) {
+        try {
+          const analysis = await musicDB.queryRow<{
+            analysis_data: any;
+            detected_patterns: any;
+          }>`
+            SELECT analysis_data, detected_patterns 
+            FROM audio_analysis 
+            WHERE id = ${req.sourceAnalysisId}
+          `;
+          
+          if (analysis) {
+            sourceData = {
+              ...analysis.analysis_data,
+              patterns: analysis.detected_patterns
+            };
+            log.info("Using source analysis for loop generation", { 
+              sourceAnalysisId: req.sourceAnalysisId,
+              category: req.category
+            });
+          }
+        } catch (error) {
+          log.warn("Could not load source analysis for loop", { 
+            sourceAnalysisId: req.sourceAnalysisId, 
+            error: error.message 
+          });
+        }
+      }
+
       const loopId = Math.floor(Math.random() * 1000000);
       const qualityTier = req.qualityTier || "standard";
       const fileName = `loop_${req.category}_${loopId}_${qualityTier}.wav`;
 
-      // Enhanced BPM logic for loops with cultural considerations
-      const finalBpm = req.bpm || (req.genre === "private_school_amapiano" ? 112 : 118);
+      // Enhanced BPM logic for loops
+      const finalBpm = req.bpm || sourceData?.bpm || (req.genre === "private_school_amapiano" ? 112 : 118);
       const finalBars = req.bars || 4;
-      const finalKey = req.keySignature || "C";
+      const finalKey = req.keySignature || sourceData?.keySignature || "C";
       const complexity = req.complexity || "intermediate";
 
-      // Generate enhanced style based on category and genre
-      const style = generateLoopStyleEnhanced(req.category, req.genre, complexity, req.culturalAuthenticity);
+      // Generate loop using AI service
+      const aiRequest = {
+        category: req.category,
+        genre: req.genre,
+        bpm: finalBpm,
+        bars: finalBars,
+        keySignature: finalKey,
+        complexity,
+        culturalAuthenticity: req.culturalAuthenticity,
+        qualityTier,
+        sourcePatterns: sourceData?.patterns
+      };
 
-      // Generate enhanced pattern description
-      const pattern = generatePatternDescriptionEnhanced(req.category, complexity, req.genre, req.culturalAuthenticity);
+      const aiResult = await aiService.generateLoop(aiRequest);
 
-      // Generate enhanced characteristics with cultural elements
-      const characteristics = generateLoopCharacteristicsEnhanced(req.category, req.genre, complexity, req.culturalAuthenticity);
+      // Upload generated loop
+      await generatedTracks.upload(fileName, aiResult.audioBuffer);
 
-      // Cultural elements for authentic loops
+      // Enhanced style and pattern generation
+      const style = generateLoopStyle(req.category, req.genre, complexity, req.culturalAuthenticity);
+      const pattern = generatePatternDescription(req.category, complexity, req.genre, sourceData);
+      const characteristics = generateLoopCharacteristics(req.category, req.genre, complexity, req.culturalAuthenticity);
       const culturalElements = req.culturalAuthenticity ? 
         generateLoopCulturalElements(req.category, req.genre, req.culturalAuthenticity) : undefined;
 
-      // Enhanced quality score calculation
-      const qualityScore = 0.80 + (complexity === "expert" ? 0.20 : 
-                                   complexity === "advanced" ? 0.15 : 
-                                   complexity === "intermediate" ? 0.10 : 0.05) +
-                          (qualityTier === "studio" ? 0.05 : qualityTier === "professional" ? 0.03 : 0);
-
-      // Cultural authenticity scoring
+      // Enhanced quality scoring
+      const qualityScore = calculateLoopQualityScore(req, complexity, qualityTier);
       const culturalAuthenticity = req.culturalAuthenticity ? 
-        0.75 + (req.culturalAuthenticity === "traditional" ? 0.20 : 
-                req.culturalAuthenticity === "modern" ? 0.15 : 0.10) : undefined;
+        calculateLoopCulturalAuthenticity(req.category, req.genre, req.culturalAuthenticity) : undefined;
 
-      // Musical elements based on category and complexity
+      // Musical elements
       const musicalElements = generateMusicalElements(req.category, complexity, req.genre);
 
-      // Generate enhanced mock loop data
-      const mockLoopBuffer = Buffer.from(`professional ${qualityTier} quality loop data for ${req.category} - ${complexity} complexity`);
-      await generatedTracks.upload(fileName, mockLoopBuffer);
-
-      // Educational insights for learning mode
+      // Educational insights
       const educationalInsights = req.educationalMode ? {
-        musicalTheory: [
-          `This ${req.category} loop uses ${complexity} complexity patterns`,
-          `The ${finalBpm} BPM tempo is characteristic of ${req.genre}`,
-          `Key signature ${finalKey} provides the harmonic foundation`
-        ],
-        culturalSignificance: [
-          `${req.category} is a fundamental element in ${req.genre} music`,
-          req.category === "log_drum" ? "The log drum is the signature sound that defines amapiano" :
-          req.category === "piano" ? "Piano in amapiano reflects South African gospel and jazz traditions" :
-          `${req.category} adds essential texture to the amapiano sound palette`
-        ],
-        productionTips: [
-          `Layer this ${req.category} loop with other elements for full arrangement`,
-          `Adjust swing timing to match the characteristic amapiano groove`,
-          `Consider cultural authenticity when combining with other elements`
-        ]
+        musicalTheory: generateLoopEducationalInsights(req.category, complexity, finalKey),
+        culturalSignificance: generateLoopCulturalSignificance(req.category, req.genre),
+        productionTips: generateLoopProductionTips(req.category, req.genre)
       } : undefined;
 
       const processingTime = Date.now() - startTime;
-      const audioUrl = generatedTracks.publicUrl(fileName);
-
-      return {
+      const result = {
         id: loopId,
-        audioUrl,
+        audioUrl: generatedTracks.publicUrl(fileName),
         metadata: {
           category: req.category,
           bpm: finalBpm,
@@ -536,103 +529,33 @@ export const generateLoop = api<GenerateLoopRequest, GenerateLoopResponse>(
         },
         educationalInsights
       };
+
+      // Cache the result
+      await generationCache.set(cacheKey, result, 3600000); // 1 hour
+
+      log.info("Loop generation completed", {
+        loopId,
+        category: req.category,
+        processingTime,
+        qualityScore,
+        cacheKey
+      });
+
+      return result;
+
     } catch (error) {
-      console.error("Enhanced loop generation error:", error);
-      if (error instanceof APIError) {
-        throw error;
-      }
-      throw APIError.internal("Failed to generate loop with enhanced processing");
+      const apiError = errorHandler.handleError(error, {
+        operation: 'generateLoop',
+        metadata: { category: req.category, genre: req.genre }
+      });
+      throw apiError;
     }
   }
 );
 
-// Enhanced helper functions
+// Enhanced helper functions with real AI integration
 
-function analyzePromptEnhanced(prompt: string, genre: Genre, culturalValidation?: boolean): string {
-  const keywords = {
-    energy: ['energetic', 'high-energy', 'upbeat', 'driving', 'powerful', 'explosive', 'dynamic'],
-    mood: ['chill', 'relaxed', 'mellow', 'soulful', 'emotional', 'deep', 'spiritual', 'uplifting'],
-    instruments: ['piano', 'saxophone', 'guitar', 'drums', 'bass', 'vocals', 'strings', 'organ'],
-    style: ['jazzy', 'sophisticated', 'raw', 'polished', 'traditional', 'modern', 'authentic'],
-    cultural: ['traditional', 'authentic', 'south african', 'township', 'gospel', 'jazz', 'kwaito']
-  };
-
-  const analysis = [];
-  const lowerPrompt = prompt.toLowerCase();
-
-  for (const [category, words] of Object.entries(keywords)) {
-    const found = words.filter(word => lowerPrompt.includes(word));
-    if (found.length > 0) {
-      analysis.push(`${category}: ${found.join(', ')}`);
-    }
-  }
-
-  if (culturalValidation) {
-    const culturalElements = keywords.cultural.filter(word => lowerPrompt.includes(word));
-    if (culturalElements.length > 0) {
-      analysis.push(`cultural elements: ${culturalElements.join(', ')}`);
-    }
-  }
-
-  return analysis.length > 0 ? analysis.join('; ') : `General ${genre} characteristics detected`;
-}
-
-function generateStyleCharacteristicsEnhanced(
-  genre: Genre, 
-  mood?: Mood, 
-  promptAnalysis?: string, 
-  culturalAuthenticity?: string
-): string[] {
-  const baseCharacteristics = genre === "private_school_amapiano" 
-    ? ["Jazz-influenced harmonies", "Sophisticated chord progressions", "Subtle percussion", "Complex arrangements"]
-    : ["Deep log drums", "Soulful piano melodies", "Rhythmic percussion", "Traditional amapiano elements"];
-
-  const moodCharacteristics = {
-    chill: ["Relaxed tempo", "Smooth transitions", "Laid-back groove"],
-    energetic: ["Driving rhythm", "Dynamic arrangement", "High-energy percussion"],
-    soulful: ["Emotional depth", "Rich harmonies", "Gospel influences"],
-    jazzy: ["Complex chords", "Improvised elements", "Sophisticated voicings"],
-    deep: ["Atmospheric pads", "Sub-bass emphasis", "Hypnotic rhythms"],
-    mellow: ["Gentle dynamics", "Warm tones", "Peaceful atmosphere"]
-  };
-
-  const culturalCharacteristics = {
-    traditional: ["Authentic South African elements", "Traditional rhythmic patterns", "Cultural authenticity"],
-    modern: ["Contemporary production", "Modern sound design", "Urban influences"],
-    fusion: ["Cross-cultural elements", "Genre blending", "Innovative approaches"]
-  };
-
-  if (mood && moodCharacteristics[mood]) {
-    baseCharacteristics.push(...moodCharacteristics[mood]);
-  }
-
-  if (culturalAuthenticity && culturalCharacteristics[culturalAuthenticity]) {
-    baseCharacteristics.push(...culturalCharacteristics[culturalAuthenticity]);
-  }
-
-  return baseCharacteristics;
-}
-
-function generateCulturalElements(genre: Genre, culturalAuthenticity?: string): string[] {
-  const baseElements = genre === "private_school_amapiano" 
-    ? ["Jazz sophistication", "Urban South African influences", "Contemporary amapiano evolution"]
-    : ["Traditional log drum patterns", "Gospel piano influences", "Township musical heritage"];
-
-  const authenticityElements = {
-    traditional: ["Ancestral rhythmic patterns", "Traditional South African instruments", "Cultural storytelling"],
-    modern: ["Contemporary urban sounds", "Modern production techniques", "Global influences"],
-    fusion: ["Cross-cultural musical dialogue", "Genre innovation", "Cultural bridge-building"],
-    authentic: ["Pure South African musical DNA", "Uncompromised cultural integrity", "Traditional wisdom"]
-  };
-
-  if (culturalAuthenticity && authenticityElements[culturalAuthenticity]) {
-    baseElements.push(...authenticityElements[culturalAuthenticity]);
-  }
-
-  return baseElements;
-}
-
-function calculateQualityScoreEnhanced(req: GenerateTrackRequest, sourceData?: any, qualityTier?: string): number {
+function calculateQualityScore(req: GenerateTrackRequest, sourceData?: any, qualityTier?: string, aiResult?: any): number {
   let score = 0.70; // Base score
 
   // Prompt quality
@@ -655,47 +578,151 @@ function calculateQualityScoreEnhanced(req: GenerateTrackRequest, sourceData?: a
   // Source analysis bonus
   if (sourceData) score += 0.10;
 
-  // Genre-specific bonus
-  if (req.genre === "private_school_amapiano") score += 0.05;
+  // AI result quality
+  if (aiResult?.culturalValidation?.authenticityScore) {
+    score += aiResult.culturalValidation.authenticityScore * 0.1;
+  }
 
   return Math.min(1.0, score);
 }
 
-function calculateCulturalAuthenticity(genre: Genre, culturalAuthenticity?: string, sourceData?: any): number {
-  let score = 0.70; // Base cultural score
+function calculateLoopQualityScore(req: GenerateLoopRequest, complexity: string, qualityTier: string): number {
+  let score = 0.75; // Base score for loops
 
-  // Genre bonus
-  if (genre === "private_school_amapiano") score += 0.05;
-  else score += 0.10; // Classic amapiano gets higher base authenticity
+  // Complexity bonus
+  const complexityBonus = {
+    simple: 0.05,
+    intermediate: 0.10,
+    advanced: 0.15,
+    expert: 0.20
+  };
+  score += complexityBonus[complexity as keyof typeof complexityBonus] || 0;
 
-  // Cultural authenticity setting
-  if (culturalAuthenticity === "authentic") score += 0.20;
-  else if (culturalAuthenticity === "traditional") score += 0.15;
-  else if (culturalAuthenticity === "modern") score += 0.10;
-  else if (culturalAuthenticity === "fusion") score += 0.05;
+  // Quality tier bonus
+  if (qualityTier === "studio") score += 0.15;
+  else if (qualityTier === "professional") score += 0.10;
 
-  // Source data bonus
-  if (sourceData?.culturalAuthenticity) score += 0.05;
+  // Cultural authenticity bonus
+  if (req.culturalAuthenticity === "traditional") score += 0.10;
+
+  return Math.min(1.0, score);
+}
+
+function calculateLoopCulturalAuthenticity(category: string, genre: string, authenticity: string): number {
+  let score = 0.70;
+
+  // Category-specific authenticity
+  if (category === "log_drum" && genre === "amapiano") score += 0.20;
+  if (category === "piano" && genre === "private_school_amapiano") score += 0.15;
+
+  // Authenticity level
+  const authenticityBonus = {
+    traditional: 0.15,
+    modern: 0.10,
+    fusion: 0.05
+  };
+  score += authenticityBonus[authenticity as keyof typeof authenticityBonus] || 0;
 
   return Math.min(0.98, score);
+}
+
+function analyzePrompt(prompt: string, genre: Genre): string {
+  const keywords = {
+    energy: ['energetic', 'high-energy', 'upbeat', 'driving', 'powerful'],
+    mood: ['chill', 'relaxed', 'mellow', 'soulful', 'emotional', 'deep'],
+    instruments: ['piano', 'saxophone', 'guitar', 'drums', 'bass', 'vocals'],
+    style: ['jazzy', 'sophisticated', 'raw', 'polished', 'traditional', 'modern']
+  };
+
+  const analysis = [];
+  const lowerPrompt = prompt.toLowerCase();
+
+  for (const [category, words] of Object.entries(keywords)) {
+    const found = words.filter(word => lowerPrompt.includes(word));
+    if (found.length > 0) {
+      analysis.push(`${category}: ${found.join(', ')}`);
+    }
+  }
+
+  return analysis.length > 0 ? analysis.join('; ') : `General ${genre} characteristics detected`;
+}
+
+function generateStyleCharacteristics(genre: Genre, mood?: Mood, culturalAuthenticity?: string): string[] {
+  const baseCharacteristics = genre === "private_school_amapiano" 
+    ? ["Jazz-influenced harmonies", "Sophisticated chord progressions", "Subtle percussion"]
+    : ["Deep log drums", "Soulful piano melodies", "Rhythmic percussion"];
+
+  const moodCharacteristics = {
+    chill: ["Relaxed tempo", "Smooth transitions"],
+    energetic: ["Driving rhythm", "Dynamic arrangement"],
+    soulful: ["Emotional depth", "Rich harmonies"],
+    jazzy: ["Complex chords", "Improvised elements"],
+    deep: ["Atmospheric pads", "Sub-bass emphasis"],
+    mellow: ["Gentle dynamics", "Warm tones"]
+  };
+
+  if (mood && moodCharacteristics[mood]) {
+    baseCharacteristics.push(...moodCharacteristics[mood]);
+  }
+
+  if (culturalAuthenticity === "traditional") {
+    baseCharacteristics.push("Authentic South African elements");
+  }
+
+  return baseCharacteristics;
+}
+
+function generateEducationalInsights(genre: Genre, key: string, bpm: number): string[] {
+  return [
+    `This ${genre} track uses ${key} key signature, characteristic of the genre`,
+    `The ${bpm} BPM tempo creates the signature ${genre} groove`,
+    `Harmonic progressions reflect South African musical traditions`
+  ];
+}
+
+function generateCulturalContext(genre: Genre): string[] {
+  const baseContext = [
+    `${genre} originated in South African townships in the mid-2010s`,
+    "Represents fusion of traditional African music with modern electronic production"
+  ];
+
+  if (genre === "private_school_amapiano") {
+    baseContext.push("Sophisticated style incorporates jazz elements and complex harmonies");
+  } else {
+    baseContext.push("Classic style emphasizes foundational log drum and soulful piano elements");
+  }
+
+  return baseContext;
+}
+
+function generateProductionTechniques(genre: Genre, instrumentation: string[]): string[] {
+  const techniques = [
+    "Log drum programming provides rhythmic foundation",
+    "Layered percussion creates characteristic texture"
+  ];
+
+  if (instrumentation.includes('piano')) {
+    techniques.push("Piano voicings reflect South African gospel influences");
+  }
+
+  if (genre === "private_school_amapiano") {
+    techniques.push("Jazz harmonies add sophistication and complexity");
+  }
+
+  return techniques;
 }
 
 function assessMusicalComplexity(req: GenerateTrackRequest, arrangement: string, instrumentation: string[]): "simple" | "intermediate" | "advanced" | "expert" {
   let complexityScore = 0;
 
-  // Arrangement complexity
   if (arrangement === "professional") complexityScore += 3;
   else if (arrangement === "complex") complexityScore += 2;
   else if (arrangement === "standard") complexityScore += 1;
 
-  // Instrumentation complexity
   if (instrumentation.length >= 6) complexityScore += 2;
   else if (instrumentation.length >= 4) complexityScore += 1;
 
-  // Genre complexity
   if (req.genre === "private_school_amapiano") complexityScore += 1;
-
-  // Advanced options complexity
   if (req.advancedOptions?.culturalAuthenticity === "authentic") complexityScore += 1;
   if (req.enhancedGeneration) complexityScore += 1;
 
@@ -705,38 +732,38 @@ function assessMusicalComplexity(req: GenerateTrackRequest, arrangement: string,
   return "simple";
 }
 
-function generateLoopStyleEnhanced(category: string, genre: Genre, complexity: string, culturalAuthenticity?: string): string {
+function generateLoopStyle(category: string, genre: Genre, complexity: string, culturalAuthenticity?: string): string {
   const styles = {
     log_drum: {
-      amapiano: complexity === "expert" ? ["masterful", "legendary", "iconic"] : 
-                complexity === "advanced" ? ["sophisticated", "complex", "nuanced"] :
-                ["classic", "deep", "punchy"],
-      private_school_amapiano: complexity === "expert" ? ["refined", "elegant", "sophisticated"] :
-                               ["subtle", "refined", "minimal"]
+      amapiano: complexity === "expert" ? "masterful" : complexity === "advanced" ? "sophisticated" : "classic",
+      private_school_amapiano: complexity === "expert" ? "refined" : "subtle"
     },
     piano: {
-      amapiano: complexity === "expert" ? ["virtuosic", "masterful", "transcendent"] :
-                ["soulful", "gospel", "emotional"],
-      private_school_amapiano: complexity === "expert" ? ["virtuosic", "sophisticated", "complex"] :
-                               ["jazzy", "sophisticated", "complex"]
-    },
-    // Add more categories...
+      amapiano: complexity === "expert" ? "virtuosic" : "soulful",
+      private_school_amapiano: complexity === "expert" ? "virtuosic" : "jazzy"
+    }
   };
 
   const categoryStyles = styles[category as keyof typeof styles]?.[genre] || ["standard"];
-  let selectedStyle = categoryStyles[Math.floor(Math.random() * categoryStyles.length)];
+  let selectedStyle = Array.isArray(categoryStyles) ? categoryStyles[0] : categoryStyles;
 
-  // Cultural authenticity modifier
   if (culturalAuthenticity === "traditional") {
     selectedStyle = "traditional " + selectedStyle;
-  } else if (culturalAuthenticity === "modern") {
-    selectedStyle = "modern " + selectedStyle;
   }
 
   return selectedStyle;
 }
 
-function generatePatternDescriptionEnhanced(category: string, complexity: string, genre: Genre, culturalAuthenticity?: string): string {
+function generatePatternDescription(category: string, complexity: string, genre: Genre, sourceData?: any): string {
+  if (sourceData?.patterns) {
+    const relevantPattern = sourceData.patterns.find((p: any) => 
+      p.type.includes(category) || (category === 'log_drum' && p.type === 'drum_pattern')
+    );
+    if (relevantPattern) {
+      return `Inspired by source: ${relevantPattern.data.pattern || 'complex pattern'}`;
+    }
+  }
+
   const patterns = {
     log_drum: {
       simple: "x-x-.-x-",
@@ -749,23 +776,13 @@ function generatePatternDescriptionEnhanced(category: string, complexity: string
       intermediate: "Cmaj7-Am7-Fmaj7-G7",
       advanced: "Cmaj9-Am7add11-Fmaj7#11-G13sus4",
       expert: "Cmaj9#11-Am7add11/C-Fmaj7#11/A-G13sus4/B"
-    },
-    // Add more categories...
+    }
   };
 
-  let pattern = patterns[category as keyof typeof patterns]?.[complexity] || "Standard pattern";
-
-  // Cultural authenticity modifier
-  if (culturalAuthenticity === "traditional") {
-    pattern += " (traditional style)";
-  } else if (culturalAuthenticity === "modern") {
-    pattern += " (modern interpretation)";
-  }
-
-  return pattern;
+  return patterns[category as keyof typeof patterns]?.[complexity] || "Standard pattern";
 }
 
-function generateLoopCharacteristicsEnhanced(category: string, genre: Genre, complexity: string, culturalAuthenticity?: string): string[] {
+function generateLoopCharacteristics(category: string, genre: Genre, complexity: string, culturalAuthenticity?: string): string[] {
   const baseCharacteristics = {
     log_drum: ["Deep resonance", "Rhythmic foundation", "Signature amapiano sound"],
     piano: ["Harmonic richness", "Melodic expression", "Gospel influences"],
@@ -773,31 +790,16 @@ function generateLoopCharacteristicsEnhanced(category: string, genre: Genre, com
     bass: ["Low-end foundation", "Groove support", "Deep house influence"]
   };
 
-  const genreCharacteristics = genre === "private_school_amapiano"
-    ? ["Sophisticated", "Refined", "Jazz-influenced", "Urban"]
-    : ["Traditional", "Soulful", "Energetic", "Authentic"];
+  const characteristics = [...(baseCharacteristics[category as keyof typeof baseCharacteristics] || [])];
 
-  const complexityCharacteristics = {
-    simple: ["Straightforward", "Easy to follow", "Foundational"],
-    intermediate: ["Moderately complex", "Engaging", "Well-structured"],
-    advanced: ["Highly complex", "Intricate", "Professional"],
-    expert: ["Masterful", "Virtuosic", "Transcendent"]
-  };
+  if (genre === "private_school_amapiano") {
+    characteristics.push("Sophisticated", "Jazz-influenced");
+  } else {
+    characteristics.push("Traditional", "Soulful");
+  }
 
-  const culturalCharacteristics = {
-    traditional: ["Culturally authentic", "Traditional patterns", "Ancestral wisdom"],
-    modern: ["Contemporary approach", "Urban influences", "Modern production"],
-    fusion: ["Cross-cultural", "Innovative", "Bridge-building"]
-  };
-
-  let characteristics = [
-    ...baseCharacteristics[category as keyof typeof baseCharacteristics] || [],
-    ...genreCharacteristics,
-    ...complexityCharacteristics[complexity as keyof typeof complexityCharacteristics] || []
-  ];
-
-  if (culturalAuthenticity && culturalCharacteristics[culturalAuthenticity]) {
-    characteristics.push(...culturalCharacteristics[culturalAuthenticity]);
+  if (culturalAuthenticity === "traditional") {
+    characteristics.push("Culturally authentic", "Traditional patterns");
   }
 
   return characteristics;
@@ -809,21 +811,12 @@ function generateLoopCulturalElements(category: string, genre: Genre, culturalAu
   if (category === "log_drum") {
     elements.push("Traditional South African log drum techniques");
     if (culturalAuthenticity === "traditional") {
-      elements.push("Ancestral rhythmic patterns", "Township musical heritage");
+      elements.push("Ancestral rhythmic patterns");
     }
   }
 
-  if (category === "piano") {
-    elements.push("South African gospel piano traditions");
-    if (genre === "private_school_amapiano") {
-      elements.push("Jazz influences from South African urban music");
-    }
-  }
-
-  if (culturalAuthenticity === "traditional") {
-    elements.push("Authentic South African musical DNA");
-  } else if (culturalAuthenticity === "modern") {
-    elements.push("Contemporary South African urban influences");
+  if (category === "piano" && genre === "private_school_amapiano") {
+    elements.push("Jazz influences from South African urban music");
   }
 
   return elements;
@@ -835,154 +828,101 @@ function generateMusicalElements(category: string, complexity: string, genre: Ge
   if (category === "log_drum") {
     elements.push("Kick pattern", "Accent placement");
     if (complexity === "advanced" || complexity === "expert") {
-      elements.push("Polyrhythmic layers", "Dynamic variations");
+      elements.push("Polyrhythmic layers");
     }
   }
 
   if (category === "piano") {
     elements.push("Chord voicings", "Melodic phrases");
     if (genre === "private_school_amapiano") {
-      elements.push("Jazz extensions", "Complex harmonies");
-    }
-    if (complexity === "expert") {
-      elements.push("Virtuosic passages", "Improvisational elements");
+      elements.push("Jazz extensions");
     }
   }
 
   return elements;
 }
 
-// Schemas for getGenerationHistory
-interface GenerationHistoryFilter {
-  hasSourceAnalysis?: boolean;
-  minQuality?: number;
-  qualityTier?: string;
-  transformationType?: string;
+function generateLoopEducationalInsights(category: string, complexity: string, key: string): string[] {
+  return [
+    `This ${category} loop uses ${complexity} complexity patterns`,
+    `Key signature ${key} provides harmonic foundation`,
+    `Pattern demonstrates authentic amapiano characteristics`
+  ];
 }
 
-export interface GetGenerationHistoryRequest {
-  genre?: Genre;
-  filterBy?: GenerationHistoryFilter;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  limit?: number;
+function generateLoopCulturalSignificance(category: string, genre: Genre): string[] {
+  const significance = [`${category} is fundamental in ${genre} music`];
+
+  if (category === "log_drum") {
+    significance.push("The log drum is the signature sound that defines amapiano");
+  }
+
+  return significance;
 }
 
-interface GenerationHistoryTrack {
-  id: number;
-  prompt: string;
-  genre: Genre;
-  mood?: string;
-  bpm?: number;
-  keySignature?: string;
-  fileUrl?: string;
-  qualityRating?: number;
-  culturalAuthenticity?: number;
-  musicalComplexity?: string;
-  energyLevel?: number;
-  danceability?: number;
-  qualityTier?: string;
-  processingTime?: number;
-  transformationType?: string;
-  createdAt: Date;
-}
-
-interface GenreDistribution {
-  count: number;
-  avgQuality: number;
-  avgCultural: number;
-}
-
-interface GenerationHistoryStatistics {
-  totalGenerations: number;
-  averageProcessingTime: number;
-  averageEnergyLevel: number;
-  averageDanceability: number;
-  genreDistribution: Record<Genre, GenreDistribution>;
-}
-
-export interface GetGenerationHistoryResponse {
-  tracks: GenerationHistoryTrack[];
-  totalCount: number;
-  averageQuality: number;
-  averageCulturalAuthenticity: number;
-  statistics: GenerationHistoryStatistics;
+function generateLoopProductionTips(category: string, genre: Genre): string[] {
+  return [
+    `Layer this ${category} loop with other elements for full arrangement`,
+    "Maintain characteristic amapiano groove and swing timing",
+    "Consider cultural authenticity when combining elements"
+  ];
 }
 
 // Keep existing endpoints with enhanced implementations
-export const getGenerationHistory = api<GetGenerationHistoryRequest, GetGenerationHistoryResponse>(
+export const getGenerationHistory = api<any, any>(
   { expose: true, method: "GET", path: "/generate/history" },
   async (req) => {
-    // Enhanced implementation with cultural metrics and quality tiers
-    let query = `SELECT id, prompt, genre, mood, bpm, key_signature, file_url, quality_rating, cultural_authenticity_score, musical_complexity, energy_level, danceability, quality_tier, processing_time_ms, transformation_type, created_at FROM generated_tracks WHERE 1=1`;
-    const params: any[] = [];
-    let paramIndex = 1;
-
-    // Enhanced filtering
-    if (req.genre) {
-      query += ` AND genre = $${paramIndex}`;
-      params.push(req.genre);
-      paramIndex++;
-    }
-
-    if (req.filterBy?.hasSourceAnalysis !== undefined) {
-      if (req.filterBy.hasSourceAnalysis) {
-        query += ` AND source_analysis_id IS NOT NULL`;
-      } else {
-        query += ` AND source_analysis_id IS NULL`;
-      }
-    }
-
-    if (req.filterBy?.minQuality) {
-      query += ` AND quality_rating >= $${paramIndex}`;
-      params.push(req.filterBy.minQuality);
-      paramIndex++;
-    }
-
-    if (req.filterBy?.qualityTier) {
-      query += ` AND quality_tier = $${paramIndex}`;
-      params.push(req.filterBy.qualityTier);
-      paramIndex++;
-    }
-
-    if (req.filterBy?.transformationType) {
-      query += ` AND transformation_type = $${paramIndex}`;
-      params.push(req.filterBy.transformationType);
-      paramIndex++;
-    }
-
-    // Enhanced sorting with new metrics
-    const sortBy = req.sortBy || "date";
-    const sortOrder = req.sortOrder || "desc";
-    
-    switch (sortBy) {
-      case "quality":
-        query += ` ORDER BY quality_rating ${sortOrder.toUpperCase()}`;
-        break;
-      case "cultural":
-        query += ` ORDER BY cultural_authenticity_score ${sortOrder.toUpperCase()} NULLS LAST`;
-        break;
-      case "complexity":
-        query += ` ORDER BY musical_complexity ${sortOrder.toUpperCase()}`;
-        break;
-      case "energy":
-        query += ` ORDER BY energy_level ${sortOrder.toUpperCase()}`;
-        break;
-      case "duration":
-        query += ` ORDER BY processing_time_ms ${sortOrder.toUpperCase()}`;
-        break;
-      default:
-        query += ` ORDER BY created_at ${sortOrder.toUpperCase()}`;
-    }
-
-    if (req.limit) {
-      query += ` LIMIT $${paramIndex}`;
-      params.push(req.limit);
-    } else {
-      query += ` LIMIT 50`;
-    }
-
     try {
+      // Enhanced implementation with better filtering and cultural metrics
+      let query = `SELECT id, prompt, genre, mood, bpm, key_signature, file_url, quality_rating, cultural_authenticity_score, musical_complexity, energy_level, danceability, quality_tier, processing_time_ms, transformation_type, created_at FROM generated_tracks WHERE 1=1`;
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (req.genre) {
+        query += ` AND genre = $${paramIndex}`;
+        params.push(req.genre);
+        paramIndex++;
+      }
+
+      if (req.filterBy?.hasSourceAnalysis !== undefined) {
+        if (req.filterBy.hasSourceAnalysis) {
+          query += ` AND source_analysis_id IS NOT NULL`;
+        } else {
+          query += ` AND source_analysis_id IS NULL`;
+        }
+      }
+
+      if (req.filterBy?.minQuality) {
+        query += ` AND quality_rating >= $${paramIndex}`;
+        params.push(req.filterBy.minQuality);
+        paramIndex++;
+      }
+
+      // Enhanced sorting
+      const sortBy = req.sortBy || "date";
+      const sortOrder = req.sortOrder || "desc";
+      
+      switch (sortBy) {
+        case "quality":
+          query += ` ORDER BY quality_rating ${sortOrder.toUpperCase()}`;
+          break;
+        case "cultural":
+          query += ` ORDER BY cultural_authenticity_score ${sortOrder.toUpperCase()} NULLS LAST`;
+          break;
+        case "complexity":
+          query += ` ORDER BY musical_complexity ${sortOrder.toUpperCase()}`;
+          break;
+        default:
+          query += ` ORDER BY created_at ${sortOrder.toUpperCase()}`;
+      }
+
+      if (req.limit) {
+        query += ` LIMIT $${paramIndex}`;
+        params.push(req.limit);
+      } else {
+        query += ` LIMIT 50`;
+      }
+
       const tracks = await musicDB.rawQueryAll<any>(query, ...params);
 
       // Enhanced statistics
@@ -998,7 +938,7 @@ export const getGenerationHistory = api<GetGenerationHistoryRequest, GetGenerati
       `;
       const stats = await musicDB.queryRow<any>(statsQuery);
 
-      // Genre distribution with enhanced metrics
+      // Genre distribution
       const genreDistQuery = `
         SELECT 
           genre, 
@@ -1016,7 +956,7 @@ export const getGenerationHistory = api<GetGenerationHistoryRequest, GetGenerati
           avgCultural: Math.round((row.avg_cultural || 0) * 100) / 100
         };
         return acc;
-      }, {} as Record<Genre, any>);
+      }, {});
 
       return {
         tracks: tracks.map(track => ({
@@ -1049,60 +989,15 @@ export const getGenerationHistory = api<GetGenerationHistoryRequest, GetGenerati
         }
       };
     } catch (error) {
-      console.error("Enhanced database query error:", error);
-      return {
-        tracks: [],
-        totalCount: 0,
-        averageQuality: 0,
-        averageCulturalAuthenticity: 0,
-        statistics: {
-          totalGenerations: 0,
-          averageProcessingTime: 0,
-          averageEnergyLevel: 0,
-          averageDanceability: 0,
-          genreDistribution: {} as Record<Genre, any>
-        }
-      };
+      const apiError = errorHandler.handleError(error, {
+        operation: 'getGenerationHistory'
+      });
+      throw apiError;
     }
   }
 );
 
-// Schemas for getGenerationStats
-interface GenreStats {
-  count: number;
-  avgQuality: number;
-  avgCultural: number;
-  avgEnergy: number;
-}
-
-interface QualityTierStats {
-  count: number;
-  avgQuality: number;
-}
-
-interface ProcessingStats {
-  averageTime: number;
-  fastestTime: number;
-  slowestTime: number;
-}
-
-interface QualityMetrics {
-  averageQuality: number;
-  averageCulturalAuthenticity: number;
-  averageEnergyLevel: number;
-  averageDanceability: number;
-}
-
-export interface GetGenerationStatsResponse {
-  totalGenerations: number;
-  generationsByGenre: Record<Genre, GenreStats>;
-  qualityTierDistribution: Record<string, QualityTierStats>;
-  complexityDistribution: Record<string, number>;
-  processingStats: ProcessingStats;
-  qualityMetrics: QualityMetrics;
-}
-
-export const getGenerationStats = api<void, GetGenerationStatsResponse>(
+export const getGenerationStats = api<void, any>(
   { expose: true, method: "GET", path: "/generate/stats" },
   async () => {
     try {
@@ -1123,15 +1018,6 @@ export const getGenerationStats = api<void, GetGenerationStatsResponse>(
         FROM generated_tracks 
         GROUP BY genre
       `;
-      const generationsByGenre = genreResults.reduce((acc, row) => {
-        acc[row.genre] = {
-          count: row.count,
-          avgQuality: Math.round((row.avg_quality || 0) * 100) / 100,
-          avgCultural: Math.round((row.avg_cultural || 0) * 100) / 100,
-          avgEnergy: Math.round((row.avg_energy || 0) * 100) / 100
-        };
-        return acc;
-      }, {} as Record<Genre, any>);
 
       // Quality tier distribution
       const qualityTierResults = await musicDB.queryAll<any>`
@@ -1170,7 +1056,15 @@ export const getGenerationStats = api<void, GetGenerationStatsResponse>(
 
       return {
         totalGenerations,
-        generationsByGenre,
+        generationsByGenre: genreResults.reduce((acc, row) => {
+          acc[row.genre] = {
+            count: row.count,
+            avgQuality: Math.round((row.avg_quality || 0) * 100) / 100,
+            avgCultural: Math.round((row.avg_cultural || 0) * 100) / 100,
+            avgEnergy: Math.round((row.avg_energy || 0) * 100) / 100
+          };
+          return acc;
+        }, {}),
         qualityTierDistribution: qualityTierResults.reduce((acc, row) => {
           acc[row.quality_tier] = {
             count: row.count,
@@ -1195,20 +1089,10 @@ export const getGenerationStats = api<void, GetGenerationStatsResponse>(
         }
       };
     } catch (error) {
-      console.error("Enhanced stats query error:", error);
-      return {
-        totalGenerations: 0,
-        generationsByGenre: {} as Record<Genre, any>,
-        qualityTierDistribution: {},
-        complexityDistribution: {},
-        processingStats: { averageTime: 0, fastestTime: 0, slowestTime: 0 },
-        qualityMetrics: {
-          averageQuality: 0,
-          averageCulturalAuthenticity: 0,
-          averageEnergyLevel: 0,
-          averageDanceability: 0
-        }
-      };
+      const apiError = errorHandler.handleError(error, {
+        operation: 'getGenerationStats'
+      });
+      throw apiError;
     }
   }
 );

@@ -92,6 +92,15 @@ import {
     getUploadUrl as api_music_analyze_getUploadUrl
 } from "~backend/music/analyze";
 import {
+    addComment as api_music_collaboration_addComment,
+    createCollaboration as api_music_collaboration_createCollaboration,
+    createRemixChallenge as api_music_collaboration_createRemixChallenge,
+    getCollaborationFeed as api_music_collaboration_getCollaborationFeed,
+    joinCollaboration as api_music_collaboration_joinCollaboration,
+    shareContent as api_music_collaboration_shareContent,
+    submitRemix as api_music_collaboration_submitRemix
+} from "~backend/music/collaboration";
+import {
     loadProject as api_music_daw_loadProject,
     saveProject as api_music_daw_saveProject
 } from "~backend/music/daw";
@@ -122,9 +131,12 @@ export namespace music {
 
         constructor(baseClient: BaseClient) {
             this.baseClient = baseClient
+            this.addComment = this.addComment.bind(this)
             this.amapianorizeTrack = this.amapianorizeTrack.bind(this)
             this.analyzeAudio = this.analyzeAudio.bind(this)
             this.batchAnalyze = this.batchAnalyze.bind(this)
+            this.createCollaboration = this.createCollaboration.bind(this)
+            this.createRemixChallenge = this.createRemixChallenge.bind(this)
             this.createSample = this.createSample.bind(this)
             this.extractPatterns = this.extractPatterns.bind(this)
             this.generateLoop = this.generateLoop.bind(this)
@@ -132,6 +144,7 @@ export namespace music {
             this.getAnalysisHistory = this.getAnalysisHistory.bind(this)
             this.getBatchStatus = this.getBatchStatus.bind(this)
             this.getChordProgressions = this.getChordProgressions.bind(this)
+            this.getCollaborationFeed = this.getCollaborationFeed.bind(this)
             this.getDrumPatterns = this.getDrumPatterns.bind(this)
             this.getGenerationHistory = this.getGenerationHistory.bind(this)
             this.getGenerationStats = this.getGenerationStats.bind(this)
@@ -139,11 +152,23 @@ export namespace music {
             this.getSampleStats = this.getSampleStats.bind(this)
             this.getSamplesByArtist = this.getSamplesByArtist.bind(this)
             this.getUploadUrl = this.getUploadUrl.bind(this)
+            this.joinCollaboration = this.joinCollaboration.bind(this)
             this.listPatterns = this.listPatterns.bind(this)
             this.listSamples = this.listSamples.bind(this)
             this.loadProject = this.loadProject.bind(this)
             this.saveProject = this.saveProject.bind(this)
             this.searchSamples = this.searchSamples.bind(this)
+            this.shareContent = this.shareContent.bind(this)
+            this.submitRemix = this.submitRemix.bind(this)
+        }
+
+        /**
+         * Adds a comment to a feed item
+         */
+        public async addComment(params: RequestType<typeof api_music_collaboration_addComment>): Promise<ResponseType<typeof api_music_collaboration_addComment>> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI(`/collaboration/comment`, {method: "POST", body: JSON.stringify(params)})
+            return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_collaboration_addComment>
         }
 
         /**
@@ -156,7 +181,7 @@ export namespace music {
         }
 
         /**
-         * Enhanced audio analysis with cultural authenticity and educational insights
+         * Enhanced audio analysis with real AI processing
          */
         public async analyzeAudio(params: RequestType<typeof api_music_analyze_analyzeAudio>): Promise<ResponseType<typeof api_music_analyze_analyzeAudio>> {
             // Now make the actual call to the API
@@ -168,6 +193,24 @@ export namespace music {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI(`/analyze/batch`, {method: "POST", body: JSON.stringify(params)})
             return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_analyze_batchAnalyze>
+        }
+
+        /**
+         * Creates a new collaboration space
+         */
+        public async createCollaboration(params: RequestType<typeof api_music_collaboration_createCollaboration>): Promise<ResponseType<typeof api_music_collaboration_createCollaboration>> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI(`/collaboration`, {method: "POST", body: JSON.stringify(params)})
+            return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_collaboration_createCollaboration>
+        }
+
+        /**
+         * Creates a remix challenge
+         */
+        public async createRemixChallenge(params: RequestType<typeof api_music_collaboration_createRemixChallenge>): Promise<ResponseType<typeof api_music_collaboration_createRemixChallenge>> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI(`/collaboration/remix-challenge`, {method: "POST", body: JSON.stringify(params)})
+            return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_collaboration_createRemixChallenge>
         }
 
         /**
@@ -189,7 +232,7 @@ export namespace music {
         }
 
         /**
-         * Enhanced loop generation with professional quality and cultural authenticity
+         * Enhanced loop generation with real AI processing
          */
         public async generateLoop(params: RequestType<typeof api_music_generate_generateLoop>): Promise<ResponseType<typeof api_music_generate_generateLoop>> {
             // Now make the actual call to the API
@@ -198,7 +241,7 @@ export namespace music {
         }
 
         /**
-         * Enhanced track generation with professional quality and cultural authenticity
+         * Enhanced track generation with real AI processing
          */
         public async generateTrack(params: RequestType<typeof api_music_generate_generateTrack>): Promise<ResponseType<typeof api_music_generate_generateTrack>> {
             // Now make the actual call to the API
@@ -246,6 +289,21 @@ export namespace music {
         }
 
         /**
+         * Gets collaboration feed
+         */
+        public async getCollaborationFeed(params: RequestType<typeof api_music_collaboration_getCollaborationFeed>): Promise<ResponseType<typeof api_music_collaboration_getCollaborationFeed>> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                limit:  params.limit === undefined ? undefined : String(params.limit),
+                offset: params.offset === undefined ? undefined : String(params.offset),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI(`/collaboration/${encodeURIComponent(params.collaborationId)}/feed`, {query, method: "GET", body: undefined})
+            return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_collaboration_getCollaborationFeed>
+        }
+
+        /**
          * Gets drum patterns specific to amapiano
          */
         public async getDrumPatterns(params: RequestType<typeof api_music_patterns_getDrumPatterns>): Promise<ResponseType<typeof api_music_patterns_getDrumPatterns>> {
@@ -269,7 +327,7 @@ export namespace music {
                 filterBy:  params.filterBy === undefined ? undefined : String(params.filterBy),
                 genre:     params.genre === undefined ? undefined : String(params.genre),
                 limit:     params.limit === undefined ? undefined : String(params.limit),
-                sortBy:    params.sortBy,
+                sortBy:    params.sortBy === undefined ? undefined : String(params.sortBy),
                 sortOrder: params.sortOrder === undefined ? undefined : String(params.sortOrder),
             })
 
@@ -318,6 +376,15 @@ export namespace music {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI(`/analyze/upload-url`, {method: "POST", body: JSON.stringify(params)})
             return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_analyze_getUploadUrl>
+        }
+
+        /**
+         * Joins an existing collaboration
+         */
+        public async joinCollaboration(params: RequestType<typeof api_music_collaboration_joinCollaboration>): Promise<ResponseType<typeof api_music_collaboration_joinCollaboration>> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI(`/collaboration/join`, {method: "POST", body: JSON.stringify(params)})
+            return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_collaboration_joinCollaboration>
         }
 
         /**
@@ -386,6 +453,24 @@ export namespace music {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI(`/samples/search`, {query, method: "GET", body: undefined})
             return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_samples_searchSamples>
+        }
+
+        /**
+         * Shares content in a collaboration
+         */
+        public async shareContent(params: RequestType<typeof api_music_collaboration_shareContent>): Promise<ResponseType<typeof api_music_collaboration_shareContent>> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI(`/collaboration/share`, {method: "POST", body: JSON.stringify(params)})
+            return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_collaboration_shareContent>
+        }
+
+        /**
+         * Submits a remix to a challenge
+         */
+        public async submitRemix(params: RequestType<typeof api_music_collaboration_submitRemix>): Promise<ResponseType<typeof api_music_collaboration_submitRemix>> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI(`/collaboration/remix-challenge/submit`, {method: "POST", body: JSON.stringify(params)})
+            return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_music_collaboration_submitRemix>
         }
     }
 }
