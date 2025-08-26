@@ -19,10 +19,10 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 
 ### 🎵 AI Music Generation & Transformation
 - **Generate from Prompt**: Create complete amapiano tracks from text descriptions with advanced customization options.
-- **Generate from Reference**: Use any audio or video (YouTube, TikTok, file upload) as a creative reference to guide the AI's generation process.
+- **Generate from Reference**: Use any audio or video (YouTube, TikTok, file upload) as a creative reference to guide the AI's generation of both full tracks and individual loops.
 - **Remix from Source**: Generate new tracks inspired by analyzed audio from TikTok, YouTube, or local files.
 - **Amapianorize**: Transform any audio/video file into authentic amapiano style with intensity controls and vocal preservation.
-- **Loop Creation**: Generate specific loops and patterns like log drums, piano, bass, and percussion with professional quality.
+- **Loop Creation**: Generate specific loops and patterns like log drums, piano, bass, and percussion with professional quality, optionally guided by a reference track.
 - **Style Support**: Full support for both Classic Amapiano and Private School Amapiano styles with cultural authenticity.
 - **Advanced Controls**: Control BPM, key signature, mood, duration, arrangement, and instrumentation.
 

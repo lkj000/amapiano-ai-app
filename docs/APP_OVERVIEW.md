@@ -18,11 +18,11 @@ Amapiano AI is the world's first artificial intelligence platform specifically d
 
 #### 2. Advanced AI Music Generation & Transformation
 - **Generate from Prompt**: Create complete amapiano tracks from natural language descriptions with sophisticated customization options including BPM, key signature, mood, duration, and advanced arrangement controls.
-- **Generate from Reference**: Use any audio or video (YouTube, TikTok, file upload) as a creative reference to guide the AI's generation process, influencing the style, tempo, and key of the new track.
+- **Generate from Reference**: Use any audio or video (YouTube, TikTok, file upload) as a creative reference to guide the AI's generation process, influencing the style, tempo, and key of new tracks and loops.
 - **AI Prompt Parsing**: Intelligently parses unstructured text prompts into structured parameters, automatically setting genre, mood, BPM, and more.
 - **Remix from Source**: Generate new tracks inspired by analyzed audio from any source (YouTube, TikTok, local files), using the source's musical characteristics as creative inspiration while following new prompts.
 - **Amapianorize Engine**: Revolutionary feature that transforms any analyzed audio/video file into authentic amapiano style with customizable intensity levels, vocal preservation options, and detailed transformation controls.
-- **Professional Loop Creation**: Generate specific loops and patterns (log drums, piano, bass, percussion) with professional quality, complexity controls, and style variations.
+- **Professional Loop Creation**: Generate specific loops and patterns (log drums, piano, bass, percussion) with professional quality, complexity controls, and style variations, optionally guided by a reference track.
 - **Cultural Authenticity**: Full support for both Classic Amapiano and Private School Amapiano styles with deep understanding of cultural nuances and musical characteristics.
 - **Advanced Controls**: Comprehensive parameter control including arrangement complexity, instrumentation selection, mixing style, energy levels, and cultural authenticity settings.
 

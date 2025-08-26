@@ -209,6 +209,7 @@ export class AmapianorizeEngine {
 - **Web Audio API Engine**: Build the core audio graph for real-time processing, routing, and mixing.
 - **Timeline Component**: Develop the basic multi-track timeline UI for audio clip arrangement using React and HTML5 Canvas.
 - **Project Management API**: Implement backend endpoints in `daw.ts` for saving and loading DAW projects to the `daw_projects` table.
+- **Reference Track Workflow**: Integrate the reference track analysis directly into the DAW's AI Assistant to set the creative context for generation.
 
 ## Phase 2: Infrastructure and Performance
 

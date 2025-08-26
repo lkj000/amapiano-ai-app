@@ -125,7 +125,8 @@ POST /generate/loop
   "bars": 4,
   "keySignature": "C",
   "complexity": "simple" | "intermediate" | "advanced",
-  "style": "classic"
+  "style": "classic",
+  "sourceAnalysisId": 12345
 }
 ```
 

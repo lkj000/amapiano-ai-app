@@ -138,11 +138,11 @@ Amapiano AI combines cutting-edge artificial intelligence with comprehensive mus
 
 #### 5.1.2 Advanced AI Music Generation Engine
 
-**Feature Description**: Generate complete amapiano tracks from natural language prompts with professional-grade quality and cultural authenticity.
+**Feature Description**: Generate complete amapiano tracks and loops from natural language prompts with professional-grade quality and cultural authenticity.
 
 **Functional Requirements**:
 - **Text-to-Music Generation**: Process natural language descriptions and convert to musical parameters with context understanding
-- **Remix from Source**: Use analyzed track data (`sourceAnalysisId`) as creative inspiration while following new prompts and parameters
+- **Remix from Source**: Use analyzed track data (`sourceAnalysisId`) as creative inspiration while following new prompts and parameters for both full tracks and individual loops.
 - **Genre Specialization**: Support for Classic Amapiano and Private School Amapiano with authentic style characteristics
 - **Real-time Processing**: Generate 3-minute tracks in under 60 seconds with progress tracking
 - **Professional Stem Separation**: Automatic separation into drums, bass, piano, vocals, and other instruments with 95%+ accuracy
