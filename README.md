@@ -46,6 +46,7 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 
 ### 🔍 Enhanced Audio Analysis
 - **Universal Input**: Analyze audio from **TikTok**, YouTube, direct URLs, or **local file uploads** (up to 500MB).
+- **Deep Musical Analysis**: Deconstructs tracks into fundamental elements like Melody, Harmony, Rhythm, Timbre, and Form.
 - **Professional Stem Separation**: Extract individual stems (drums, bass, piano, vocals, other) with 95%+ accuracy.
 - **Advanced Pattern Recognition**: Identify musical patterns, chord progressions, drum patterns, and melodic structures.
 - **Music Theory Analysis**: Detect BPM, key signature, harmonic analysis, and provide educational insights.

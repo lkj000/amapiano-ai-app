@@ -307,42 +307,18 @@ POST /analyze/audio
 {
   "id": 345678,
   "stems": {
-    "drums": "https://storage.example.com/analysis_345678_drums.wav",
-    "bass": "https://storage.example.com/analysis_345678_bass.wav",
-    "piano": "https://storage.example.com/analysis_345678_piano.wav",
-    "vocals": "https://storage.example.com/analysis_345678_vocals.wav",
-    "other": "https://storage.example.com/analysis_345678_other.wav"
+    "drums": "...",
+    "bass": "...",
+    "piano": "...",
+    "vocals": "...",
+    "other": "..."
   },
   "patterns": [
     {
       "type": "drum_pattern",
       "confidence": 0.96,
-      "data": {
-        "pattern": "kick-snare-kick-snare",
-        "velocity": [100, 80, 100, 80],
-        "logDrum": {
-          "notes": ["C1", "C1", "rest", "C1"],
-          "timing": [0, 0.5, 1, 1.5],
-          "swing": 0.08,
-          "accent": [true, false, false, true]
-        },
-        "complexity": "intermediate",
-        "groove": "deep"
-      },
+      "data": { ... },
       "timeRange": { "start": 0, "end": 4 }
-    },
-    {
-      "type": "chord_progression",
-      "confidence": 0.94,
-      "data": {
-        "chords": ["Cmaj7", "Fmaj7", "G7", "Am7"],
-        "progression": "I-IV-V-vi",
-        "voicing": "jazz",
-        "inversions": ["root", "first", "root", "second"],
-        "quality": "sophisticated",
-        "tension": ["maj7", "maj7", "dom7", "min7"]
-      },
-      "timeRange": { "start": 0, "end": 8 }
     }
   ],
   "metadata": {
@@ -350,12 +326,37 @@ POST /analyze/audio
     "keySignature": "C",
     "genre": "private_school_amapiano",
     "duration": 180,
-    "originalFileName": "my-track.mp4",
-    "fileType": "video",
-    "confidence": 0.92,
-    "quality": "high",
-    "sampleRate": 44100,
-    "bitDepth": 24
+    "quality": "high"
+  },
+  "musicalAnalysis": {
+    "pitch": {
+      "scale": "minor",
+      "tonality": "F#m",
+      "melodyContour": "arch"
+    },
+    "rhythm": {
+      "meter": "4/4",
+      "syncopationLevel": "medium"
+    },
+    "harmony": {
+      "chordProgressions": ["i-iv-V-i"],
+      "consonance": 0.7,
+      "dissonance": 0.3
+    },
+    "dynamics": {
+      "averageLoudness": -14,
+      "dynamicRange": 8
+    },
+    "timbre": {
+      "instrumentation": ["log drum", "electric piano", "synth pad"]
+    },
+    "texture": {
+      "type": "polyphonic",
+      "density": "dense"
+    },
+    "form": {
+      "structure": ["intro", "verse", "chorus", "outro"]
+    }
   },
   "processingTime": 2150
 }
