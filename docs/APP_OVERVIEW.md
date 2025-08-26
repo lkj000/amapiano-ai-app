@@ -14,6 +14,7 @@ Amapiano AI is the world's first artificial intelligence platform specifically d
 - **AI-Powered Virtual Instruments**: Includes a signature **Log Drum Synthesizer** with authentic sound modeling, an advanced piano roll with amapiano chord generation, and a suite of culturally authentic virtual instruments.
 - **Amapiano-Specific Mixing Console**: A professional mixing environment with channel strips, EQs, compressors, and a suite of effects (e.g., "Shaker Groove Engine," "3D Imager") designed for the amapiano sound palette.
 - **Seamless AI Integration**: An "AI Assistant" panel allows users to generate patterns, loops, and even entire song sections directly into the DAW timeline based on the current project context.
+- **Reference Track Workflow**: Analyze any external audio or video directly within the DAW to set the creative context (BPM, key, style) for AI-powered idea generation.
 
 #### 2. Advanced AI Music Generation & Transformation
 - **Generate from Prompt**: Create complete amapiano tracks from natural language descriptions with sophisticated customization options including BPM, key signature, mood, duration, and advanced arrangement controls.

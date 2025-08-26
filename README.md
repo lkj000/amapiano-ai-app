@@ -44,6 +44,7 @@ The ultimate AI-powered platform for creating, analyzing, and exploring amapiano
 - **AI-Powered Instruments**: Includes a signature Log Drum synthesizer, advanced piano roll, and culturally authentic virtual instruments.
 - **Mixing Console**: Professional mixing environment with EQs, compressors, and amapiano-specific effects.
 - **Seamless AI Integration**: Generate patterns, loops, and stems directly into your DAW timeline with the AI Assistant.
+- **Reference Track Workflow**: Analyze any external audio or video directly within the DAW to set the creative context (BPM, key, style) for AI generation.
 
 ### 🔍 Enhanced Audio Analysis
 - **Universal Input**: Analyze audio from **TikTok**, YouTube, direct URLs, or **local file uploads** (up to 500MB).
