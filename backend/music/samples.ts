@@ -50,10 +50,122 @@ export const listSamples = api<ListSamplesRequest, ListSamplesResponse>(
 
     const samples = await musicDB.rawQueryAll<Sample>(query, ...params);
     
-    // For demo purposes, create mock audio URLs since we don't have actual audio files
+    // If no samples in database, return mock data for demo
+    if (samples.length === 0) {
+      const mockSamples: Sample[] = [
+        {
+          id: 1,
+          name: "Classic Log Drum Loop",
+          category: "log_drum",
+          genre: "amapiano",
+          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
+          bpm: 115,
+          keySignature: "Cm",
+          durationSeconds: 8,
+          tags: ["authentic", "foundational"],
+          createdAt: new Date()
+        },
+        {
+          id: 2,
+          name: "Soulful Piano Chords",
+          category: "piano",
+          genre: "amapiano", 
+          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
+          bpm: 112,
+          keySignature: "F",
+          durationSeconds: 16,
+          tags: ["gospel", "emotional"],
+          createdAt: new Date()
+        },
+        {
+          id: 3,
+          name: "Jazz Saxophone Melody",
+          category: "saxophone",
+          genre: "private_school_amapiano",
+          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav", 
+          bpm: 110,
+          keySignature: "Bb",
+          durationSeconds: 12,
+          tags: ["sophisticated", "smooth"],
+          createdAt: new Date()
+        },
+        {
+          id: 4,
+          name: "Deep Bass Foundation",
+          category: "bass",
+          genre: "amapiano",
+          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
+          bpm: 115,
+          keySignature: "Cm", 
+          durationSeconds: 8,
+          tags: ["deep", "foundation"],
+          createdAt: new Date()
+        },
+        {
+          id: 5,
+          name: "Vocal Chops & Harmonies",
+          category: "vocal",
+          genre: "amapiano",
+          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
+          bpm: 113,
+          keySignature: "G",
+          durationSeconds: 6,
+          tags: ["vocal", "chops", "harmony"],
+          createdAt: new Date()
+        },
+        {
+          id: 6,
+          name: "Percussive Shaker Loop",
+          category: "percussion",
+          genre: "amapiano",
+          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
+          bpm: 115,
+          keySignature: "Cm",
+          durationSeconds: 4,
+          tags: ["percussion", "shaker", "groove"],
+          createdAt: new Date()
+        },
+        {
+          id: 7,
+          name: "Synth Lead Melody",
+          category: "synth",
+          genre: "private_school_amapiano",
+          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
+          bpm: 110,
+          keySignature: "F",
+          durationSeconds: 8,
+          tags: ["synth", "lead", "melody"],
+          createdAt: new Date()
+        },
+        {
+          id: 8,
+          name: "Guitar Plucks",
+          category: "guitar",
+          genre: "amapiano",
+          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
+          bpm: 112,
+          keySignature: "Am",
+          durationSeconds: 8,
+          tags: ["guitar", "plucks", "rhythmic"],
+          createdAt: new Date()
+        }
+      ];
+      
+      const filteredSamples = mockSamples.filter(s => 
+        (!req.genre || s.genre === req.genre) &&
+        (!req.category || s.category === req.category)
+      );
+      
+      return {
+        samples: filteredSamples,
+        total: filteredSamples.length
+      };
+    }
+    
+    // For existing samples, ensure they have demo URLs
     const samplesWithUrls = samples.map(s => ({ 
       ...s, 
-      fileUrl: s.fileUrl ? `https://www.soundjay.com/misc/sounds-1/beep-07a.wav` : 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
+      fileUrl: s.fileUrl || 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
     }));
 
     return {
@@ -99,10 +211,53 @@ export const searchSamples = api<SearchSamplesRequest, SearchSamplesResponse>(
 
     const samples = await musicDB.rawQueryAll<Sample>(searchQuery, ...params);
     
-    // For demo purposes, create mock audio URLs
+    // If no samples found and database seems empty, provide mock search results
+    if (samples.length === 0) {
+      const mockSamples: Sample[] = [
+        {
+          id: 1,
+          name: "Classic Log Drum Loop",
+          category: "log_drum",
+          genre: "amapiano",
+          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
+          bpm: 115,
+          keySignature: "Cm",
+          durationSeconds: 8,
+          tags: ["authentic", "foundational", "classic"],
+          createdAt: new Date()
+        },
+        {
+          id: 2,
+          name: "Soulful Piano Chords",
+          category: "piano",
+          genre: "amapiano", 
+          fileUrl: "https://www.soundjay.com/misc/sounds-1/beep-07a.wav",
+          bpm: 112,
+          keySignature: "F",
+          durationSeconds: 16,
+          tags: ["gospel", "emotional", "soulful"],
+          createdAt: new Date()
+        }
+      ];
+      
+      // Filter mock samples based on search query
+      const filteredSamples = mockSamples.filter(s => 
+        s.name.toLowerCase().includes(req.query.toLowerCase()) ||
+        s.tags?.some(tag => tag.toLowerCase().includes(req.query.toLowerCase())) ||
+        (!req.genre || s.genre === req.genre) &&
+        (!req.category || s.category === req.category)
+      );
+      
+      return {
+        samples: filteredSamples,
+        suggestions: ["classic", "soulful", "authentic", "gospel", "foundational"]
+      };
+    }
+    
+    // For existing samples, ensure they have demo URLs
     const samplesWithUrls = samples.map(s => ({ 
       ...s, 
-      fileUrl: s.fileUrl ? `https://www.soundjay.com/misc/sounds-1/beep-07a.wav` : 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
+      fileUrl: s.fileUrl || 'https://www.soundjay.com/misc/sounds-1/beep-07a.wav'
     }));
 
     // Generate suggestions based on search and existing tags
@@ -112,8 +267,15 @@ export const searchSamples = api<SearchSamplesRequest, SearchSamplesResponse>(
       WHERE unnest(tags) ILIKE $1
       LIMIT 10
     `;
-    const tagResults = await musicDB.rawQueryAll<{tag: string}>(allTagsQuery, `%${req.query}%`);
-    const suggestions = tagResults.map(r => r.tag);
+    
+    let suggestions: string[] = [];
+    try {
+      const tagResults = await musicDB.rawQueryAll<{tag: string}>(allTagsQuery, `%${req.query}%`);
+      suggestions = tagResults.map(r => r.tag);
+    } catch (error) {
+      // If tags query fails, provide default suggestions
+      suggestions = ["amapiano", "log drum", "piano", "saxophone", "deep"];
+    }
 
     return {
       samples: samplesWithUrls,

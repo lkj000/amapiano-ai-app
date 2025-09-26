@@ -44,6 +44,72 @@ export const listPatterns = api<ListPatternsRequest, ListPatternsResponse>(
     query += ` ORDER BY created_at DESC LIMIT 50`;
 
     const patterns = await musicDB.rawQueryAll<Pattern>(query, ...params);
+    
+    // If no patterns in database, return mock data for demo
+    if (patterns.length === 0) {
+      const mockPatterns: Pattern[] = [
+        {
+          id: 1,
+          name: "Classic Amapiano Log Drum",
+          category: "drum_pattern",
+          genre: "amapiano",
+          patternData: { pattern: "x-.-x-x-.-x-.-", swing: 0.15 },
+          bpm: 115,
+          keySignature: "Cm",
+          bars: 4,
+          createdAt: new Date()
+        },
+        {
+          id: 2,
+          name: "Jazz-influenced Chord Progression",
+          category: "chord_progression", 
+          genre: "private_school_amapiano",
+          patternData: { chords: ["Cmaj9", "Am7", "Fmaj7", "G7sus4"] },
+          bpm: 110,
+          keySignature: "C",
+          bars: 4,
+          createdAt: new Date()
+        },
+        {
+          id: 3,
+          name: "Melodic Bass Line",
+          category: "bass_pattern",
+          genre: "amapiano", 
+          patternData: { notes: ["C2", "D2", "E2", "F2"] },
+          bpm: 115,
+          keySignature: "Cm",
+          bars: 8,
+          createdAt: new Date()
+        },
+        {
+          id: 4,
+          name: "Percussion Groove",
+          category: "drum_pattern",
+          genre: "amapiano",
+          patternData: { pattern: "x-x-x-x-x-x-x-x-", swing: 0.10 },
+          bpm: 115,
+          keySignature: "Cm",
+          bars: 2,
+          createdAt: new Date()
+        },
+        {
+          id: 5,
+          name: "Soulful Melody",
+          category: "melody",
+          genre: "amapiano",
+          patternData: { notes: ["C4", "D4", "E4", "G4", "A4"] },
+          bpm: 112,
+          keySignature: "C",
+          bars: 8,
+          createdAt: new Date()
+        }
+      ];
+      
+      return { patterns: mockPatterns.filter(p => 
+        (!req.genre || p.genre === req.genre) &&
+        (!req.category || p.category === req.category)
+      )};
+    }
 
     return { patterns };
   }
