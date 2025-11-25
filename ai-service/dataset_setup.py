@@ -8,16 +8,24 @@ import urllib.request
 import zipfile
 from pathlib import Path
 import logging
-from typing import Set, List
+from typing import Set, List, Dict
 import shutil
+import json
+import hashlib
+from tqdm import tqdm
+import time
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 MAGNATAGATUNE_URL = "https://mirg.city.ac.uk/datasets/magnatagatune/mp3.zip.001"
 ANNOTATIONS_URL = "https://mirg.city.ac.uk/datasets/magnatagatune/annotations_final.csv"
 DATASET_DIR = Path("./datasets/magnatagatune")
 OUTPUT_DIR = Path("./datasets/amapiano_proxy")
+CHECKPOINT_FILE = DATASET_DIR / "download_checkpoint.json"
 
 AMAPIANO_PROXY_TAGS = {
     'drums', 'percussion', 'beats', 'techno', 'electronic',
@@ -32,16 +40,78 @@ MIN_TAGS_MATCH = 3
 TARGET_CLIPS = 8000
 
 
+def download_with_progress(url: str, dest_path: Path, desc: str):
+    """Download file with progress bar"""
+    response = urllib.request.urlopen(url)
+    total_size = int(response.headers.get('content-length', 0))
+    
+    block_size = 8192
+    progress_bar = tqdm(total=total_size, unit='B', unit_scale=True, desc=desc)
+    
+    with open(dest_path, 'wb') as f:
+        while True:
+            buffer = response.read(block_size)
+            if not buffer:
+                break
+            f.write(buffer)
+            progress_bar.update(len(buffer))
+    
+    progress_bar.close()
+    logger.info(f"Downloaded: {dest_path}")
+
+
+def verify_file_checksum(file_path: Path, expected_md5: str = None) -> bool:
+    """Verify file integrity via MD5 checksum"""
+    if not expected_md5:
+        return True
+    
+    md5_hash = hashlib.md5()
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            md5_hash.update(chunk)
+    
+    actual_md5 = md5_hash.hexdigest()
+    return actual_md5 == expected_md5
+
+
+def save_checkpoint(stage: str, data: Dict):
+    """Save checkpoint for resume capability"""
+    checkpoint = {
+        'stage': stage,
+        'timestamp': time.time(),
+        'data': data
+    }
+    with open(CHECKPOINT_FILE, 'w') as f:
+        json.dump(checkpoint, f, indent=2)
+    logger.info(f"Checkpoint saved: {stage}")
+
+
+def load_checkpoint() -> Dict:
+    """Load checkpoint if exists"""
+    if CHECKPOINT_FILE.exists():
+        with open(CHECKPOINT_FILE, 'r') as f:
+            checkpoint = json.load(f)
+        logger.info(f"Loaded checkpoint: {checkpoint['stage']}")
+        return checkpoint
+    return None
+
+
 def download_dataset():
-    """Download MagnaTagATune dataset"""
+    """Download MagnaTagATune dataset with checkpointing"""
     DATASET_DIR.mkdir(parents=True, exist_ok=True)
+    
+    checkpoint = load_checkpoint()
     
     logger.info("Downloading MagnaTagATune annotations...")
     annotations_path = DATASET_DIR / "annotations_final.csv"
     
     if not annotations_path.exists():
-        urllib.request.urlretrieve(ANNOTATIONS_URL, str(annotations_path))
-        logger.info(f"Downloaded annotations to {annotations_path}")
+        download_with_progress(
+            ANNOTATIONS_URL, 
+            annotations_path,
+            "Annotations CSV"
+        )
+        save_checkpoint('annotations_downloaded', {'path': str(annotations_path)})
     else:
         logger.info("Annotations already downloaded")
     
@@ -98,7 +168,7 @@ def filter_amapiano_proxy_clips(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def create_training_subset(filtered_df: pd.DataFrame, audio_source_dir: Path):
-    """Create training subset by copying filtered audio files"""
+    """Create training subset by copying filtered audio files with progress tracking"""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
     audio_dir = OUTPUT_DIR / "audio"
@@ -106,8 +176,11 @@ def create_training_subset(filtered_df: pd.DataFrame, audio_source_dir: Path):
     
     metadata_rows = []
     copied_count = 0
+    skipped_count = 0
     
-    for idx, row in filtered_df.iterrows():
+    logger.info(f"Copying {len(filtered_df)} audio files...")
+    
+    for idx, row in tqdm(filtered_df.iterrows(), total=len(filtered_df), desc="Copying audio"):
         clip_id = row.get('clip_id', idx)
         
         mp3_path = row.get('mp3_path', f"{clip_id}.mp3")
@@ -130,20 +203,28 @@ def create_training_subset(filtered_df: pd.DataFrame, audio_source_dir: Path):
             })
             
             copied_count += 1
-            
-            if copied_count % 500 == 0:
-                logger.info(f"Copied {copied_count}/{len(filtered_df)} clips...")
         else:
-            logger.warning(f"Source file not found: {source_file}")
+            skipped_count += 1
+            if skipped_count <= 10:  # Only log first 10 missing files
+                logger.warning(f"Source file not found: {source_file}")
     
     metadata_df = pd.DataFrame(metadata_rows)
     metadata_path = OUTPUT_DIR / "training_metadata.csv"
     metadata_df.to_csv(metadata_path, index=False)
     
-    logger.info(f"Created training subset:")
-    logger.info(f"  - {copied_count} audio files in {audio_dir}")
+    logger.info(f"\nCreated training subset:")
+    logger.info(f"  - {copied_count} audio files copied")
+    logger.info(f"  - {skipped_count} files skipped (not found)")
     logger.info(f"  - Metadata saved to {metadata_path}")
     logger.info(f"  - Estimated total duration: {copied_count * 29 / 3600:.1f} hours")
+    logger.info(f"  - Average file size: ~1.2 MB (MP3 @ 128kbps)")
+    logger.info(f"  - Total dataset size: ~{copied_count * 1.2 / 1024:.1f} GB")
+    
+    save_checkpoint('subset_created', {
+        'clips_copied': copied_count,
+        'clips_skipped': skipped_count,
+        'metadata_path': str(metadata_path)
+    })
     
     return metadata_path
 
