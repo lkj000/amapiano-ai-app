@@ -21,10 +21,12 @@ logger = logging.getLogger(__name__)
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DATASET_DIR = Path("./datasets/amapiano_proxy")
-CHECKPOINT_DIR = Path("./checkpoints")
+CHECKPOINT_DIR = Path("./checkpoints/phase_2_5")
 LOGS_DIR = Path("./training_logs")
+LAST_CHECKPOINT = CHECKPOINT_DIR / "last.ckpt"
+BEST_CHECKPOINT = CHECKPOINT_DIR / "best_model.pt"
 
-CHECKPOINT_DIR.mkdir(exist_ok=True)
+CHECKPOINT_DIR.mkdir(exist_ok=True, parents=True)
 LOGS_DIR.mkdir(exist_ok=True)
 
 BATCH_SIZE = 8
@@ -191,12 +193,29 @@ def train_musicgen():
     
     metrics = TrainingMetrics(LOGS_DIR)
     
+    # Check for existing checkpoint (Spot instance resume)
+    start_epoch = 0
+    global_step = 0
+    best_loss = float('inf')
+    
+    if LAST_CHECKPOINT.exists():
+        logger.info(f"\n🔄 RESUMING from checkpoint: {LAST_CHECKPOINT}")
+        checkpoint = torch.load(LAST_CHECKPOINT, map_location=DEVICE)
+        model.lm.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        start_epoch = checkpoint['epoch'] + 1
+        global_step = checkpoint['global_step']
+        best_loss = checkpoint.get('best_loss', float('inf'))
+        logger.info(f"✅ Resumed from Epoch {start_epoch}, Step {global_step}")
+        logger.info(f"   Best loss so far: {best_loss:.4f}")
+    else:
+        logger.info("\n🆕 Starting fresh training (no checkpoint found)")
+    
     logger.info("\nStarting training...")
     logger.info("="*60)
     
-    global_step = 0
-    
-    for epoch in range(NUM_EPOCHS):
+    for epoch in range(start_epoch, NUM_EPOCHS):
         model.lm.train()
         epoch_loss = 0.0
         
@@ -247,6 +266,17 @@ def train_musicgen():
                         f"LR: {current_lr:.2e}"
                     )
                 
+                # Early divergence detection (first 48 hours)
+                if global_step < 1000:  # ~48 hours of training
+                    if torch.isnan(loss) or torch.isinf(loss):
+                        logger.error("🚨 ALERT: Loss is NaN or Inf! Training diverged!")
+                        logger.error(f"   Step: {global_step}, Epoch: {epoch+1}, Batch: {batch_idx}")
+                        raise RuntimeError("Training diverged - NaN/Inf loss detected")
+                    
+                    if loss.item() > 10.0 and global_step > 100:
+                        logger.warning("⚠️  WARNING: Loss unusually high (>10.0)")
+                        logger.warning("   Consider reducing learning rate if this persists")
+                
             except Exception as e:
                 logger.error(f"Error in batch {batch_idx}: {e}")
                 continue
@@ -254,18 +284,41 @@ def train_musicgen():
         avg_epoch_loss = epoch_loss / len(dataloader)
         logger.info(f"\nEpoch {epoch+1} completed - Avg Loss: {avg_epoch_loss:.4f}")
         
+        # Save last.ckpt EVERY epoch for Spot instance resilience
+        torch.save({
+            'epoch': epoch,
+            'global_step': global_step,
+            'model_state_dict': model.lm.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            'loss': avg_epoch_loss,
+            'best_loss': best_loss,
+        }, LAST_CHECKPOINT)
+        logger.info(f"💾 Saved last.ckpt (Spot resume enabled)")
+        
+        # Save best model if loss improved
+        if avg_epoch_loss < best_loss:
+            best_loss = avg_epoch_loss
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.lm.state_dict(),
+                'loss': best_loss,
+            }, BEST_CHECKPOINT)
+            logger.info(f"⭐ New best model! Loss: {best_loss:.4f}")
+        
+        # Save periodic numbered checkpoints
         if (epoch + 1) % SAVE_EVERY_N_EPOCHS == 0:
             checkpoint_path = CHECKPOINT_DIR / f"musicgen_amapiano_epoch_{epoch+1}.pt"
             
             torch.save({
-                'epoch': epoch + 1,
+                'epoch': epoch,
                 'model_state_dict': model.lm.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'scheduler_state_dict': scheduler.state_dict(),
                 'loss': avg_epoch_loss,
             }, checkpoint_path)
             
-            logger.info(f"Saved checkpoint: {checkpoint_path}")
+            logger.info(f"📦 Saved periodic checkpoint: {checkpoint_path}")
         
         metrics.save()
     

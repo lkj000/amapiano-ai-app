@@ -68,7 +68,26 @@ if torch.cuda.is_available():
     print(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
 else:
     print("WARNING: No GPU detected! Training will be extremely slow.")
+    exit(1)
 EOF
+
+if [ $? -ne 0 ]; then
+    echo "❌ GPU not available. Cannot proceed."
+    exit 1
+fi
+echo "✓ GPU verified"
+echo ""
+
+# Test log drum detector
+echo "Testing log drum detector (hallucination check)..."
+python3 test_log_drum_detector.py
+
+if [ $? -ne 0 ]; then
+    echo "❌ Log drum detector failed validation!"
+    echo "   Fix the detector before proceeding."
+    exit 1
+fi
+echo "✓ Log drum detector validated"
 echo ""
 
 # Setup auto-shutdown
