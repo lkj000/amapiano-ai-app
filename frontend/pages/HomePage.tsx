@@ -102,11 +102,12 @@ export default function HomePage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {features.map((feature, index) => (
-          <Link key={index} to={feature.link} className="block">
+        {features.map((feature, index) => {
+          const FeatureIcon = feature.icon;
+          return (<Link key={index} to={feature.link} className="block">
             <Card className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors cursor-pointer h-full flex flex-col">
               <CardHeader className="text-center">
-                <feature.icon className={`h-12 w-12 mx-auto ${feature.color}`} />
+                <FeatureIcon className={`h-12 w-12 mx-auto ${feature.color}`} />
                 <CardTitle className="text-white mt-4">{feature.title}</CardTitle>
               </CardHeader>
               <CardContent className="flex-grow">
@@ -115,8 +116,8 @@ export default function HomePage() {
                 </CardDescription>
               </CardContent>
             </Card>
-          </Link>
-        ))}
+          </Link>);
+        })}
       </div>
 
       {/* Research Highlights */}

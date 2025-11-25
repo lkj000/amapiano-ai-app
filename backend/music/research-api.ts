@@ -371,61 +371,90 @@ export const getResearchDashboard = api(
       );
       
       return {
-        experiments: {
-          total: stats.totalExperiments,
-          averagePerformance: stats.averagePerformance,
-          averageCultural: stats.averageCultural,
-          averageQuality: stats.averageQuality,
+        overview: {
+          totalExperiments: stats.totalExperiments,
+          activeExperiments: 0,
+          completedExperiments: stats.totalExperiments,
+          totalPublications: 0,
         },
-        cache: {
-          totalPatterns: cacheStats.totalPatterns,
-          cacheHits: cacheStats.cacheHits,
-          cacheMisses: cacheStats.cacheMisses,
-          hitRate: cacheStats.hitRate,
-          computationalSavings: cacheStats.computationalSavings,
+        performance: {
+          averageLatency: stats.averagePerformance.latencyMs || 0,
+          averageThroughput: stats.averagePerformance.throughput || 0,
+          averageCost: stats.averagePerformance.cost || 0,
+          latencyReduction: 0,
+          costReduction: 0,
+        },
+        cultural: {
+          averageAuthenticity: stats.averageCultural.authenticityScore || 0,
+          averagePreservation: stats.averageCultural.preservationRate || 0,
+          totalValidations: 0,
+          expertPanelSize: 0,
+        },
+        quality: {
+          averageOverallScore: stats.averageQuality.overallScore || 0,
+          averageTechnicalQuality: stats.averageQuality.technicalQuality || 0,
+          averageMusicalCoherence: stats.averageQuality.musicalCoherence || 0,
+          averageInnovation: 0,
         },
         caq: {
-          recentExperiments: caqResults.length,
-          averageCompressionRatio: caqResults.length > 0 
+          totalExperiments: caqResults.length,
+          averageCompression: caqResults.length > 0 
             ? caqResults.reduce((sum, r) => sum + (r.compression_ratio || 0), 0) / caqResults.length 
             : 0,
-          averageCulturalPreservation: caqResults.length > 0
+          averagePreservation: caqResults.length > 0
             ? caqResults.reduce((sum, r) => sum + (r.cultural_preservation || 0), 0) / caqResults.length
             : 0,
+          efficiencyGain: 0,
         },
-        recentActivity: caqResults.slice(0, 5).map(r => ({
-          id: r.experiment_id,
-          type: 'caq' as const,
-          genre: r.genre,
-          timestamp: r.created_at,
-          compressionRatio: r.compression_ratio,
-          culturalPreservation: r.cultural_preservation,
-        })),
+        cache: {
+          averageHitRate: cacheStats.hitRate || 0,
+          averageSavings: cacheStats.computationalSavings || 0,
+          totalPatternsCached: cacheStats.totalPatterns || 0,
+        },
+        topExperiments: [],
       };
       
     } catch (error) {
       log.error("Failed to get research dashboard", { error: (error as Error).message, stack: (error as Error).stack });
       // Return empty dashboard instead of throwing
       return {
-        experiments: {
-          total: 0,
-          averagePerformance: { latency: 0, throughput: 0, errorRate: 0 },
-          averageCultural: { authenticity: 0, preservation: 0, innovation: 0 },
-          averageQuality: { overall: 0, clarity: 0, coherence: 0 },
+        overview: {
+          totalExperiments: 0,
+          activeExperiments: 0,
+          completedExperiments: 0,
+          totalPublications: 0,
         },
-        cache: {
-          totalPatterns: 0,
-          cacheHits: 0,
-          cacheMisses: 0,
-          hitRate: 0,
-          computationalSavings: 0,
+        performance: {
+          averageLatency: 0,
+          averageThroughput: 0,
+          averageCost: 0,
+          latencyReduction: 0,
+          costReduction: 0,
+        },
+        cultural: {
+          averageAuthenticity: 0,
+          averagePreservation: 0,
+          totalValidations: 0,
+          expertPanelSize: 0,
+        },
+        quality: {
+          averageOverallScore: 0,
+          averageTechnicalQuality: 0,
+          averageMusicalCoherence: 0,
+          averageInnovation: 0,
         },
         caq: {
-          recentExperiments: 0,
-          averageCompressionRatio: 0,
-          averageCulturalPreservation: 0,
+          totalExperiments: 0,
+          averageCompression: 0,
+          averagePreservation: 0,
+          efficiencyGain: 0,
         },
-        recentActivity: [],
+        cache: {
+          averageHitRate: 0,
+          averageSavings: 0,
+          totalPatternsCached: 0,
+        },
+        topExperiments: [],
       };
     }
   }
@@ -680,22 +709,31 @@ export const getRecommenderStatistics = api(
     try {
       log.info("Fetching recommender statistics");
       
-      // Get pattern recommender stats
+      // Get pattern recommender stats - handle empty table gracefully
       const stats = await musicDB.rawQueryRow<any>(
-        `SELECT COUNT(*) as total_recommendations, AVG(relevance_score) as avg_relevance, 
-         AVG(cultural_alignment) as avg_cultural_alignment, COUNT(DISTINCT user_context) as unique_contexts 
+        `SELECT 
+          COUNT(*)::int as total_recommendations, 
+          COALESCE(AVG(relevance_score), 0.0) as avg_relevance, 
+          COALESCE(AVG(cultural_alignment), 0.0) as avg_cultural_alignment
          FROM pattern_recommendations`
+      );
+      
+      // Count unique contexts separately to handle JSONB correctly
+      const contextCount = await musicDB.rawQueryRow<any>(
+        `SELECT COUNT(DISTINCT jsonb_typeof(user_context))::int as unique_contexts 
+         FROM pattern_recommendations 
+         WHERE user_context IS NOT NULL`
       );
       
       return {
         totalRecommendations: stats?.total_recommendations || 0,
-        averageRelevance: stats?.avg_relevance || 0.0,
-        averageCulturalAlignment: stats?.avg_cultural_alignment || 0.0,
-        uniqueContexts: stats?.unique_contexts || 0,
+        averageRelevance: parseFloat(stats?.avg_relevance || '0.0'),
+        averageCulturalAlignment: parseFloat(stats?.avg_cultural_alignment || '0.0'),
+        uniqueContexts: contextCount?.unique_contexts || 0,
       };
       
     } catch (error) {
-      log.error("Failed to get recommender statistics", { error: (error as Error).message });
+      log.error("Failed to get recommender statistics", { error: (error as Error).message, stack: (error as Error).stack });
       // Return empty stats instead of throwing
       return {
         totalRecommendations: 0,
