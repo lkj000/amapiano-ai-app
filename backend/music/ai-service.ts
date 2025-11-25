@@ -167,8 +167,20 @@ export class AIService {
       // Parse prompt and extract musical parameters
       const musicalParams = await this.parsePromptToMusicalParams(request);
       
-      // Generate base audio using AI model
-      const baseAudio = await this.generateBaseAudio(musicalParams);
+      // Try GPU service if available, fallback to mock
+      let baseAudio: Buffer;
+      const useGPUService = process.env.AI_SERVICE_URL !== undefined;
+      
+      if (useGPUService) {
+        try {
+          baseAudio = await this.generateWithGPUService(request, musicalParams);
+        } catch (gpuError) {
+          log.warn("GPU service unavailable, using mock generation", { error: (gpuError as Error).message });
+          baseAudio = await this.generateBaseAudio(musicalParams);
+        }
+      } else {
+        baseAudio = await this.generateBaseAudio(musicalParams);
+      }
       
       // Apply genre-specific styling
       const styledAudio = await this.applyAmapianStyling(baseAudio, request);
@@ -189,13 +201,15 @@ export class AIService {
         duration: musicalParams.duration,
         culturalAuthenticity: culturalValidation?.authenticityScore,
         qualityTier: request.qualityTier || 'standard',
-        generationTime: Date.now()
+        generationTime: Date.now(),
+        generationMethod: useGPUService ? 'gpu_service' : 'mock'
       };
 
       log.info("AI music generation completed", {
         duration: metadata.duration,
         culturalScore: culturalValidation?.authenticityScore,
-        qualityTier: metadata.qualityTier
+        qualityTier: metadata.qualityTier,
+        method: metadata.generationMethod
       });
 
       return {
@@ -208,6 +222,63 @@ export class AIService {
       log.error("AI music generation failed", { error: (error as Error).message, request });
       throw APIError.internal("Failed to generate music with AI");
     }
+  }
+
+  private async generateWithGPUService(request: MusicGenerationRequest, params: any): Promise<Buffer> {
+    const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    
+    log.info("Calling GPU service for audio generation", { url: AI_SERVICE_URL });
+    
+    // Submit generation job
+    const response = await fetch(`${AI_SERVICE_URL}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: request.prompt,
+        genre: request.genre,
+        duration: params.duration,
+        cultural_authenticity: request.culturalAuthenticity || 'traditional',
+        quality_tier: request.qualityTier || 'professional',
+        temperature: 0.8,
+        top_k: 250
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`GPU service returned ${response.status}`);
+    }
+    
+    const result = await response.json() as { job_id: string };
+    log.info("Generation job submitted", { job_id: result.job_id });
+    
+    // Poll for completion
+    return await this.pollGPUJobCompletion(result.job_id);
+  }
+
+  private async pollGPUJobCompletion(jobId: string, maxAttempts: number = 60): Promise<Buffer> {
+    const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s between checks
+      
+      const statusResponse = await fetch(`${AI_SERVICE_URL}/status/${jobId}`);
+      const status = await statusResponse.json() as { status: string; result_url?: string; error?: string; progress?: number };
+      
+      log.info("GPU job status", { jobId, status: status.status, progress: status.progress });
+      
+      if (status.status === 'completed' && status.result_url) {
+        // Download the generated audio
+        const audioResponse = await fetch(`${AI_SERVICE_URL}${status.result_url}`);
+        const arrayBuffer = await audioResponse.arrayBuffer();
+        return Buffer.from(arrayBuffer);
+      }
+      
+      if (status.status === 'failed') {
+        throw new Error(`GPU generation failed: ${status.error || 'Unknown error'}`);
+      }
+    }
+    
+    throw new Error('GPU generation timeout - exceeded maximum wait time');
   }
 
   async analyzeAudio(request: AudioAnalysisRequest): Promise<{

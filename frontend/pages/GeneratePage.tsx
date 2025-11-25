@@ -13,6 +13,8 @@ import { Radio, Play, Download, Layers, Sparkles, AlertCircle, CheckCircle, Paus
 import backend from '~backend/client';
 import type { GenerateTrackRequest, GenerateLoopRequest } from '~backend/music/generate';
 import type { AnalyzeAudioRequest, AnalyzeAudioResponse } from '~backend/music/analyze';
+import { useAudioEngine } from '@/hooks/useAudioEngine';
+import { AudioRecorder } from '@/utils/audioUtils';
 
 export default function GeneratePage() {
   const { toast } = useToast();

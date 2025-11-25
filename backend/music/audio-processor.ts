@@ -42,29 +42,122 @@ export class RealAudioProcessor {
 
   async separateStems(audioBuffer: Buffer): Promise<StemSeparationResult> {
     try {
-      log.info("Starting real stem separation with Demucs");
+      log.info("Starting stem separation");
 
-      // Create temporary files
-      const inputPath = join(this.tempDir, `input_${Date.now()}.wav`);
-      const outputDir = join(this.tempDir, `stems_${Date.now()}`);
+      // Try GPU service first if available
+      const useGPUService = process.env.AI_SERVICE_URL !== undefined;
+      
+      if (useGPUService) {
+        try {
+          return await this.separateWithGPUService(audioBuffer);
+        } catch (gpuError) {
+          log.warn("GPU stem separation unavailable, trying local Demucs", { error: (gpuError as Error).message });
+        }
+      }
 
-      // Write input audio to temporary file
-      await fs.writeFile(inputPath, audioBuffer);
-      await fs.mkdir(outputDir, { recursive: true });
-
-      // Run Demucs stem separation
-      const stems = await this.runDemucs(inputPath, outputDir);
-
-      // Clean up temporary input file
-      await fs.unlink(inputPath);
-
-      return stems;
+      // Try local Demucs as fallback
+      try {
+        return await this.separateWithLocalDemucs(audioBuffer);
+      } catch (demucsError) {
+        log.warn("Local Demucs unavailable, using mock", { error: (demucsError as Error).message });
+        return this.mockStemSeparation();
+      }
 
     } catch (error) {
-      log.error("Real stem separation failed", { error: (error as Error).message });
-      // Fallback to mock implementation for now
+      log.error("Stem separation failed", { error: (error as Error).message });
       return this.mockStemSeparation();
     }
+  }
+
+  private async separateWithGPUService(audioBuffer: Buffer): Promise<StemSeparationResult> {
+    const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    
+    log.info("Using GPU service for stem separation");
+    
+    // Create form data
+    const formData = new FormData();
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
+    formData.append('file', audioBlob, 'audio.wav');
+    formData.append('enhanced_processing', 'true');
+    
+    // Submit separation job
+    const response = await fetch(`${AI_SERVICE_URL}/separate-stems`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`GPU service returned ${response.status}`);
+    }
+    
+    const result = await response.json() as { job_id: string };
+    log.info("Stem separation job submitted", { job_id: result.job_id });
+    
+    // Poll for completion
+    return await this.pollGPUStemCompletion(result.job_id);
+  }
+
+  private async pollGPUStemCompletion(jobId: string, maxAttempts: number = 60): Promise<StemSeparationResult> {
+    const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const statusResponse = await fetch(`${AI_SERVICE_URL}/status/${jobId}`);
+      const status = await statusResponse.json() as { status: string; stems?: Record<string, string>; error?: string; progress?: number };
+      
+      log.info("GPU stem job status", { jobId, status: status.status, progress: status.progress });
+      
+      if (status.status === 'completed' && status.stems) {
+        // Download all stems
+        const stems: StemSeparationResult = {
+          drums: Buffer.alloc(0),
+          bass: Buffer.alloc(0),
+          piano: Buffer.alloc(0),
+          vocals: Buffer.alloc(0),
+          other: Buffer.alloc(0)
+        };
+        
+        for (const [stemName, stemUrl] of Object.entries(status.stems)) {
+          const stemResponse = await fetch(`${AI_SERVICE_URL}${stemUrl}`);
+          const arrayBuffer = await stemResponse.arrayBuffer();
+          stems[stemName as keyof StemSeparationResult] = Buffer.from(arrayBuffer);
+        }
+        
+        // Map 'other' stem to 'piano' for amapiano-specific needs
+        if (stems.other.length > 0 && stems.piano.length === 0) {
+          stems.piano = stems.other;
+        }
+        
+        return stems;
+      }
+      
+      if (status.status === 'failed') {
+        throw new Error(`GPU stem separation failed: ${status.error || 'Unknown error'}`);
+      }
+    }
+    
+    throw new Error('GPU stem separation timeout');
+  }
+
+  private async separateWithLocalDemucs(audioBuffer: Buffer): Promise<StemSeparationResult> {
+    log.info("Starting local Demucs stem separation");
+
+    // Create temporary files
+    const inputPath = join(this.tempDir, `input_${Date.now()}.wav`);
+    const outputDir = join(this.tempDir, `stems_${Date.now()}`);
+
+    // Write input audio to temporary file
+    await fs.writeFile(inputPath, audioBuffer);
+    await fs.mkdir(outputDir, { recursive: true });
+
+    // Run Demucs stem separation
+    const stems = await this.runDemucs(inputPath, outputDir);
+
+    // Clean up temporary input file
+    await fs.unlink(inputPath);
+
+    return stems;
   }
 
   private async runDemucs(inputPath: string, outputDir: string): Promise<StemSeparationResult> {

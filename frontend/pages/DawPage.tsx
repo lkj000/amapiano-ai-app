@@ -29,6 +29,7 @@ import PluginPanel from '../components/daw/PluginPanel';
 import TemplatesSuggestions from '../components/plugin/TemplatesSuggestions';
 import { useAudioEngine } from '../hooks/useAudioEngine';
 import { useCollaboration } from '../hooks/useCollaboration';
+import { AIAudioGenerator } from '@/components/AIAudioGenerator';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
