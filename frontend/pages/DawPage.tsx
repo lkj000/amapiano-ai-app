@@ -161,7 +161,22 @@ export default function DawPage() {
 
   // Audio Engine
   const audioEngine = useAudioEngine();
-  const { state, play, pause, stop, setBpm } = audioEngine;
+  const { state, play, pause, stop, setBpm, setTrackVolume } = audioEngine;
+  
+  // Stub implementations for features not yet in simplified audio engine
+  const startRecording = async () => { console.log('Recording not yet implemented'); };
+  const stopRecording = async () => { console.log('Recording not yet implemented'); return new Blob(); };
+  const setMasterVolume = (vol: number) => { console.log('Master volume:', vol); };
+  const playClip = (clip: DawClip) => { console.log('Play clip:', clip.name); };
+  
+  const isPlaying = state.isPlaying;
+  const currentTime = state.currentTime;
+  const seek = (time: number) => { console.log('Seek to:', time); };
+  const isLooping = false;
+  const setIsLooping = (loop: boolean) => { console.log('Set looping:', loop); };
+  const volumeLevels = {};
+  const masterVolumeLevel = 0.8;
+  const audioContext = null;
 
   // Dragging state
   const [draggingClip, setDraggingClip] = useState<{ clipId: string; trackId: string; initialX: number; initialStartTime: number; } | null>(null);
@@ -293,7 +308,7 @@ export default function DawPage() {
     setProjectData(prev => {
       if (!prev) return null;
       const newTracks = prev.tracks.map(t => t.id === trackId ? { ...t, mixer: { ...t.mixer, ...updates } } : t);
-      if (updates.volume !== undefined) setTrackVolume(trackId, updates.volume);
+      if (updates.volume !== undefined && setTrackVolume) setTrackVolume(trackId, updates.volume);
       return { ...prev, tracks: newTracks };
     });
     sendChange({ type: 'MIXER_UPDATE', payload: { trackId, updates } });
@@ -755,8 +770,8 @@ export default function DawPage() {
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={isPlaying ? pause : play}>{isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}</Button>
                   <Button variant="outline" size="sm" onClick={stop}><Square className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" onClick={() => seek(t => t - 5)}><SkipBack className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" onClick={() => seek(t => t + 5)}><SkipForward className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="sm" onClick={() => seek(currentTime - 5)}><SkipBack className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="sm" onClick={() => seek(currentTime + 5)}><SkipForward className="w-4 h-4" /></Button>
                   <Button variant="outline" size="sm" onClick={() => setIsLooping(!isLooping)} className={isLooping ? 'bg-primary/20 text-primary' : ''}><RotateCcw className="w-4 h-4" /></Button>
                 </div>
                 <div className="flex items-center gap-4">
@@ -786,7 +801,7 @@ export default function DawPage() {
               <SessionView tracks={projectData.tracks} onPlayClip={(trackId, clipId) => {
                 const track = projectData.tracks.find(t => t.id === trackId);
                 const clip = track?.clips.find(c => c.id === clipId);
-                if (track && clip) playClip(clip, track);
+                if (track && clip) playClip(clip);
               }} />
             ) : (
               <div className="h-full flex">
@@ -860,7 +875,7 @@ export default function DawPage() {
       {/* Modals and Panels */}
       <OpenProjectModal isOpen={isOpenProjectOpen} onClose={() => setIsOpenProjectOpen(false)} onLoadProject={setActiveProjectId} />
       {projectData && <ProjectSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} projectData={projectData} onSave={handleUpdateProjectSettings} />}
-      {showMixer && projectData && <MixerPanel tracks={projectData.tracks} masterVolume={projectData.masterVolume} volumeLevels={volumeLevels} masterVolumeLevel={masterVolumeLevel} onClose={() => setShowMixer(false)} onTrackVolumeChange={(trackId, volume) => updateMixer(trackId, { volume })} onMasterVolumeChange={(volume) => { setProjectData({ ...projectData, masterVolume: volume }); setMasterVolume(volume); }} />}
+      {showMixer && projectData && <MixerPanel tracks={projectData.tracks} masterVolume={projectData.masterVolume} volumeLevels={new Map()} masterVolumeLevel={masterVolumeLevel} onClose={() => setShowMixer(false)} onTrackVolumeChange={(trackId, volume) => updateMixer(trackId, { volume })} onMasterVolumeChange={(volume) => { setProjectData({ ...projectData, masterVolume: volume }); setMasterVolume(volume); }} />}
       {showPianoRoll && <PianoRollPanel selectedTrack={selectedTrack} onClose={() => setShowPianoRoll(false)} onUpdateNotes={handleUpdateNotes} audioContext={audioContext} />}
       {showEffectsPanel && <EffectsPanel selectedTrack={selectedTrack} onClose={() => setShowEffectsPanel(false)} onUpdateEffectParam={handleUpdateEffectParam} />}
       {showSampleBrowser && <SampleBrowserPanel onClose={() => setShowSampleBrowser(false)} />}

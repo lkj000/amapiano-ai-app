@@ -53,14 +53,14 @@ export const useAudioEngine = (): AudioEngine => {
       Tone.context.lookAhead = LOOK_AHEAD;
       
       // Calculate total latency for visual compensation
-      const baseLatency = Tone.context.baseLatency || 0;
-      const outputLatency = Tone.context.outputLatency || 0;
+      const baseLatency = (Tone.context as any).baseLatency || 0;
+      const outputLatency = (Tone.context as any).outputLatency || 0;
       const totalLatency = baseLatency + outputLatency + LOOK_AHEAD;
       
       console.log(`Audio latency: ${(totalLatency * 1000).toFixed(1)}ms (base: ${(baseLatency * 1000).toFixed(1)}ms, output: ${(outputLatency * 1000).toFixed(1)}ms, lookahead: ${(LOOK_AHEAD * 1000).toFixed(1)}ms)`);
       
       // Update UI with latency-compensated time
-      Tone.Transport.scheduleRepeat((time) => {
+      Tone.Transport.scheduleRepeat(() => {
         // Compensate for audio latency in visual display
         const visualTime = Math.max(0, Tone.Transport.seconds - totalLatency);
         

@@ -409,9 +409,9 @@ export default function PatternsPage() {
 
                 <div>
                   <div className="text-white text-sm font-medium mb-2">Creative Goal</div>
-                  <Select value={creativeGoal} onValueChange={(value: any) => setCreativeGoal(value)}>
+                  <Select value={creativeGoal} onValueChange={(value: any) => { setCreativeGoal(value); }}>
                     <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                      <SelectValue />
+                      <SelectValue placeholder="Select goal" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="learning">Learning & Education</SelectItem>
