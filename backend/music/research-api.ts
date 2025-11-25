@@ -334,21 +334,41 @@ export const getResearchDashboard = api(
     try {
       log.info("Fetching research dashboard data");
       
-      // Get aggregate statistics
-      const collector = getMetricsCollector();
-      const stats = collector.getAggregateStatistics();
+      // Get aggregate statistics with fallback
+      let stats;
+      try {
+        const collector = getMetricsCollector();
+        stats = collector.getAggregateStatistics();
+      } catch (err) {
+        log.warn("Metrics collector not available, using defaults");
+        stats = {
+          totalExperiments: 0,
+          averagePerformance: { latency: 0, throughput: 0, errorRate: 0 },
+          averageCultural: { authenticity: 0, preservation: 0, innovation: 0 },
+          averageQuality: { overall: 0, clarity: 0, coherence: 0 }
+        };
+      }
       
-      // Get cache statistics
-      const cache = getPatternCache();
-      const cacheStats = cache.getStatistics();
+      // Get cache statistics with fallback
+      let cacheStats;
+      try {
+        const cache = getPatternCache();
+        cacheStats = cache.getStatistics();
+      } catch (err) {
+        log.warn("Pattern cache not available, using defaults");
+        cacheStats = {
+          totalPatterns: 0,
+          cacheHits: 0,
+          cacheMisses: 0,
+          hitRate: 0,
+          computationalSavings: 0
+        };
+      }
       
       // Get recent CAQ experiments
       const caqResults = await musicDB.rawQueryAll<any>(
         `SELECT * FROM caq_experiments ORDER BY created_at DESC LIMIT 10`
       );
-      
-      // Get recent quality assessments
-      const qualityEngine = getQualityEngine();
       
       return {
         experiments: {
@@ -384,8 +404,29 @@ export const getResearchDashboard = api(
       };
       
     } catch (error) {
-      log.error("Failed to get research dashboard", { error: (error as Error).message });
-      throw APIError.internal("Failed to get research dashboard");
+      log.error("Failed to get research dashboard", { error: (error as Error).message, stack: (error as Error).stack });
+      // Return empty dashboard instead of throwing
+      return {
+        experiments: {
+          total: 0,
+          averagePerformance: { latency: 0, throughput: 0, errorRate: 0 },
+          averageCultural: { authenticity: 0, preservation: 0, innovation: 0 },
+          averageQuality: { overall: 0, clarity: 0, coherence: 0 },
+        },
+        cache: {
+          totalPatterns: 0,
+          cacheHits: 0,
+          cacheMisses: 0,
+          hitRate: 0,
+          computationalSavings: 0,
+        },
+        caq: {
+          recentExperiments: 0,
+          averageCompressionRatio: 0,
+          averageCulturalPreservation: 0,
+        },
+        recentActivity: [],
+      };
     }
   }
 );
@@ -552,14 +593,34 @@ export const getResearchTimeSeries = api(
   { expose: true, method: "GET", path: "/research/dashboard/timeseries" },
   async ({ days = 30 }: { days?: number }) => {
     try {
-      const dashboardService = getDashboardService();
-      const timeSeries = await dashboardService.getTimeSeriesData(days);
+      log.info("Fetching research time series", { days });
       
-      return timeSeries;
+      try {
+        const dashboardService = getDashboardService();
+        const timeSeries = await dashboardService.getTimeSeriesData(days);
+        return timeSeries;
+      } catch (err) {
+        log.warn("Dashboard service not available, returning empty time series");
+        // Return empty time series data
+        return {
+          dates: [],
+          experiments: [],
+          cacheHits: [],
+          qualityScores: [],
+          culturalScores: []
+        };
+      }
       
     } catch (error) {
       log.error("Failed to get time series", { error: (error as Error).message });
-      throw APIError.internal("Failed to get time series data");
+      // Return empty data instead of throwing
+      return {
+        dates: [],
+        experiments: [],
+        cacheHits: [],
+        qualityScores: [],
+        culturalScores: []
+      };
     }
   }
 );
