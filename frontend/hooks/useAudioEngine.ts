@@ -11,6 +11,7 @@ export interface AudioEngineState {
   currentTime: number;
   bpm: number;
   isInitialized: boolean;
+  audioLatency?: number;
 }
 
 export interface AudioEngine {
@@ -50,14 +51,27 @@ export const useAudioEngine = (): AudioEngine => {
       
       Tone.context.latencyHint = LATENCY_HINT;
       Tone.context.lookAhead = LOOK_AHEAD;
+      
+      // Calculate total latency for visual compensation
+      const baseLatency = Tone.context.baseLatency || 0;
+      const outputLatency = Tone.context.outputLatency || 0;
+      const totalLatency = baseLatency + outputLatency + LOOK_AHEAD;
+      
+      console.log(`Audio latency: ${(totalLatency * 1000).toFixed(1)}ms (base: ${(baseLatency * 1000).toFixed(1)}ms, output: ${(outputLatency * 1000).toFixed(1)}ms, lookahead: ${(LOOK_AHEAD * 1000).toFixed(1)}ms)`);
+      
+      // Update UI with latency-compensated time
       Tone.Transport.scheduleRepeat((time) => {
+        // Compensate for audio latency in visual display
+        const visualTime = Math.max(0, Tone.Transport.seconds - totalLatency);
+        
         setState(prev => ({
           ...prev,
-          currentTime: Tone.Transport.seconds
+          currentTime: visualTime,
+          audioLatency: totalLatency
         }));
       }, UPDATE_INTERVAL);
       
-      console.log('Tone.js audio context started with optimized latency settings');
+      console.log('Tone.js audio context started with latency-compensated playhead');
       
       // Create master channel
       if (!masterChannelRef.current) {

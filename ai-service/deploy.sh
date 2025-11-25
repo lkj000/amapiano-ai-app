@@ -182,20 +182,66 @@ echo "AI Service URL: http://${PUBLIC_IP}:8000"
 echo "Health Check: http://${PUBLIC_IP}:8000/health"
 echo "API Docs: http://${PUBLIC_IP}:8000/docs"
 echo ""
-echo "Next Steps:"
-echo "1. Test the service: curl http://${PUBLIC_IP}:8000/health"
-echo "2. Set environment variable in backend:"
-echo "   export AI_SERVICE_URL=http://${PUBLIC_IP}:8000"
-echo "3. Test generation endpoint"
-echo "4. Validate with AURA-X cultural scoring"
+echo "Instance ID: $INSTANCE_ID"
+echo "Public IP: $PUBLIC_IP"
 echo ""
-echo "Cost: ~\$0.80/hour (g4dn.xlarge)"
+echo "⚠️  CRITICAL: GPU COST CONTROL"
+echo "=================================================="
+echo "Cost: \$0.80/hour (g4dn.xlarge)"
 echo "Monthly (24/7): ~\$580"
+echo "Daily (24 hours): ~\$19.20"
 echo ""
-echo "To stop instance when not in use:"
-echo "  aws ec2 stop-instances --instance-ids $INSTANCE_ID --region $REGION"
+echo "🛑 ALWAYS STOP WHEN NOT IN USE:"
+echo "  ./stop-gpu.sh"
+echo "  (or manually: aws ec2 stop-instances --instance-ids $INSTANCE_ID --region $REGION)"
 echo ""
-echo "To SSH into instance:"
-echo "  ssh -i ~/.ssh/${KEY_NAME}.pem ubuntu@${PUBLIC_IP}"
+echo "✅ Auto-shutdown has been configured:"
+echo "  - Idle timeout: 2 hours of no API calls"
+echo "  - CloudWatch alarm will stop instance automatically"
+echo "  - Email alert sent to: ${ALERT_EMAIL:-"(not configured)"}"
+echo ""
+echo "To disable auto-shutdown (for training runs):"
+echo "  ssh ubuntu@${PUBLIC_IP} 'sudo systemctl stop idle-shutdown.timer'"
+echo ""
+echo "=================================================="
+echo ""
+
+# Save instance details for easy access
+cat > .gpu-instance << EOF
+INSTANCE_ID=$INSTANCE_ID
+PUBLIC_IP=$PUBLIC_IP
+REGION=$REGION
+DEPLOYED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+EOF
+
+# Create convenience stop script
+cat > stop-gpu.sh << 'STOP_SCRIPT'
+#!/bin/bash
+source .gpu-instance
+echo "Stopping GPU instance: $INSTANCE_ID"
+aws ec2 stop-instances --instance-ids $INSTANCE_ID --region $REGION
+echo "Instance stopped. Restart with: ./start-gpu.sh"
+STOP_SCRIPT
+
+chmod +x stop-gpu.sh
+
+# Create convenience start script
+cat > start-gpu.sh << 'START_SCRIPT'
+#!/bin/bash
+source .gpu-instance
+echo "Starting GPU instance: $INSTANCE_ID"
+aws ec2 start-instances --instance-ids $INSTANCE_ID --region $REGION
+echo "Waiting for instance to start..."
+aws ec2 wait instance-running --instance-ids $INSTANCE_ID --region $REGION
+NEW_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --region $REGION --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+echo "Instance started at: http://$NEW_IP:8000"
+echo "Update AI_SERVICE_URL to: http://$NEW_IP:8000"
+START_SCRIPT
+
+chmod +x start-gpu.sh
+
+echo "Convenience scripts created:"
+echo "  ./stop-gpu.sh  - Stop instance (saves money)"
+echo "  ./start-gpu.sh - Restart instance"
 echo ""
 echo "=================================================="

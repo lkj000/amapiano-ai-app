@@ -159,12 +159,17 @@ class StreamGenerationRequest(BaseModel):
 async def detect_amapiano_log_drums(drum_stem: torch.Tensor, sample_rate: int) -> Optional[torch.Tensor]:
     """
     Detect and isolate Amapiano-specific log drum patterns from drum stem
-    Uses spectral analysis to identify characteristic log drum frequencies (50-150 Hz)
+    
+    Log drums have 3 key characteristics:
+    1. Frequency: 50-150 Hz (fundamental)
+    2. Decay: Woody decay (300-600ms) vs tight kick (50-150ms)
+    3. Harmonics: Fewer overtones than bass guitar (spectral slope)
     """
     try:
         if drum_stem.dim() == 1:
             drum_stem = drum_stem.unsqueeze(0)
         
+        # STFT for frequency analysis
         stft = torch.stft(
             drum_stem,
             n_fft=2048,
@@ -175,19 +180,37 @@ async def detect_amapiano_log_drums(drum_stem: torch.Tensor, sample_rate: int) -
         
         magnitude = torch.abs(stft)
         
+        # Criterion 1: Frequency range (50-150 Hz)
         freq_bins = torch.fft.rfftfreq(2048, 1/sample_rate)
         log_drum_mask = (freq_bins >= 50) & (freq_bins <= 150)
         
         log_drum_energy = magnitude[:, log_drum_mask, :].sum(dim=1)
         total_energy = magnitude.sum(dim=1)
+        energy_ratio = log_drum_energy / (total_energy + 1e-8)
         
-        log_drum_ratio = log_drum_energy / (total_energy + 1e-8)
+        # Criterion 2: Decay envelope analysis (log drums = "woody" decay)
+        onset_frames = detect_onsets(magnitude, sample_rate)
+        avg_decay_time = analyze_decay_envelope(drum_stem, onset_frames, sample_rate)
         
-        avg_log_drum_ratio = log_drum_ratio.mean()
+        # Log drums: 300-600ms decay, Kicks: 50-150ms, Bass: sustained
+        is_log_drum_decay = 0.3 < avg_decay_time < 0.6
         
-        if avg_log_drum_ratio > 0.15:
+        # Criterion 3: Harmonic content (log drums have sparse overtones)
+        spectral_slope = calculate_spectral_slope(magnitude, freq_bins)
+        is_log_drum_harmonics = spectral_slope < -30  # dB/octave (steep rolloff)
+        
+        # Combined decision
+        avg_energy_ratio = energy_ratio.mean()
+        log_drum_confidence = (
+            (avg_energy_ratio > 0.15) * 0.4 +
+            is_log_drum_decay * 0.4 +
+            is_log_drum_harmonics * 0.2
+        )
+        
+        if log_drum_confidence > 0.65:  # 65% threshold
+            # Extract log drum audio
             filtered_stft = stft.clone()
-            filtered_stft[:, ~log_drum_mask, :] *= 0.3
+            filtered_stft[:, ~log_drum_mask, :] *= 0.2  # Aggressive filtering
             
             log_drum_audio = torch.istft(
                 filtered_stft,
@@ -196,15 +219,73 @@ async def detect_amapiano_log_drums(drum_stem: torch.Tensor, sample_rate: int) -
                 win_length=2048
             )
             
-            logger.info(f"Detected log drum presence: {avg_log_drum_ratio:.2%}")
+            logger.info(f"Detected log drums: confidence={log_drum_confidence:.2%}, decay={avg_decay_time:.3f}s")
             return log_drum_audio
         else:
-            logger.info(f"No significant log drum presence detected: {avg_log_drum_ratio:.2%}")
+            logger.info(f"Not log drums: confidence={log_drum_confidence:.2%} (kick/bass detected)")
             return None
             
     except Exception as e:
         logger.error(f"Log drum detection failed: {e}")
         return None
+
+
+def detect_onsets(magnitude: torch.Tensor, sample_rate: int) -> torch.Tensor:
+    """Detect percussion onsets using spectral flux"""
+    spectral_flux = torch.diff(magnitude, dim=-1)
+    spectral_flux = torch.relu(spectral_flux)  # Only increases
+    onset_strength = spectral_flux.sum(dim=1)
+    
+    # Peak picking
+    threshold = onset_strength.mean() + 2 * onset_strength.std()
+    onset_frames = torch.where(onset_strength > threshold)[0]
+    
+    return onset_frames
+
+
+def analyze_decay_envelope(audio: torch.Tensor, onset_frames: torch.Tensor, sample_rate: int) -> float:
+    """Measure average decay time after onsets"""
+    hop_length = 512
+    decay_times = []
+    
+    for onset_frame in onset_frames[:10]:  # Analyze first 10 hits
+        onset_sample = int(onset_frame * hop_length)
+        
+        # Extract 1 second after onset
+        segment = audio[:, onset_sample:onset_sample + sample_rate]
+        if segment.shape[1] < sample_rate // 2:
+            continue
+        
+        # Calculate envelope (RMS)
+        envelope = torch.sqrt(torch.mean(segment ** 2, dim=0))
+        
+        # Find decay to -20dB
+        peak = envelope.max()
+        decay_threshold = peak * 0.1  # -20dB
+        
+        decay_idx = torch.where(envelope < decay_threshold)[0]
+        if len(decay_idx) > 0:
+            decay_time = decay_idx[0].item() / sample_rate
+            decay_times.append(decay_time)
+    
+    return sum(decay_times) / len(decay_times) if decay_times else 0.0
+
+
+def calculate_spectral_slope(magnitude: torch.Tensor, freq_bins: torch.Tensor) -> float:
+    """Calculate spectral slope (dB/octave) to detect harmonic richness"""
+    # Average magnitude spectrum
+    avg_spectrum = magnitude.mean(dim=-1).mean(dim=0)
+    
+    # Convert to dB
+    spectrum_db = 20 * torch.log10(avg_spectrum + 1e-8)
+    
+    # Calculate slope in dB per octave (log frequency)
+    log_freq = torch.log2(freq_bins[1:] + 1e-8)
+    
+    # Linear regression
+    slope = torch.polyfit(log_freq, spectrum_db[1:], deg=1)[0]
+    
+    return slope.item()
 
 # ===== CULTURAL ENHANCEMENT =====
 
