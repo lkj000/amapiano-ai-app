@@ -148,6 +148,64 @@ class JobStatusResponse(BaseModel):
     error: Optional[str] = None
     estimated_remaining: Optional[int] = None
 
+class StreamGenerationRequest(BaseModel):
+    prompt: str
+    genre: str
+    duration: int
+    chunk_duration: int = 10
+
+# ===== CULTURAL LOG DRUM DETECTION =====
+
+async def detect_amapiano_log_drums(drum_stem: torch.Tensor, sample_rate: int) -> Optional[torch.Tensor]:
+    """
+    Detect and isolate Amapiano-specific log drum patterns from drum stem
+    Uses spectral analysis to identify characteristic log drum frequencies (50-150 Hz)
+    """
+    try:
+        if drum_stem.dim() == 1:
+            drum_stem = drum_stem.unsqueeze(0)
+        
+        stft = torch.stft(
+            drum_stem,
+            n_fft=2048,
+            hop_length=512,
+            win_length=2048,
+            return_complex=True
+        )
+        
+        magnitude = torch.abs(stft)
+        
+        freq_bins = torch.fft.rfftfreq(2048, 1/sample_rate)
+        log_drum_mask = (freq_bins >= 50) & (freq_bins <= 150)
+        
+        log_drum_energy = magnitude[:, log_drum_mask, :].sum(dim=1)
+        total_energy = magnitude.sum(dim=1)
+        
+        log_drum_ratio = log_drum_energy / (total_energy + 1e-8)
+        
+        avg_log_drum_ratio = log_drum_ratio.mean()
+        
+        if avg_log_drum_ratio > 0.15:
+            filtered_stft = stft.clone()
+            filtered_stft[:, ~log_drum_mask, :] *= 0.3
+            
+            log_drum_audio = torch.istft(
+                filtered_stft,
+                n_fft=2048,
+                hop_length=512,
+                win_length=2048
+            )
+            
+            logger.info(f"Detected log drum presence: {avg_log_drum_ratio:.2%}")
+            return log_drum_audio
+        else:
+            logger.info(f"No significant log drum presence detected: {avg_log_drum_ratio:.2%}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Log drum detection failed: {e}")
+        return None
+
 # ===== CULTURAL ENHANCEMENT =====
 
 def enhance_prompt_with_culture(prompt: str, genre: str, authenticity: str) -> str:
@@ -202,6 +260,69 @@ def enhance_prompt_with_culture(prompt: str, genre: str, authenticity: str) -> s
     return enhanced
 
 # ===== AUDIO GENERATION ENDPOINT =====
+
+@app.post("/generate-stream")
+async def generate_music_stream(request: StreamGenerationRequest):
+    """
+    Generate amapiano music in streaming chunks for faster time-to-first-audio
+    """
+    from fastapi.responses import StreamingResponse
+    import json
+    import base64
+    
+    async def audio_stream_generator():
+        try:
+            total_chunks = (request.duration + request.chunk_duration - 1) // request.chunk_duration
+            
+            for chunk_idx in range(total_chunks):
+                chunk_start = chunk_idx * request.chunk_duration
+                chunk_duration = min(request.chunk_duration, request.duration - chunk_start)
+                
+                logger.info(f"Generating chunk {chunk_idx + 1}/{total_chunks} (duration: {chunk_duration}s)")
+                
+                if MODELS_AVAILABLE and ai_models.initialized:
+                    enhanced_prompt = enhance_prompt_with_culture(request.prompt, request.genre, "traditional")
+                    
+                    ai_models.musicgen.set_generation_params(
+                        duration=chunk_duration,
+                        temperature=0.8,
+                        top_k=250
+                    )
+                    
+                    with torch.no_grad():
+                        wav = ai_models.musicgen.generate([enhanced_prompt])
+                    
+                    import io
+                    buffer = io.BytesIO()
+                    torchaudio.save(buffer, wav[0].cpu(), sample_rate=ai_models.musicgen.sample_rate, format="wav")
+                    audio_bytes = buffer.getvalue()
+                    audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+                else:
+                    await asyncio.sleep(2)
+                    audio_base64 = ""
+                
+                chunk_data = {
+                    "chunk_index": chunk_idx,
+                    "audio_base64": audio_base64
+                }
+                
+                yield f"data: {json.dumps(chunk_data)}\n\n"
+            
+            yield "data: [DONE]\n\n"
+            
+        except Exception as e:
+            logger.error(f"Streaming generation failed: {e}")
+            error_data = {"error": str(e)}
+            yield f"data: {json.dumps(error_data)}\n\n"
+    
+    return StreamingResponse(
+        audio_stream_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
 
 @app.post("/generate", response_model=MusicGenResponse)
 async def generate_music(request: MusicGenRequest, background_tasks: BackgroundTasks):
@@ -298,9 +419,14 @@ async def process_music_generation(job_id: str, request: MusicGenRequest):
 # ===== STEM SEPARATION ENDPOINT =====
 
 @app.post("/separate-stems", response_model=StemSeparationResponse)
-async def separate_stems(file: UploadFile = File(...), enhanced_processing: bool = False, background_tasks: BackgroundTasks = None):
+async def separate_stems(
+    file: UploadFile = File(...), 
+    enhanced_processing: bool = False,
+    detect_log_drums: bool = False,
+    background_tasks: BackgroundTasks = None
+):
     """
-    Separate audio into stems using Demucs
+    Separate audio into stems using Demucs with optional cultural log drum detection
     """
     job_id = str(uuid.uuid4())
     
@@ -324,7 +450,8 @@ async def separate_stems(file: UploadFile = File(...), enhanced_processing: bool
             process_stem_separation,
             job_id=job_id,
             audio_path=upload_path,
-            enhanced=enhanced_processing
+            enhanced=enhanced_processing,
+            detect_log_drums=detect_log_drums
         )
     
     return StemSeparationResponse(
@@ -333,13 +460,13 @@ async def separate_stems(file: UploadFile = File(...), enhanced_processing: bool
         estimated_time=60  # ~60 seconds for stem separation
     )
 
-async def process_stem_separation(job_id: str, audio_path: Path, enhanced: bool):
-    """Background task for stem separation"""
+async def process_stem_separation(job_id: str, audio_path: Path, enhanced: bool, detect_log_drums: bool = False):
+    """Background task for stem separation with cultural log drum detection"""
     job = jobs[job_id]
     job.status = JobStatus.PROCESSING
     
     try:
-        logger.info(f"[{job_id}] Starting stem separation")
+        logger.info(f"[{job_id}] Starting stem separation (log_drums={detect_log_drums})")
         
         if MODELS_AVAILABLE and ai_models.initialized:
             # Load audio
@@ -370,6 +497,20 @@ async def process_stem_separation(job_id: str, audio_path: Path, enhanced: bool)
                     sample_rate=ai_models.demucs.samplerate
                 )
                 stem_paths[name] = f"/download/stems/{job_id}_{name}.wav"
+            
+            # Cultural log drum detection
+            if detect_log_drums:
+                log_drum_stem = await detect_amapiano_log_drums(sources[0], ai_models.demucs.samplerate)
+                
+                if log_drum_stem is not None:
+                    log_drum_path = STEMS_DIR / f"{job_id}_log_drums.wav"
+                    torchaudio.save(
+                        str(log_drum_path),
+                        log_drum_stem.cpu(),
+                        sample_rate=ai_models.demucs.samplerate
+                    )
+                    stem_paths["log_drums"] = f"/download/stems/{job_id}_log_drums.wav"
+                    logger.info(f"[{job_id}] Detected Amapiano log drums")
             
         else:
             # Mock separation

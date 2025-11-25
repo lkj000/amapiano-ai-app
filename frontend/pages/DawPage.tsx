@@ -160,7 +160,8 @@ export default function DawPage() {
   const [projectName, setProjectName] = useState("Untitled Project");
 
   // Audio Engine
-  const { isPlaying, currentTime, seek, isLooping, setIsLooping, play, pause, stop, setBpm, setTrackVolume, setMasterVolume, audioContext, volumeLevels, masterVolumeLevel, startRecording, stopRecording, playClip } = useAudioEngine(projectData);
+  const audioEngine = useAudioEngine();
+  const { state, play, pause, stop, setBpm } = audioEngine;
 
   // Dragging state
   const [draggingClip, setDraggingClip] = useState<{ clipId: string; trackId: string; initialX: number; initialStartTime: number; } | null>(null);

@@ -122,28 +122,14 @@ export const createBassSynth = (): Tone.MonoSynth => {
 /**
  * Map instrument names to Tone.js constructors
  */
-export const createInstrument = (instrumentName: string, channel: Tone.Channel): Tone.Instrument => {
+export const createInstrument = (instrumentName: string, channel: Tone.Channel): Tone.Sampler | Tone.PolySynth => {
   switch (instrumentName.toLowerCase()) {
-    case 'signature log drum':
-    case 'log drum':
-      return createLogDrumSynth().connect(channel);
-    
     case 'amapiano piano':
     case 'piano':
-      return createAmapianoPiano().connect(channel);
-    
-    case 'shaker groove engine':
-    case 'shaker':
-    case 'percussion':
-      return createShakerSynth().connect(channel);
-    
-    case 'deep bass':
-    case 'bass':
-      return createBassSynth().connect(channel);
+      return createAmapianoPiano().connect(channel) as Tone.Sampler;
     
     default:
-      // Default to polyphonic synth
-      return new Tone.PolySynth(Tone.Synth).connect(channel);
+      return new Tone.PolySynth(Tone.Synth).connect(channel) as Tone.PolySynth;
   }
 };
 

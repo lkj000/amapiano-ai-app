@@ -25,14 +25,14 @@ export interface AIGenerationOptions {
 export interface GeneratedAudio {
   notes: MidiNote[];
   duration: number;
-  instrument: Tone.Instrument;
+  instrument: Tone.Sampler | Tone.PolySynth;
   audioUrl?: string;
 }
 
 export class AIAudioService {
   private masterChannel: Tone.Channel;
   private effectChain: Tone.ToneAudioNode[];
-  private activeInstruments: Map<string, Tone.Instrument>;
+  private activeInstruments: Map<string, Tone.Sampler | Tone.PolySynth>;
 
   constructor() {
     this.masterChannel = new Tone.Channel().toDestination();
@@ -105,20 +105,18 @@ export class AIAudioService {
   /**
    * Play MIDI notes using a Tone.js instrument
    */
-  async playMidiNotes(notes: MidiNote[], instrument: Tone.Instrument): Promise<void> {
+  async playMidiNotes(notes: MidiNote[], instrument: Tone.Sampler | Tone.PolySynth): Promise<void> {
     await Tone.start();
 
     const now = Tone.now();
     
     notes.forEach((note) => {
       const noteName = Tone.Frequency(note.pitch, "midi").toNote();
-      const duration = Tone.Time(note.duration, "4n").toSeconds();
+      const duration = Tone.Time(note.duration).toSeconds();
       const velocity = note.velocity / 127;
-      const time = now + Tone.Time(note.startTime, "4n").toSeconds();
+      const time = now + Tone.Time(note.startTime).toSeconds();
 
-      if ('triggerAttackRelease' in instrument) {
-        instrument.triggerAttackRelease(noteName, duration, time, velocity);
-      }
+      instrument.triggerAttackRelease(noteName, duration, time, velocity);
     });
   }
 

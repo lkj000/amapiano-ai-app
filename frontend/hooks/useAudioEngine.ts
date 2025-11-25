@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Tone from 'tone';
 import type { MidiNote, DawClip } from '~backend/music/types';
 
+const LATENCY_HINT = 'playback';
+const LOOK_AHEAD = 0.05;
+const UPDATE_INTERVAL = 0.025;
+
 export interface AudioEngineState {
   isPlaying: boolean;
   currentTime: number;
@@ -43,7 +47,17 @@ export const useAudioEngine = (): AudioEngine => {
   const initializeAudio = useCallback(async () => {
     try {
       await Tone.start();
-      console.log('Tone.js audio context started');
+      
+      Tone.context.latencyHint = LATENCY_HINT;
+      Tone.context.lookAhead = LOOK_AHEAD;
+      Tone.Transport.scheduleRepeat((time) => {
+        setState(prev => ({
+          ...prev,
+          currentTime: Tone.Transport.seconds
+        }));
+      }, UPDATE_INTERVAL);
+      
+      console.log('Tone.js audio context started with optimized latency settings');
       
       // Create master channel
       if (!masterChannelRef.current) {
@@ -101,27 +115,12 @@ export const useAudioEngine = (): AudioEngine => {
     
     Tone.Transport.start();
     setState(prev => ({ ...prev, isPlaying: true }));
-    
-    // Start animation loop for time updates
-    const updateTime = () => {
-      setState(prev => ({
-        ...prev,
-        currentTime: Tone.Transport.seconds
-      }));
-      animationFrameRef.current = requestAnimationFrame(updateTime);
-    };
-    updateTime();
   }, [state.isInitialized, initializeAudio]);
 
   // Pause transport
   const pause = useCallback(() => {
     Tone.Transport.pause();
     setState(prev => ({ ...prev, isPlaying: false }));
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
   }, []);
 
   // Stop transport
@@ -129,11 +128,6 @@ export const useAudioEngine = (): AudioEngine => {
     Tone.Transport.stop();
     Tone.Transport.position = 0;
     setState(prev => ({ ...prev, isPlaying: false, currentTime: 0 }));
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
   }, []);
 
   // Load and schedule a MIDI clip
@@ -150,11 +144,12 @@ export const useAudioEngine = (): AudioEngine => {
     }
     
     // Schedule MIDI notes
-    const part = new Tone.Part((time, note: MidiNote) => {
+    const part = new Tone.Part((time, note) => {
+      const midiNote = note as MidiNote;
       if (instrument instanceof Tone.PolySynth || instrument instanceof Tone.Sampler) {
-        const noteName = Tone.Frequency(note.pitch, "midi").toNote();
-        const duration = Tone.Time(note.duration, "4n").toSeconds();
-        const velocity = note.velocity / 127;
+        const noteName = Tone.Frequency(midiNote.pitch, "midi").toNote();
+        const duration = Tone.Time(midiNote.duration).toSeconds();
+        const velocity = midiNote.velocity / 127;
         
         instrument.triggerAttackRelease(noteName, duration, time, velocity);
       }
@@ -178,7 +173,7 @@ export const useAudioEngine = (): AudioEngine => {
     notes.forEach((note) => {
       if (instrument instanceof Tone.PolySynth || instrument instanceof Tone.Sampler) {
         const noteName = Tone.Frequency(note.pitch, "midi").toNote();
-        const duration = Tone.Time(note.duration, "4n").toSeconds();
+        const duration = Tone.Time(note.duration).toSeconds();
         const velocity = note.velocity / 127;
         
         instrument.triggerAttackRelease(noteName, duration, now + note.startTime, velocity);
@@ -191,7 +186,7 @@ export const useAudioEngine = (): AudioEngine => {
     const channel = getOrCreateChannel(trackId);
     const player = new Tone.Player(url).connect(channel);
     
-    await player.load();
+    await Tone.loaded();
     playersRef.current.set(trackId, player);
     
     player.sync().start(0);
@@ -242,11 +237,8 @@ export const useAudioEngine = (): AudioEngine => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+      Tone.Transport.cancel();
       
-      // Dispose all instruments and players
       instrumentsRef.current.forEach(inst => inst.dispose());
       playersRef.current.forEach(player => player.dispose());
       channelsRef.current.forEach(channel => channel.dispose());

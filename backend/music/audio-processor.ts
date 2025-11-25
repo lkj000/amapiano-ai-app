@@ -72,13 +72,14 @@ export class RealAudioProcessor {
   private async separateWithGPUService(audioBuffer: Buffer): Promise<StemSeparationResult> {
     const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
     
-    log.info("Using GPU service for stem separation");
+    log.info("Using GPU service for stem separation with cultural log drum detection");
     
     // Create form data
     const formData = new FormData();
     const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
     formData.append('file', audioBlob, 'audio.wav');
     formData.append('enhanced_processing', 'true');
+    formData.append('detect_log_drums', 'true');
     
     // Submit separation job
     const response = await fetch(`${AI_SERVICE_URL}/separate-stems`, {
