@@ -325,6 +325,72 @@ export const compareExperiments = api(
 );
 
 // ============================================================================
+// Research Dashboard Endpoint
+// ============================================================================
+
+export const getResearchDashboard = api(
+  { expose: true, method: "GET", path: "/research/dashboard" },
+  async () => {
+    try {
+      log.info("Fetching research dashboard data");
+      
+      // Get aggregate statistics
+      const collector = getMetricsCollector();
+      const stats = collector.getAggregateStatistics();
+      
+      // Get cache statistics
+      const cache = getPatternCache();
+      const cacheStats = cache.getStatistics();
+      
+      // Get recent CAQ experiments
+      const caqResults = await musicDB.rawQueryAll<any>(
+        `SELECT * FROM caq_experiments ORDER BY created_at DESC LIMIT 10`
+      );
+      
+      // Get recent quality assessments
+      const qualityEngine = getQualityEngine();
+      
+      return {
+        experiments: {
+          total: stats.totalExperiments,
+          averagePerformance: stats.averagePerformance,
+          averageCultural: stats.averageCultural,
+          averageQuality: stats.averageQuality,
+        },
+        cache: {
+          totalPatterns: cacheStats.totalPatterns,
+          cacheHits: cacheStats.cacheHits,
+          cacheMisses: cacheStats.cacheMisses,
+          hitRate: cacheStats.hitRate,
+          computationalSavings: cacheStats.computationalSavings,
+        },
+        caq: {
+          recentExperiments: caqResults.length,
+          averageCompressionRatio: caqResults.length > 0 
+            ? caqResults.reduce((sum, r) => sum + (r.compression_ratio || 0), 0) / caqResults.length 
+            : 0,
+          averageCulturalPreservation: caqResults.length > 0
+            ? caqResults.reduce((sum, r) => sum + (r.cultural_preservation || 0), 0) / caqResults.length
+            : 0,
+        },
+        recentActivity: caqResults.slice(0, 5).map(r => ({
+          id: r.experiment_id,
+          type: 'caq' as const,
+          genre: r.genre,
+          timestamp: r.created_at,
+          compressionRatio: r.compression_ratio,
+          culturalPreservation: r.cultural_preservation,
+        })),
+      };
+      
+    } catch (error) {
+      log.error("Failed to get research dashboard", { error: (error as Error).message });
+      throw APIError.internal("Failed to get research dashboard");
+    }
+  }
+);
+
+// ============================================================================
 // Performance Benchmarks
 // ============================================================================
 
@@ -482,22 +548,6 @@ ${report}
 // Research Dashboard
 // ============================================================================
 
-export const getResearchDashboard = api(
-  { expose: true, method: "GET", path: "/research/dashboard" },
-  async () => {
-    try {
-      const dashboardService = getDashboardService();
-      const dashboard = await dashboardService.getDashboard();
-      
-      return dashboard;
-      
-    } catch (error) {
-      log.error("Failed to get dashboard", { error: (error as Error).message });
-      throw APIError.internal("Failed to get research dashboard");
-    }
-  }
-);
-
 export const getResearchTimeSeries = api(
   { expose: true, method: "GET", path: "/research/dashboard/timeseries" },
   async ({ days = 30 }: { days?: number }) => {
@@ -526,6 +576,72 @@ export const getResearchSummary = api(
     } catch (error) {
       log.error("Failed to generate summary", { error: (error as Error).message });
       throw APIError.internal("Failed to generate research summary");
+    }
+  }
+);
+
+export const getLearningStatistics = api(
+  { expose: true, method: "GET", path: "/research/learning/statistics" },
+  async () => {
+    try {
+      log.info("Fetching learning statistics");
+      
+      // Get continuous learning stats from database
+      const stats = await musicDB.rawQueryRow<any>(
+        `SELECT COUNT(*) as total_sessions, AVG(duration_seconds) as avg_duration, 
+         SUM(patterns_learned) as total_patterns_learned, AVG(improvement_score) as avg_improvement 
+         FROM continuous_learning_sessions`
+      );
+      
+      return {
+        totalSessions: stats?.total_sessions || 0,
+        averageDuration: stats?.avg_duration || 0,
+        totalPatternsLearned: stats?.total_patterns_learned || 0,
+        averageImprovement: stats?.avg_improvement || 0,
+      };
+      
+    } catch (error) {
+      log.error("Failed to get learning statistics", { error: (error as Error).message });
+      // Return empty stats instead of throwing
+      return {
+        totalSessions: 0,
+        averageDuration: 0,
+        totalPatternsLearned: 0,
+        averageImprovement: 0,
+      };
+    }
+  }
+);
+
+export const getRecommenderStatistics = api(
+  { expose: true, method: "GET", path: "/research/recommender/statistics" },
+  async () => {
+    try {
+      log.info("Fetching recommender statistics");
+      
+      // Get pattern recommender stats
+      const stats = await musicDB.rawQueryRow<any>(
+        `SELECT COUNT(*) as total_recommendations, AVG(relevance_score) as avg_relevance, 
+         AVG(cultural_alignment) as avg_cultural_alignment, COUNT(DISTINCT user_context) as unique_contexts 
+         FROM pattern_recommendations`
+      );
+      
+      return {
+        totalRecommendations: stats?.total_recommendations || 0,
+        averageRelevance: stats?.avg_relevance || 0.0,
+        averageCulturalAlignment: stats?.avg_cultural_alignment || 0.0,
+        uniqueContexts: stats?.unique_contexts || 0,
+      };
+      
+    } catch (error) {
+      log.error("Failed to get recommender statistics", { error: (error as Error).message });
+      // Return empty stats instead of throwing
+      return {
+        totalRecommendations: 0,
+        averageRelevance: 0.0,
+        averageCulturalAlignment: 0.0,
+        uniqueContexts: 0,
+      };
     }
   }
 );
@@ -770,20 +886,6 @@ export const getAdaptationRecommendations = api(
   }
 );
 
-export const getLearningStatistics = api(
-  { expose: true, method: "GET", path: "/research/learning/stats" },
-  async () => {
-    try {
-      const stats = continuousLearning.getStatistics();
-      return stats;
-
-    } catch (error) {
-      log.error("Failed to get learning statistics", { error: (error as Error).message });
-      throw APIError.internal("Failed to get learning statistics");
-    }
-  }
-);
-
 // ============================================================================
 // Pattern Recommendation Endpoints
 // ============================================================================
@@ -825,20 +927,6 @@ export const trackPatternUsage = api(
     } catch (error) {
       log.error("Failed to track pattern usage", { error: (error as Error).message });
       throw APIError.internal("Failed to track pattern usage");
-    }
-  }
-);
-
-export const getRecommenderStatistics = api(
-  { expose: true, method: "GET", path: "/research/patterns/stats" },
-  async () => {
-    try {
-      const stats = patternRecommender.getRecommenderStatistics();
-      return stats;
-
-    } catch (error) {
-      log.error("Failed to get recommender statistics", { error: (error as Error).message });
-      throw APIError.internal("Failed to get recommender statistics");
     }
   }
 );
