@@ -1,0 +1,30 @@
+# Minimal requirements for notebook testing
+# Use this if you just want to test the training pipeline
+
+# Core
+numpy==1.24.3
+numba==0.58.1
+
+# PyTorch (CPU version for testing without GPU)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.2
+torchaudio==2.1.2
+
+# Transformers
+transformers==4.36.2
+accelerate==0.25.0
+
+# Audio
+librosa==0.10.1
+soundfile==0.12.1
+scipy==1.11.4
+
+# Datasets
+datasets==2.16.1
+
+# Utilities
+tqdm==4.66.1
+pandas==2.1.4
+
+# Only install audiocraft if you need to test generation
+# pip install git+https://github.com/facebookresearch/audiocraft.git@stable
