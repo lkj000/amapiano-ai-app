@@ -14,6 +14,8 @@ import json
 import hashlib
 from tqdm import tqdm
 import time
+import subprocess
+import os
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,7 +23,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MAGNATAGATUNE_URL = "https://mirg.city.ac.uk/datasets/magnatagatune/mp3.zip.001"
+MAGNATAGATUNE_ZIP_URL = "https://huggingface.co/datasets/confit/magnatagatune/resolve/main/mp3.zip"
 ANNOTATIONS_URL = "https://mirg.city.ac.uk/datasets/magnatagatune/annotations_final.csv"
 DATASET_DIR = Path("./datasets/magnatagatune")
 OUTPUT_DIR = Path("./datasets/amapiano_proxy")
@@ -102,6 +104,7 @@ def download_dataset():
     
     checkpoint = load_checkpoint()
     
+    # Download annotations
     logger.info("Downloading MagnaTagATune annotations...")
     annotations_path = DATASET_DIR / "annotations_final.csv"
     
@@ -115,15 +118,56 @@ def download_dataset():
     else:
         logger.info("Annotations already downloaded")
     
-    logger.info("""
-    Note: MagnaTagATune audio files are distributed as multi-part ZIP archives.
-    Please manually download all parts from:
-    https://mirg.city.ac.uk/codeapps/the-magnatagatune-dataset
+    # Download and extract MP3 files from HuggingFace
+    mp3_dir = DATASET_DIR / "mp3"
+    zip_path = DATASET_DIR / "mp3.zip"
     
-    Files needed:
-    - mp3.zip.001 through mp3.zip.003
-    - Then extract them to {DATASET_DIR}/mp3/
-    """)
+    if not mp3_dir.exists() or not any(mp3_dir.glob("*.mp3")):
+        logger.info("Downloading MagnaTagATune MP3 files from HuggingFace...")
+        logger.info("This is a ~2.9GB download, please be patient...")
+        
+        if not zip_path.exists():
+            try:
+                # Use wget for better progress display
+                subprocess.run([
+                    "wget",
+                    MAGNATAGATUNE_ZIP_URL,
+                    "-O", str(zip_path)
+                ], check=True)
+                logger.info(f"Download complete: {zip_path}")
+            except subprocess.CalledProcessError:
+                logger.warning("wget failed, trying urllib...")
+                download_with_progress(
+                    MAGNATAGATUNE_ZIP_URL,
+                    zip_path,
+                    "MP3 Archive"
+                )
+        
+        # Extract
+        logger.info("Extracting MP3 files...")
+        mp3_dir.mkdir(parents=True, exist_ok=True)
+        
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(mp3_dir)
+        
+        # Verify extraction
+        mp3_files = list(mp3_dir.rglob("*.mp3"))
+        logger.info(f"✓ Extracted {len(mp3_files)} MP3 files")
+        
+        if len(mp3_files) < 20000:
+            logger.warning(f"Expected ~25,863 files, found {len(mp3_files)}")
+        
+        # Cleanup zip file
+        logger.info("Cleaning up ZIP file...")
+        zip_path.unlink()
+        
+        save_checkpoint('audio_downloaded', {
+            'mp3_count': len(mp3_files),
+            'mp3_dir': str(mp3_dir)
+        })
+    else:
+        mp3_count = len(list(mp3_dir.rglob("*.mp3")))
+        logger.info(f"MP3 files already downloaded ({mp3_count} files)")
     
     return annotations_path
 
@@ -174,6 +218,10 @@ def create_training_subset(filtered_df: pd.DataFrame, audio_source_dir: Path):
     audio_dir = OUTPUT_DIR / "audio"
     audio_dir.mkdir(exist_ok=True)
     
+    # Build file lookup map for faster searching
+    all_mp3s = {f.name: f for f in audio_source_dir.rglob("*.mp3")}
+    logger.info(f"Built lookup map for {len(all_mp3s)} MP3 files")
+    
     metadata_rows = []
     copied_count = 0
     skipped_count = 0
@@ -184,7 +232,12 @@ def create_training_subset(filtered_df: pd.DataFrame, audio_source_dir: Path):
         clip_id = row.get('clip_id', idx)
         
         mp3_path = row.get('mp3_path', f"{clip_id}.mp3")
+        mp3_filename = Path(mp3_path).name
+        
+        # Try direct path first, then lookup map
         source_file = audio_source_dir / mp3_path
+        if not source_file.exists() and mp3_filename in all_mp3s:
+            source_file = all_mp3s[mp3_filename]
         
         if source_file.exists():
             dest_file = audio_dir / f"{clip_id}.mp3"
@@ -268,16 +321,22 @@ def main():
     
     audio_source_dir = DATASET_DIR / "mp3"
     if not audio_source_dir.exists():
-        logger.error(f"""
-        Audio source directory not found: {audio_source_dir}
-        
-        Please download and extract MagnaTagATune audio files:
-        1. Download mp3.zip.001, mp3.zip.002, mp3.zip.003 from:
-           https://mirg.city.ac.uk/codeapps/the-magnatagatune-dataset
-        2. Combine and extract: cat mp3.zip.* > mp3.zip && unzip mp3.zip
-        3. Move extracted files to: {audio_source_dir}
-        """)
+        logger.error(f"Audio source directory not found: {audio_source_dir}")
+        logger.error("Run download_dataset() first to fetch the dataset")
         return
+    
+    mp3_count = len(list(audio_source_dir.rglob("*.mp3")))
+    if mp3_count == 0:
+        logger.error("No MP3 files found in audio source directory!")
+        logger.error("The download may have failed. Try deleting the mp3/ folder and re-running.")
+        return
+    
+    logger.info(f"Found {mp3_count} MP3 files for processing")
+    
+    # Flatten directory structure if needed (HuggingFace zip may have subdirs)
+    mp3_files = list(audio_source_dir.rglob("*.mp3"))
+    if mp3_files:
+        logger.info(f"Found {len(mp3_files)} MP3 files in {audio_source_dir}")
     
     metadata_path = create_training_subset(filtered_df, audio_source_dir)
     
