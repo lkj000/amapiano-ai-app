@@ -1,0 +1,15 @@
+aws_region = "us-east-1"
+
+environment = "dev"
+
+db_password = "CHANGE_ME_STRONG_PASSWORD_HERE"
+
+model_bucket_name = "amapiano-ai-models"
+
+ai_service_cpu = 4096
+
+ai_service_memory = 16384
+
+enable_gpu = true
+
+gpu_instance_type = "g4dn.xlarge"

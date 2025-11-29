@@ -1,0 +1,22 @@
+[
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "DBPassword",
+    "ParameterValue": "CHANGE_ME_STRONG_PASSWORD_HERE"
+  },
+  {
+    "ParameterKey": "ModelBucketName",
+    "ParameterValue": "amapiano-ai-models"
+  },
+  {
+    "ParameterKey": "AIServiceCPU",
+    "ParameterValue": "4096"
+  },
+  {
+    "ParameterKey": "AIServiceMemory",
+    "ParameterValue": "16384"
+  }
+]
