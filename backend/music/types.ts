@@ -177,8 +177,7 @@ export type DawChangeAction =
   | { type: 'PROJECT_SETTINGS_UPDATE'; payload: { updates: Partial<Pick<DawProjectData, 'bpm' | 'keySignature'>> } };
 
 export interface DawChange {
-  action: DawChangeAction;
-  senderId: string; // Unique ID for the client instance that sent the change
+  senderId: string;
   type?: string;
   trackId?: number;
   data?: any;

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import backend from '~backend/client';
-import type { DawChange, DawChangeAction } from '~backend/music/types';
+import type { DawChange } from '~backend/music/types';
 import { toast } from 'sonner';
 
 // Generate a unique ID for this client session
@@ -8,7 +8,7 @@ const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)
 
 export const useCollaboration = (
   projectId: number | undefined,
-  onReceiveChange: (change: DawChangeAction) => void
+  onReceiveChange: (change: any) => void
 ) => {
   const [isConnected, setIsConnected] = useState(false);
   const streamRef = useRef<Awaited<ReturnType<typeof backend.music.collaborationSession>> | null>(null);
@@ -28,7 +28,7 @@ export const useCollaboration = (
         try {
           for await (const change of streamRef.current) {
             if (change.senderId !== clientId) {
-              onReceiveChange(change.action);
+              onReceiveChange(change);
             }
           }
         } catch (err) {
@@ -56,10 +56,10 @@ export const useCollaboration = (
     }
   }, []);
 
-  const sendChange = useCallback(async (action: DawChangeAction) => {
+  const sendChange = useCallback(async (changeData: any) => {
     if (streamRef.current && isConnected) {
       try {
-        const change: DawChange = { action, senderId: clientId };
+        const change: DawChange = { ...changeData, senderId: clientId };
         await streamRef.current.send(change);
       } catch (err) {
         console.error("Failed to send change:", err);

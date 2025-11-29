@@ -691,22 +691,15 @@ export const deletePattern = api(
 // Get recommended patterns based on current project
 export const getRecommendedPatterns = api(
   { expose: true, method: "GET", path: "/patterns/recommendations" },
-  async ({ genre, bpm, keySignature, currentPatterns }: {
+  async ({ genre, bpm, keySignature }: {
     genre: Genre;
     bpm?: number;
     keySignature?: string;
-    currentPatterns?: number[];
   }): Promise<{ patterns: Pattern[] }> => {
     try {
       let query = `SELECT * FROM patterns WHERE genre = $1`;
       const params: any[] = [genre];
       let paramIndex = 2;
-
-      // Exclude already used patterns
-      if (currentPatterns && currentPatterns.length > 0) {
-        query += ` AND id NOT IN (${currentPatterns.map((_, i) => `$${paramIndex++}`).join(',')})`;
-        params.push(...currentPatterns);
-      }
 
       // Match BPM if provided
       if (bpm) {

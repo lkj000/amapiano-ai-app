@@ -409,7 +409,7 @@ export default function PatternsPage() {
 
                 <div>
                   <div className="text-white text-sm font-medium mb-2">Creative Goal</div>
-                  <Select value={creativeGoal} onValueChange={(value: 'learning' | 'production' | 'experimentation') => setCreativeGoal(value)}>
+                  <Select value={creativeGoal} onValueChange={(value: any) => setCreativeGoal(value)}>
                     <SelectTrigger className="bg-white/10 border-white/20 text-white">
                       <SelectValue placeholder="Select goal" />
                     </SelectTrigger>
@@ -423,7 +423,7 @@ export default function PatternsPage() {
 
                 <Button 
                   className="w-full bg-purple-600 hover:bg-purple-700"
-                  onClick={() => refetchRecommendations()}
+                  onClick={() => { refetchRecommendations(); }}
                   disabled={isLoadingRecommendations}
                 >
                   {isLoadingRecommendations ? (

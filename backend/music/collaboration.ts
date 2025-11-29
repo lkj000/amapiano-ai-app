@@ -157,7 +157,7 @@ export const collaborationSession = api.streamInOut<CollaborationSessionHandshak
     try {
       // Listen for incoming changes from this client
       for await (const change of stream) {
-        log.debug("Received DAW change from client", { projectId, changeType: change.action.type });
+        log.debug("Received DAW change from client", { projectId, changeType: change.type });
         // Broadcast the change to all other clients in the same session
         for (const client of session) {
           if (client !== stream) { // Don't send back to the originator

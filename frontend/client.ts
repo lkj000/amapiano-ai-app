@@ -721,10 +721,9 @@ export namespace music {
         public async getRecommendedPatterns(params: RequestType<typeof api_music_patterns_getRecommendedPatterns>): Promise<ResponseType<typeof api_music_patterns_getRecommendedPatterns>> {
             // Convert our params into the objects we need for the request
             const query = makeRecord<string, string | string[]>({
-                bpm:             params.bpm === undefined ? undefined : String(params.bpm),
-                currentPatterns: params.currentPatterns?.map((v) => v === undefined ? undefined : String(v)),
-                genre:           String(params.genre),
-                keySignature:    params.keySignature,
+                bpm:          params.bpm === undefined ? undefined : String(params.bpm),
+                genre:        String(params.genre),
+                keySignature: params.keySignature,
             })
 
             // Now make the actual call to the API
